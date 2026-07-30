@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "BirdGo",
+    "slug": "birdgo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "BirdGo uses your location to find nearby birds."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "BirdGo uses your camera to identify birds."
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "BirdGo uses your location to find nearby birds.",
+        "NSCameraUsageDescription": "BirdGo uses your camera to identify birds."
+      },
+      "config": {
+        "googleMapsApiKey": ""
+      }
+    },
+    "android": {
+      "permissions": ["ACCESS_FINE_LOCATION", "CAMERA"],
+      "config": {
+        "googleMaps": {
+          "apiKey": ""
+        }
+      }
+    },
+    "extra": {
+      "apiBaseUrl": "http://localhost:4000",
+      "googleMapsApiKey": ""
+    }
+  }
+}
