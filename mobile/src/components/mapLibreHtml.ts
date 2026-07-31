@@ -107,10 +107,24 @@ export function buildMapLibreHtml(): string {
         var layers = map.getStyle().layers || [];
         layers.forEach(function (layer) {
           try {
-            if (layer.type === 'background') map.setPaintProperty(layer.id, 'background-color', '#cce8c6');
-            if (layer.type === 'fill' && layer['source-layer'] === 'water') map.setPaintProperty(layer.id, 'fill-color', '#8cc9e8');
-            if (layer.type === 'fill' && layer['source-layer'] === 'park') map.setPaintProperty(layer.id, 'fill-color', '#76b86b');
-            if (layer.type === 'symbol' && layer.layout && layer.layout.visibility !== 'none') map.setLayoutProperty(layer.id, 'visibility', 'none');
+            var sl = layer['source-layer'];
+            if (layer.type === 'symbol') { map.setLayoutProperty(layer.id, 'visibility', 'none'); return; }
+            if (layer.type === 'background') { map.setPaintProperty(layer.id, 'background-color', '#74c94f'); return; }
+            if (layer.type === 'fill') {
+              if (sl === 'water') { map.setPaintProperty(layer.id, 'fill-color', '#5cc4ea'); }
+              else if (sl === 'building') { map.setLayoutProperty(layer.id, 'visibility', 'none'); }
+              else {
+                var cls = (layer.id || '').toLowerCase();
+                var green = (cls.indexOf('wood') >= 0 || cls.indexOf('forest') >= 0 || cls.indexOf('park') >= 0 || cls.indexOf('grass') >= 0 || cls.indexOf('pitch') >= 0) ? '#57bd45' : '#74c94f';
+                map.setPaintProperty(layer.id, 'fill-color', green);
+                map.setPaintProperty(layer.id, 'fill-opacity', 1);
+              }
+              return;
+            }
+            if (layer.type === 'line') {
+              if (sl === 'transportation') map.setPaintProperty(layer.id, 'line-color', '#ffffff');
+              else if (sl === 'waterway') map.setPaintProperty(layer.id, 'line-color', '#6cc7e8');
+            }
           } catch (_) {}
         });
         if (map.getSource('openmaptiles') && !map.getLayer('birdgo-buildings-3d')) {
@@ -122,20 +136,24 @@ export function buildMapLibreHtml(): string {
               'source-layer': 'building',
               minzoom: 14,
               paint: {
-                'fill-extrusion-color': '#a9c6a1',
-                'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 8],
+                'fill-extrusion-color': '#eef3ea',
+                'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 10],
                 'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-                'fill-extrusion-opacity': 0.8
+                'fill-extrusion-opacity': 0.95
               }
             });
           } catch (_) {}
         }
-        map.setPitch(55);
+        map.setPitch(58);
         map.setZoom(15.5);
         map.setBearing(0);
+        map.resize();
       }
 
       map.on('load', function () { styleAdventureMap(); });
+      if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(function () { map.resize(); }).observe(document.getElementById('map'));
+      }
 
       function render(data) {
         if (!data || !data.center) return;

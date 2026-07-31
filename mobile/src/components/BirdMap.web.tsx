@@ -83,5 +83,7 @@ export function BirdMap({ center, userLocation, birds, mode, recenterRequest, on
   }, [recenterRequest]);
 
   const html = mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml();
-  return <iframe ref={iframeRef} srcDoc={html} onLoad={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify(data), "*")} style={{ border: 0, width: "100%", height: "100%" }} title="BirdGo map" />;
+  const blobUrl = useMemo(() => URL.createObjectURL(new Blob([html], { type: "text/html" })), [html]);
+  useEffect(() => () => URL.revokeObjectURL(blobUrl), [blobUrl]);
+  return <iframe ref={iframeRef} src={blobUrl} onLoad={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify(data), "*")} style={{ border: 0, width: "100%", height: "100%" }} title="BirdGo map" />;
 }
