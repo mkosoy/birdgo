@@ -102,7 +102,7 @@ async function openAiIdentify(imageBase64: string, apiKey: string): Promise<Bird
 
 async function geminiIdentify(imageBase64: string, apiKey: string): Promise<BirdIdentification> {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -113,6 +113,7 @@ async function geminiIdentify(imageBase64: string, apiKey: string): Promise<Bird
             { inline_data: { mime_type: "image/jpeg", data: imageBase64.replace(/^data:image\/[^;]+;base64,/, "") } },
           ],
         }],
+        generationConfig: { responseMimeType: "application/json" },
       }),
     },
   );
