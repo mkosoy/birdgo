@@ -8,6 +8,7 @@ import {
   EbirdError,
   type EbirdObservation,
 } from "./ebird.js";
+import { fetchInatBirds } from "./inaturalist.js";
 import { identifyBird, type BirdIdProvider } from "./birdId.js";
 
 dotenv.config();
@@ -49,14 +50,27 @@ app.get("/api/health", (_request, response) => response.json({ status: "ok" }));
 app.get("/api/birds/recent", async (request, response) => {
   const lat = queryNumber(request, "lat", 37.7749);
   const lng = queryNumber(request, "lng", -122.4194);
-  const dist = queryNumber(request, "dist", 10);
-  const back = queryNumber(request, "back", 7);
+  const dist = queryNumber(request, "dist", 15);
+  const back = queryNumber(request, "back", 14);
   try {
-    const observations = await ebirdGet<EbirdObservation[]>(
-      `/data/obs/geo/recent?lat=${lat}&lng=${lng}&dist=${dist}&back=${back}`,
-      token,
-    );
-    response.json(deduplicateObservations(observations));
+    const [ebirdResult, inatResult] = await Promise.allSettled([
+      ebirdGet<EbirdObservation[]>(
+        `/data/obs/geo/recent?lat=${lat}&lng=${lng}&dist=${dist}&back=${back}`,
+        token,
+      ),
+      fetchInatBirds(lat, lng, dist),
+    ]);
+    if (ebirdResult.status === "rejected" && inatResult.status === "rejected") {
+      handleEbirdError(ebirdResult.reason, response);
+      return;
+    }
+    if (ebirdResult.status === "rejected") console.warn("eBird recent observations unavailable", ebirdResult.reason);
+    if (inatResult.status === "rejected") console.warn("iNaturalist observations unavailable", inatResult.reason);
+    const ebirdObservations = ebirdResult.status === "fulfilled"
+      ? ebirdResult.value.map((observation) => ({ ...observation, source: observation.source ?? "ebird" }))
+      : [];
+    const inatObservations = inatResult.status === "fulfilled" ? inatResult.value : [];
+    response.json([...deduplicateObservations(ebirdObservations), ...inatObservations]);
   } catch (error) {
     handleEbirdError(error, response);
   }

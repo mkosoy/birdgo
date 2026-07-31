@@ -12,6 +12,8 @@ export interface EbirdObservation extends Coordinates {
   obsDt?: string;
   howMany?: number;
   isNotable?: boolean;
+  imageUrl?: string;
+  source?: string;
 }
 
 export interface SeenSpecies {

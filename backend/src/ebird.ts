@@ -9,6 +9,8 @@ export interface EbirdObservation {
   lat?: number;
   lng?: number;
   obsDt?: string;
+  imageUrl?: string;
+  source?: string;
   [key: string]: unknown;
 }
 

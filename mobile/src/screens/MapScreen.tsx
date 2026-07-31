@@ -14,10 +14,11 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const navigation = useNavigation();
   const [location, setLocation] = useState<Coordinates>(SF_COORDS);
   const [center, setCenter] = useState<Coordinates>(SF_COORDS);
-  const [mode, setMode] = useState<BirdMapMode>("classic");
-  const [firstPerson, setFirstPerson] = useState(false);
+  const [mode, setMode] = useState<BirdMapMode>("adventure");
+  const [firstPerson, setFirstPerson] = useState(true);
   const [heading, setHeading] = useState<number | undefined>();
   const [recenterRequest, setRecenterRequest] = useState(0);
+  const [overviewRequest, setOverviewRequest] = useState(0);
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
   const [rareDismissed, setRareDismissed] = useState(false);
   const { birds, notable, loading, error, refresh } = useBirds(center.latitude, center.longitude);
@@ -38,6 +39,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
           const firstFix = { latitude: current.coords.latitude, longitude: current.coords.longitude };
           setLocation(firstFix);
           setCenter(firstFix);
+          setRecenterRequest((request) => request + 1);
         }
       } catch {
         if (mounted) setLocationNotice("Location unavailable — showing San Francisco.");
@@ -115,6 +117,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         firstPerson={firstPerson}
         heading={heading}
         recenterRequest={recenterRequest}
+        overviewRequest={overviewRequest}
         onCapture={(bird) => {
           onCapture?.({ speciesCode: bird.speciesCode, comName: bird.comName ?? "Unknown bird" });
           navigation.navigate("Capture" as never);
@@ -123,7 +126,9 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
           void Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`);
         }}
         onAbout={({ speciesCode, comName }) => {
-          const url = speciesCode
+          const url = speciesCode.startsWith("inat-")
+            ? `https://www.inaturalist.org/taxa/${speciesCode.slice(5)}`
+            : speciesCode
             ? `https://ebird.org/species/${speciesCode}`
             : `https://ebird.org/search?q=${encodeURIComponent(comName)}`;
           void Linking.openURL(url);
@@ -149,6 +154,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         {loading && <ActivityIndicator color="#fff" />}
       </View>
       {!loading && !error && birds.length === 0 && <View style={styles.empty}><Text style={styles.emptyText}>No birds spotted nearby — try moving the map.</Text></View>}
+      {mode === "adventure" && <Pressable style={styles.overviewButton} onPress={() => setOverviewRequest((request) => request + 1)}><Text style={styles.recenterText}>🗺</Text></Pressable>}
       <Pressable style={styles.recenterButton} onPress={() => setRecenterRequest((request) => request + 1)}><Text style={styles.recenterText}>◎</Text></Pressable>
       <Pressable style={styles.captureButton} onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}><Text style={styles.captureText}>📷</Text><Text style={styles.captureLabel}>Capture</Text></Pressable>
     </View>
@@ -167,6 +173,7 @@ const styles = StyleSheet.create({
   empty: { position: "absolute", top: "42%", left: 35, right: 35, backgroundColor: "#ffffffe8", padding: 16, borderRadius: 12 },
   emptyText: { textAlign: "center", color: "#555" },
   recenterButton: { position: "absolute", right: 20, bottom: 122, width: 48, height: 48, borderRadius: 24, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
+  overviewButton: { position: "absolute", right: 20, bottom: 178, width: 48, height: 48, borderRadius: 24, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
   recenterText: { color: "#2878d1", fontSize: 30, lineHeight: 32 },
   captureButton: { position: "absolute", bottom: 22, alignSelf: "center", width: 82, height: 82, borderRadius: 41, backgroundColor: "#2f7d5b", alignItems: "center", justifyContent: "center", borderWidth: 5, borderColor: "#fff", elevation: 5 },
   captureText: { fontSize: 28 },

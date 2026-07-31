@@ -24,15 +24,17 @@ function relativeTime(date?: string): string {
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
-export function BirdMap({ center, userLocation, birds, mode, firstPerson, heading, recenterRequest, onCapture, onDirections, onAbout, onRegionChange }: BirdMapProps) {
+export function BirdMap({ center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, onCapture, onDirections, onAbout, onRegionChange }: BirdMapProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
+  const lastOverviewRef = useRef(0);
   const markerLookup = useMemo(() => new Map(birds.map((bird) => [markerId(bird), bird])), [birds]);
   const data = useMemo(() => ({
     center,
     userLocation,
     heading,
+    firstPerson,
     markers: birds.map((bird) => ({
       id: markerId(bird),
       latitude: bird.latitude,
@@ -44,8 +46,9 @@ export function BirdMap({ center, userLocation, birds, mode, firstPerson, headin
       howMany: bird.howMany,
       speciesCode: bird.speciesCode,
       isNotable: Boolean(bird.isNotable),
+      imageUrl: bird.imageUrl,
     })),
-  }), [birds, center, heading, userLocation]);
+  }), [birds, center, firstPerson, heading, userLocation]);
   const dataRef = useRef<typeof data | null>(null);
   useEffect(() => {
     dataRef.current = data;
@@ -89,6 +92,12 @@ export function BirdMap({ center, userLocation, birds, mode, firstPerson, headin
     const latestData = dataRef.current;
     if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "setView", firstPerson }), "*");
   }, [firstPerson]);
+  useEffect(() => {
+    if (!overviewRequest || overviewRequest === lastOverviewRef.current) return;
+    lastOverviewRef.current = overviewRequest;
+    const latestData = dataRef.current;
+    if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "overview" }), "*");
+  }, [overviewRequest]);
 
   const html = mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml();
   const blobUrl = useMemo(() => URL.createObjectURL(new Blob([html], { type: "text/html" })), [html]);

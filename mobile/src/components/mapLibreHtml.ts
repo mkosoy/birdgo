@@ -31,6 +31,7 @@ export function buildMapLibreHtml(): string {
     #nearby-caret { color: #888; font-size: 13px; width: 14px; text-align: center; }
     #nearby-list { overflow-y: auto; padding: 4px; -webkit-overflow-scrolling: touch; }
     #nearby-panel.collapsed #nearby-list { display: none; }
+    #nearby-panel.tracking { display: none; }
     .nb-row { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 12px; cursor: pointer; }
     .nb-row:active { background: #f0f5f1; }
     .nb-thumb { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; flex: none; background: #dbe7df; display: flex; align-items: center; justify-content: center; font-size: 22px; }
@@ -44,7 +45,7 @@ export function buildMapLibreHtml(): string {
     .nb-empty { padding: 16px; text-align: center; color: #6b7d72; font-size: 13px; }
     #track-hud { position: absolute; inset: 0; z-index: 5; pointer-events: none; display: none; }
     #track-hud.on { display: block; }
-    #track-arrow { position: absolute; top: 40%; left: 50%; margin: -70px 0 0 -46px; font-size: 130px; line-height: 92px; color: rgba(47,125,91,.92); text-shadow: 0 3px 10px rgba(0,0,0,.4); transition: transform .18s ease-out; }
+    #track-arrow { position: absolute; top: 40%; left: 50%; margin: -70px 0 0 -46px; font-size: 104px; line-height: 92px; color: rgba(47,125,91,.92); text-shadow: 0 3px 10px rgba(0,0,0,.4); transition: transform .18s ease-out; }
     #track-arrow.rare { color: rgba(217,157,33,.96); }
     #track-card { position: absolute; left: 8px; right: 8px; bottom: 98px; z-index: 8; background: rgba(255,255,255,.97); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.28); padding: 12px; display: none; align-items: center; gap: 12px; pointer-events: auto; font-family: -apple-system, system-ui, sans-serif; }
     #track-card.on { display: flex; }
@@ -109,6 +110,10 @@ export function buildMapLibreHtml(): string {
       var bearingFrame = null;
       var arrowFrame = null;
       var trackId = null;
+      var routeDistanceM = null;
+      var routeSeq = 0;
+      var lastRouteOrigin = null;
+      var lastRouteTargetKey = null;
       var rareOnly = false;
       var panelCollapsed = true;
       var SNAP_M = 60;
@@ -168,6 +173,10 @@ export function buildMapLibreHtml(): string {
         var names = [bird && bird.comName, bird && bird.sciName].filter(Boolean);
         var key = names[0] || (bird && bird.id);
         if (!key) return false;
+        if (bird && typeof bird.imageUrl === 'string' && bird.imageUrl) {
+          birdImageCache[key] = bird.imageUrl;
+          return bird.imageUrl;
+        }
         if (Object.prototype.hasOwnProperty.call(birdImageCache, key)) return birdImageCache[key];
         birdImageCache[key] = null;
         function tryName(index) {
@@ -279,6 +288,77 @@ export function buildMapLibreHtml(): string {
         });
       }
 
+      function setRouteGeometry(coordinates, bird) {
+        var source = map.getSource('track-route');
+        if (!source || !Array.isArray(coordinates) || coordinates.length < 2 || coordinates.some(function (coordinate) {
+          return !Array.isArray(coordinate) ||
+            typeof coordinate[0] !== 'number' || !Number.isFinite(coordinate[0]) ||
+            typeof coordinate[1] !== 'number' || !Number.isFinite(coordinate[1]);
+        })) return;
+        source.setData({
+          type: 'FeatureCollection',
+          features: [{
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates: coordinates }
+          }]
+        });
+        var color = bird && bird.isNotable ? '#d99d21' : '#2f7d5b';
+        if (map.getLayer('track-route-main')) map.setPaintProperty('track-route-main', 'line-color', color);
+      }
+
+      function clearRoute() {
+        routeSeq += 1;
+        routeDistanceM = null;
+        lastRouteOrigin = null;
+        lastRouteTargetKey = null;
+        var source = map.getSource('track-route');
+        if (source) source.setData({ type: 'FeatureCollection', features: [] });
+      }
+
+      function updateRoute() {
+        if (!trackId || !lastUserLocation) {
+          clearRoute();
+          return;
+        }
+        var bird = latestMarkers.find(function (entry) { return entry.id === trackId; });
+        if (!bird ||
+          typeof bird.latitude !== 'number' || !Number.isFinite(bird.latitude) ||
+          typeof bird.longitude !== 'number' || !Number.isFinite(bird.longitude) ||
+          typeof lastUserLocation.latitude !== 'number' || !Number.isFinite(lastUserLocation.latitude) ||
+          typeof lastUserLocation.longitude !== 'number' || !Number.isFinite(lastUserLocation.longitude)) {
+          clearRoute();
+          return;
+        }
+        var origin = { latitude: lastUserLocation.latitude, longitude: lastUserLocation.longitude };
+        var moved = !lastRouteOrigin || haversineKm(lastRouteOrigin, origin) > 0.02;
+        var targetKey = trackId + ':' + bird.latitude + ':' + bird.longitude;
+        var targetChanged = lastRouteTargetKey !== targetKey;
+        if (!moved && !targetChanged) return;
+        setRouteGeometry([
+          [origin.longitude, origin.latitude],
+          [bird.longitude, bird.latitude]
+        ], bird);
+        lastRouteOrigin = origin;
+        lastRouteTargetKey = targetKey;
+        routeDistanceM = null;
+        var sequence = ++routeSeq;
+        var url = 'https://router.project-osrm.org/route/v1/foot/' +
+          origin.longitude + ',' + origin.latitude + ';' + bird.longitude + ',' + bird.latitude +
+          '?overview=full&geometries=geojson';
+        fetch(url)
+          .then(function (response) { if (!response.ok) throw new Error('route request failed'); return response.json(); })
+          .then(function (route) {
+            if (sequence !== routeSeq || !trackId || trackId !== bird.id || route.code !== 'Ok' || !route.routes || !route.routes[0]) return;
+            var selected = route.routes[0];
+            if (!selected.geometry || !Array.isArray(selected.geometry.coordinates)) return;
+            routeDistanceM = typeof selected.distance === 'number' ? selected.distance : null;
+            setRouteGeometry(selected.geometry.coordinates, bird);
+            updateTrackCard();
+          })
+          .catch(function () {});
+      }
+
       function capture(id) {
         postOutward({ type: 'capture', id: id });
       }
@@ -341,6 +421,10 @@ export function buildMapLibreHtml(): string {
           trackSnap.classList.add('ready');
           trackSnap.textContent = '📸 Snap!';
           trackDist.textContent = 'You’re here! Snap it 📸';
+        } else if (distance != null && routeDistanceM != null && lastRouteTargetKey && lastRouteTargetKey.indexOf(trackId + ':') === 0) {
+          trackSnap.classList.remove('ready');
+          trackSnap.textContent = '📸 Snap';
+          trackDist.textContent = fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min walk';
         } else if (distance != null) {
           trackSnap.classList.remove('ready');
           trackSnap.textContent = '📸 Snap';
@@ -363,10 +447,12 @@ export function buildMapLibreHtml(): string {
       function startTrack(bird) {
         trackId = bird.id;
         follow = true;
+        clearRoute();
         snapToast.classList.remove('on');
         trackHud.classList.add('on');
         trackCard.classList.add('on');
         nearbyPanel.classList.add('collapsed');
+        nearbyPanel.classList.add('tracking');
         nearbyCaret.textContent = '▸';
         panelCollapsed = true;
         if (lastUserLocation && !headingFollow) {
@@ -379,12 +465,15 @@ export function buildMapLibreHtml(): string {
         }
         updateTrackCard();
         updateTrackArrow();
+        updateRoute();
       }
 
       function stopTrack() {
         trackId = null;
+        clearRoute();
         trackHud.classList.remove('on');
         trackCard.classList.remove('on');
+        nearbyPanel.classList.remove('tracking');
         refreshUi();
       }
 
@@ -513,13 +602,49 @@ export function buildMapLibreHtml(): string {
             });
           } catch (_) {}
         }
+        if (!map.getSource('track-route')) {
+          map.addSource('track-route', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+          });
+        }
+        if (!map.getLayer('track-route-casing')) {
+          map.addLayer({
+            id: 'track-route-casing',
+            type: 'line',
+            source: 'track-route',
+            paint: {
+              'line-color': '#ffffff',
+              'line-width': 9,
+              'line-opacity': 0.9
+            },
+            layout: { 'line-cap': 'round', 'line-join': 'round' }
+          });
+        }
+        if (!map.getLayer('track-route-main')) {
+          map.addLayer({
+            id: 'track-route-main',
+            type: 'line',
+            source: 'track-route',
+            paint: {
+              'line-color': '#1e63d0',
+              'line-width': 5,
+              'line-opacity': 1,
+              'line-dasharray': [1.5, 1.1]
+            },
+            layout: { 'line-cap': 'round', 'line-join': 'round' }
+          });
+        }
         map.setPitch(58);
         map.setZoom(15.5);
         map.setBearing(0);
         map.resize();
       }
 
-      map.on('load', function () { styleAdventureMap(); });
+      map.on('load', function () {
+        styleAdventureMap();
+        updateRoute();
+      });
       if (typeof ResizeObserver !== 'undefined') {
         new ResizeObserver(function () { map.resize(); }).observe(document.getElementById('map'));
       }
@@ -538,6 +663,7 @@ export function buildMapLibreHtml(): string {
           }
           if (data.heading != null) updateBearing(data.heading);
         }
+        latestMarkers = data.markers || [];
         if (data.command === 'recenter') {
           follow = true;
           var target = data.userLocation || data.center;
@@ -554,12 +680,32 @@ export function buildMapLibreHtml(): string {
             compassButton.style.display = 'none';
             map.easeTo({ pitch: 58, zoom: 15.5, bearing: 0, duration: 700 });
           }
+        } else if (data.command === 'overview') {
+          follow = false;
+          var overviewTarget = data.userLocation || data.center;
+          var overviewBirds = computeNearest().slice(0, 25);
+          var bounds = new maplibregl.LngLatBounds();
+          if (overviewBirds.length) {
+            if (overviewTarget) bounds.extend([overviewTarget.longitude, overviewTarget.latitude]);
+            overviewBirds.forEach(function (entry) {
+              bounds.extend([entry.bird.longitude, entry.bird.latitude]);
+            });
+            map.fitBounds(bounds, {
+              padding: { top: 90, bottom: 200, left: 40, right: 40 },
+              pitch: 0,
+              bearing: 0,
+              maxZoom: 16.5,
+              duration: 700
+            });
+          } else if (overviewTarget) {
+            map.easeTo({ center: [overviewTarget.longitude, overviewTarget.latitude], pitch: 0, zoom: 14, bearing: 0, duration: 700 });
+          }
         } else if (data.userLocation && follow && !programmatic && (!previousLocation || haversineKm(previousLocation, data.userLocation) > 0.003)) {
           programmatic = true;
           map.easeTo({ center: [data.userLocation.longitude, data.userLocation.latitude], duration: 800 });
           setTimeout(function () { programmatic = false; }, 950);
         }
-        latestMarkers = data.markers || [];
+        if (trackId) updateRoute();
         birdMarkers.forEach(function (marker) { marker.remove(); });
         birdMarkers = [];
         (data.markers || []).forEach(function (bird) {
@@ -582,6 +728,11 @@ export function buildMapLibreHtml(): string {
         }
         if (firstData) {
           map.setCenter([data.center.longitude, data.center.latitude]);
+          if (data.firstPerson) {
+            headingFollow = true;
+            map.easeTo({ pitch: 72, zoom: 18, duration: 700 });
+            enableOrientation();
+          }
           firstData = false;
         }
         refreshUi();

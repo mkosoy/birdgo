@@ -15,6 +15,7 @@ export interface BirdMapProps {
   firstPerson: boolean;
   heading?: number;
   recenterRequest?: number;
+  overviewRequest?: number;
   onCapture: (bird: EbirdObservation) => void;
   onDirections: (coordinates: Coordinates & { name: string }) => void;
   onAbout: (bird: { speciesCode: string; comName: string }) => void;
@@ -32,6 +33,7 @@ interface LeafletMarker {
   howMany?: number;
   speciesCode: string;
   isNotable: boolean;
+  imageUrl?: string;
 }
 
 interface LeafletData {
@@ -64,12 +66,13 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, onCapture, onDirections, onAbout, onRegionChange },
+  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, onCapture, onDirections, onAbout, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
+  const lastOverviewRef = useRef(0);
   const dataRef = useRef<LeafletData | null>(null);
   useImperativeHandle(forwardedRef, () => webViewRef.current as WebView);
   const markerLookup = useMemo(() => new Map(birds.map((bird) => [markerId(bird), bird])), [birds]);
@@ -77,6 +80,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     center,
     userLocation,
     heading,
+    firstPerson,
     markers: birds.map((bird) => ({
       id: markerId(bird),
       latitude: bird.latitude,
@@ -88,8 +92,9 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       howMany: bird.howMany,
       speciesCode: bird.speciesCode,
       isNotable: Boolean(bird.isNotable),
+      imageUrl: bird.imageUrl,
     })),
-  }), [birds, center, heading, userLocation]);
+  }), [birds, center, firstPerson, heading, userLocation]);
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
@@ -114,6 +119,14 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "setView", firstPerson }))}, '*'); true;`);
     }
   }, [firstPerson]);
+  useEffect(() => {
+    if (!overviewRequest || overviewRequest === lastOverviewRef.current) return;
+    lastOverviewRef.current = overviewRequest;
+    const latestData = dataRef.current;
+    if (latestData) {
+      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "overview" }))}, '*'); true;`);
+    }
+  }, [overviewRequest]);
 
   const handleMessage = (event: WebViewMessageEvent) => {
     let message: LeafletMessage;
