@@ -33,9 +33,10 @@ emulator -avd birdgo -no-snapshot -no-audio -no-boot-anim -gpu swiftshader_indir
 - Set location to SF: `adb emu geo fix -122.4194 37.7749`. Push a test image for the picker: `adb push img.jpg /sdcard/Pictures/bird.jpg` + MEDIA_SCANNER broadcast.
 - Note: `npx expo start` rewrites `mobile/tsconfig.json` and creates `mobile/expo-env.d.ts`; `git checkout` them to keep the tree clean.
 
-## Capture flow gotchas (verified quirks, may be fixed later)
-- The identify **result card is gated behind camera permission**. On the emulator, tap "Enable camera" → grant, then "Pick from library" works and shows the result (heuristic no-hint = "Anna's Hummingbird" / "Calypte anna" / 50%). **On web there is no camera device, so "Pick from library" processes the image but never shows the result** — capture can't be fully verified on web.
-- The **Bird-dex does not refresh on tab focus**: a newly captured bird only appears after reloading the app (data is persisted in AsyncStorage). Reload (or restart the app) to verify captured cards.
+## Capture flow notes
+- Heuristic ID with no hint returns "Anna's Hummingbird" / "Calypte anna" / 50%; from a pin it uses the pin's species as a hint.
+- Web has no camera device — use "Pick from library"; the preview + result card render without camera permission (fixed in commit 627cff7; previously gated behind camera permission).
+- Bird-dex refreshes on tab focus via `useFocusEffect` (fixed in 627cff7; previously required an app reload). Captures persist in AsyncStorage.
 
 ## Devin Secrets Needed
 - eBird API token (`EBIRD_API_TOKEN`) — provided by the user for the app; no OpenAI key needed while `BIRD_ID_PROVIDER=heuristic`.
