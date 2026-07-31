@@ -101,7 +101,7 @@ The backend supports four providers:
 
 - **Heuristic** (default, no key): deterministic offline fallback using nearby species hints.
 - **Hugging Face** (free tier): image classification using the configured Hugging Face model. Get a token at <https://huggingface.co/settings/tokens>.
-- **Gemini** (free tier availability varies): Gemini 1.5 Flash vision. Get a key at <https://aistudio.google.com/app/apikey>.
+- **Gemini** (free tier): real photo identification with Gemini 2.5 Flash (`gemini-2.5-flash`). Set `BIRD_ID_PROVIDER=gemini` and `GEMINI_API_KEY` to enable it. Get a key at <https://aistudio.google.com/app/apikey>.
 - **OpenAI** (paid): OpenAI vision using `gpt-4o-mini`.
 
 Every provider returns:

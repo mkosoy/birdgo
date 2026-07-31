@@ -2,13 +2,22 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import { StyleSheet } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import { buildLeafletHtml } from "./leafletHtml";
+import { buildMapLibreHtml } from "./mapLibreHtml";
 import type { Coordinates, EbirdObservation } from "../types";
+
+export type BirdMapMode = "classic" | "adventure";
 
 export interface BirdMapProps {
   center: Coordinates;
   userLocation?: Coordinates;
   birds: EbirdObservation[];
-  onMarkerPress: (bird: EbirdObservation) => void;
+  mode: BirdMapMode;
+  firstPerson: boolean;
+  heading?: number;
+  recenterRequest?: number;
+  onCapture: (bird: EbirdObservation) => void;
+  onDirections: (coordinates: Coordinates & { name: string }) => void;
+  onAbout: (bird: { speciesCode: string; comName: string }) => void;
   onRegionChange: (coordinates: Coordinates) => void;
 }
 
@@ -17,20 +26,29 @@ interface LeafletMarker {
   latitude: number;
   longitude: number;
   comName: string;
+  sciName?: string;
+  locName?: string;
   relativeTime: string;
+  howMany?: number;
+  speciesCode: string;
   isNotable: boolean;
 }
 
 interface LeafletData {
   center: Coordinates;
   userLocation?: Coordinates;
+  heading?: number;
   markers: LeafletMarker[];
+  command?: "recenter" | "setView";
+  firstPerson?: boolean;
 }
 
 interface LeafletMessage {
-  type: "markerPress" | "regionChange";
+  type: "capture" | "directions" | "about" | "regionChange";
   id?: string;
+  speciesCode?: string;
   comName?: string;
+  name?: string;
   latitude?: number;
   longitude?: number;
 }
@@ -46,30 +64,56 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, onMarkerPress, onRegionChange },
+  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, onCapture, onDirections, onAbout, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
+  const lastRecenterRef = useRef(0);
+  const lastFirstPersonRef = useRef(firstPerson);
+  const dataRef = useRef<LeafletData | null>(null);
   useImperativeHandle(forwardedRef, () => webViewRef.current as WebView);
   const markerLookup = useMemo(() => new Map(birds.map((bird) => [markerId(bird), bird])), [birds]);
   const data = useMemo<LeafletData>(() => ({
     center,
     userLocation,
+    heading,
     markers: birds.map((bird) => ({
       id: markerId(bird),
       latitude: bird.latitude,
       longitude: bird.longitude,
       comName: bird.comName ?? "Bird",
+      sciName: bird.sciName,
+      locName: bird.locName,
       relativeTime: relativeTime(bird.obsDt),
+      howMany: bird.howMany,
+      speciesCode: bird.speciesCode,
       isNotable: Boolean(bird.isNotable),
     })),
-  }), [birds, center, userLocation]);
+  }), [birds, center, heading, userLocation]);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   const pushData = useCallback(() => {
     webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify(data))}, '*'); true;`);
   }, [data]);
-
   useEffect(() => { pushData(); }, [pushData]);
+  useEffect(() => {
+    if (!recenterRequest || recenterRequest === lastRecenterRef.current) return;
+    lastRecenterRef.current = recenterRequest;
+    const latestData = dataRef.current;
+    if (latestData) {
+      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "recenter" }))}, '*'); true;`);
+    }
+  }, [recenterRequest]);
+  useEffect(() => {
+    if (firstPerson === lastFirstPersonRef.current) return;
+    lastFirstPersonRef.current = firstPerson;
+    const latestData = dataRef.current;
+    if (latestData) {
+      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "setView", firstPerson }))}, '*'); true;`);
+    }
+  }, [firstPerson]);
 
   const handleMessage = (event: WebViewMessageEvent) => {
     let message: LeafletMessage;
@@ -78,15 +122,20 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     } catch {
       return;
     }
-    if (message.type === "markerPress" && message.id) {
+    if (message.type === "capture" && message.id) {
       const bird = markerLookup.get(message.id);
-      if (bird) onMarkerPress(bird);
+      if (bird) onCapture(bird);
+    } else if (message.type === "directions" && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name) {
+      onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name });
+    } else if (message.type === "about" && message.speciesCode && message.comName) {
+      onAbout({ speciesCode: message.speciesCode, comName: message.comName });
     } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
       onRegionChange({ latitude: message.latitude, longitude: message.longitude });
     }
   };
 
-  return <WebView ref={webViewRef} style={styles.map} source={{ html: buildLeafletHtml() }} onLoadEnd={pushData} onMessage={handleMessage} originWhitelist={["*"]} />;
+  const html = mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml();
+  return <WebView key={mode} ref={webViewRef} style={styles.map} source={{ html }} onLoadEnd={pushData} onMessage={handleMessage} originWhitelist={["*"]} />;
 });
 
 const styles = StyleSheet.create({ map: { flex: 1 } });

@@ -9,7 +9,18 @@ export function buildLeafletHtml(): string {
     .bird-marker, .user-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 18px; font-weight: bold; }
     .bird-marker { width: 32px; height: 32px; background: #2f7d5b; border: 2px solid white; }
     .bird-marker.notable { background: #d99d21; }
-    .user-marker { width: 22px; height: 22px; background: #2878d1; border: 3px solid white; box-shadow: 0 0 0 2px #2878d1; }
+    .user-marker { position: relative; width: 22px; height: 22px; background: #2878d1; border: 3px solid white; box-shadow: 0 0 0 2px #2878d1; }
+    .user-marker::before { content: ''; position: absolute; top: 50%; left: 50%; width: 42px; height: 42px; border-radius: 50%; border: 2px solid rgba(40, 120, 209, 0.55); animation: pulse 1.8s ease-out infinite; }
+    @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(1.45); opacity: 0; } }
+    .encounter { min-width: 220px; line-height: 1.35; }
+    .encounter h3 { margin: 0 0 2px; font-size: 16px; }
+    .encounter .scientific { font-style: italic; color: #4c5c54; }
+    .encounter .meta, .encounter .distance, .encounter .info { margin-top: 6px; }
+    .encounter .info { color: #4c5c54; }
+    .encounter .actions { display: flex; gap: 5px; margin-top: 9px; }
+    .encounter button { border: 0; border-radius: 5px; padding: 6px 8px; color: white; background: #2f7d5b; font-weight: 700; cursor: pointer; }
+    .encounter button:nth-child(2) { background: #2878d1; }
+    .encounter button:nth-child(3) { background: #6f5aa8; }
   </style>
 </head>
 <body>
@@ -26,54 +37,99 @@ export function buildLeafletHtml(): string {
       var userMarker = null;
       var firstData = true;
       var moveTimer = null;
+      var lastUserLocation = null;
 
       function postOutward(payload) {
         var serialized = JSON.stringify(payload);
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(serialized);
-        } else if (window.parent && window.parent !== window) {
-          window.parent.postMessage(serialized, '*');
-        } else {
-          window.postMessage(serialized, '*');
-        }
+        if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(serialized);
+        else if (window.parent && window.parent !== window) window.parent.postMessage(serialized, '*');
+        else window.postMessage(serialized, '*');
       }
 
       function markerIcon(isNotable) {
         return L.divIcon({
           className: '',
           html: '<div class="bird-marker' + (isNotable ? ' notable' : '') + '">' + (isNotable ? '★' : '🐦') + '</div>',
-          iconSize: [36, 36],
-          iconAnchor: [18, 18],
-          popupAnchor: [0, -18]
+          iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -18]
         });
+      }
+
+      function escapeHtml(value) {
+        return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
+          return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character];
+        });
+      }
+
+      function haversineKm(a, b) {
+        if (!a || !b) return null;
+        var radians = Math.PI / 180;
+        var dLat = (b.latitude - a.latitude) * radians;
+        var dLng = (b.longitude - a.longitude) * radians;
+        var lat1 = a.latitude * radians;
+        var lat2 = b.latitude * radians;
+        var value = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
+        return 6371 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+      }
+
+      function popupHtml(bird, userLocation) {
+        var distance = haversineKm(userLocation, bird);
+        var count = typeof bird.howMany === 'number' && bird.howMany > 0 ? ' • ×' + bird.howMany : '';
+        return '<div class="encounter">' +
+          '<h3>' + escapeHtml(bird.comName || 'Bird') + '</h3>' +
+          '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div>' +
+          '<div class="meta">' + escapeHtml(bird.locName || 'Unknown hotspot') + ' • ' + escapeHtml(bird.relativeTime || 'recently') + count + '</div>' +
+          (distance == null ? '' : '<div class="distance">' + distance.toFixed(1) + ' km away</div>') +
+          '<div class="info" data-info>About ' + escapeHtml(bird.sciName || bird.comName || 'this species') + '</div>' +
+          '<div class="actions"><button data-action="capture">Capture</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
+          '</div>';
+      }
+
+      function attachPopupActions(popup, bird) {
+        var element = popup.getElement();
+        if (!element) return;
+        element.querySelector('[data-action="capture"]').addEventListener('click', function () {
+          postOutward({ type: 'capture', id: bird.id });
+        });
+        element.querySelector('[data-action="directions"]').addEventListener('click', function () {
+          postOutward({ type: 'directions', latitude: bird.latitude, longitude: bird.longitude, name: bird.comName });
+        });
+        element.querySelector('[data-action="about"]').addEventListener('click', function () {
+          postOutward({ type: 'about', speciesCode: bird.speciesCode, comName: bird.comName });
+        });
+        fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(bird.comName || 'Bird'))
+          .then(function (response) { if (!response.ok) throw new Error('Wikipedia unavailable'); return response.json(); })
+          .then(function (summary) {
+            var info = element.querySelector('[data-info]');
+            if (info && summary.extract) info.textContent = String(summary.extract).slice(0, 180) + (String(summary.extract).length > 180 ? '…' : '');
+          })
+          .catch(function () {});
       }
 
       function render(data) {
         if (!data || !data.center) return;
+        if (data.userLocation) lastUserLocation = data.userLocation;
+        if (data.command === 'recenter') {
+          var target = data.userLocation || data.center;
+          map.setView([target.latitude, target.longitude], map.getZoom() < 13 ? 13 : map.getZoom());
+        }
         markers.clearLayers();
         (data.markers || []).forEach(function (bird) {
           var marker = L.marker([bird.latitude, bird.longitude], { icon: markerIcon(bird.isNotable) });
-          marker.bindPopup('<strong>' + escapeHtml(bird.comName || 'Bird') + '</strong><br>' + escapeHtml(bird.relativeTime || 'recently'));
-          marker.on('click', function () {
-            postOutward({ type: 'markerPress', id: bird.id, comName: bird.comName });
-          });
+          var popup = L.popup({ maxWidth: 300 }).setContent(popupHtml(bird, lastUserLocation));
+          marker.bindPopup(popup);
+          marker.on('popupopen', function () { attachPopupActions(popup, bird); });
           marker.addTo(markers);
         });
         if (data.userLocation) {
           var userPoint = [data.userLocation.latitude, data.userLocation.longitude];
           if (userMarker) userMarker.setLatLng(userPoint);
-          else userMarker = L.marker(userPoint, { icon: L.divIcon({ className: '', html: '<div class="user-marker"></div>', iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(map);
+          else userMarker = L.marker(userPoint, { icon: L.divIcon({ className: '', html: '<div class="user-marker"></div>', iconSize: [22, 22], iconAnchor: [11, 11] }), interactive: false }).addTo(map);
         }
         if (firstData) {
           map.setView([data.center.latitude, data.center.longitude], 13);
           firstData = false;
         }
-      }
-
-      function escapeHtml(value) {
-        return String(value).replace(/[&<>"']/g, function (character) {
-          return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character];
-        });
       }
 
       map.on('moveend', function () {
@@ -83,12 +139,9 @@ export function buildLeafletHtml(): string {
           postOutward({ type: 'regionChange', latitude: center.lat, longitude: center.lng });
         }, 250);
       });
-
       window.addEventListener('message', function (event) {
         var data = event.data;
-        if (typeof data === 'string') {
-          try { data = JSON.parse(data); } catch (_) { return; }
-        }
+        if (typeof data === 'string') { try { data = JSON.parse(data); } catch (_) { return; } }
         render(data);
       });
       window.__birdGoRender = render;
