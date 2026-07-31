@@ -38,6 +38,7 @@ export function buildMapLibreHtml(): string {
       });
       map.addControl(new maplibregl.NavigationControl(), 'top-right');
       var birdMarkers = [];
+      var currentPopup = null;
       var userMarker = null;
       var firstData = true;
       var moveTimer = null;
@@ -145,6 +146,10 @@ export function buildMapLibreHtml(): string {
         }
         birdMarkers.forEach(function (marker) { marker.remove(); });
         birdMarkers = [];
+        if (currentPopup) {
+          currentPopup.remove();
+          currentPopup = null;
+        }
         (data.markers || []).forEach(function (bird) {
           var element = document.createElement('div');
           element.className = 'bird-marker' + (bird.isNotable ? ' notable' : '');
@@ -153,10 +158,12 @@ export function buildMapLibreHtml(): string {
             .setLngLat([bird.longitude, bird.latitude])
             .addTo(map);
           element.addEventListener('click', function () {
+            if (currentPopup) currentPopup.remove();
             var popup = new maplibregl.Popup({ offset: 20, maxWidth: '300px' })
               .setLngLat([bird.longitude, bird.latitude])
               .setHTML(popupHtml(bird, lastUserLocation))
               .addTo(map);
+            currentPopup = popup;
             setTimeout(function () { attachPopupActions(popup, bird); }, 0);
           });
           birdMarkers.push(marker);

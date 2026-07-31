@@ -26,6 +26,7 @@ function relativeTime(date?: string): string {
 
 export function BirdMap({ center, userLocation, birds, mode, recenterRequest, onCapture, onDirections, onAbout, onRegionChange }: BirdMapProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const lastRecenterRef = useRef(0);
   const markerLookup = useMemo(() => new Map(birds.map((bird) => [markerId(bird), bird])), [birds]);
   const data = useMemo(() => ({
     center,
@@ -43,6 +44,10 @@ export function BirdMap({ center, userLocation, birds, mode, recenterRequest, on
       isNotable: Boolean(bird.isNotable),
     })),
   }), [birds, center, userLocation]);
+  const dataRef = useRef<typeof data | null>(null);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -71,8 +76,11 @@ export function BirdMap({ center, userLocation, birds, mode, recenterRequest, on
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify(data), "*");
   }, [data]);
   useEffect(() => {
-    if (recenterRequest) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...data, command: "recenter" }), "*");
-  }, [data, recenterRequest]);
+    if (!recenterRequest || recenterRequest === lastRecenterRef.current) return;
+    lastRecenterRef.current = recenterRequest;
+    const latestData = dataRef.current;
+    if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "recenter" }), "*");
+  }, [recenterRequest]);
 
   const html = mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml();
   return <iframe ref={iframeRef} srcDoc={html} onLoad={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify(data), "*")} style={{ border: 0, width: "100%", height: "100%" }} title="BirdGo map" />;

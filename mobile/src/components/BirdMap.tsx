@@ -64,6 +64,8 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
+  const lastRecenterRef = useRef(0);
+  const dataRef = useRef<LeafletData | null>(null);
   useImperativeHandle(forwardedRef, () => webViewRef.current as WebView);
   const markerLookup = useMemo(() => new Map(birds.map((bird) => [markerId(bird), bird])), [birds]);
   const data = useMemo<LeafletData>(() => ({
@@ -82,19 +84,22 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       isNotable: Boolean(bird.isNotable),
     })),
   }), [birds, center, userLocation]);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   const pushData = useCallback(() => {
     webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify(data))}, '*'); true;`);
   }, [data]);
-  const pushRecenter = useCallback(() => {
-    const commandData: LeafletData = { ...data, command: "recenter" };
-    webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify(commandData))}, '*'); true;`);
-  }, [data]);
-
   useEffect(() => { pushData(); }, [pushData]);
   useEffect(() => {
-    if (recenterRequest) pushRecenter();
-  }, [pushRecenter, recenterRequest]);
+    if (!recenterRequest || recenterRequest === lastRecenterRef.current) return;
+    lastRecenterRef.current = recenterRequest;
+    const latestData = dataRef.current;
+    if (latestData) {
+      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "recenter" }))}, '*'); true;`);
+    }
+  }, [recenterRequest]);
 
   const handleMessage = (event: WebViewMessageEvent) => {
     let message: LeafletMessage;
