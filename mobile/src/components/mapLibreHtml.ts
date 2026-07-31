@@ -22,20 +22,64 @@ export function buildMapLibreHtml(): string {
     .encounter button { border: 0; border-radius: 5px; padding: 6px 8px; color: white; background: #2f7d5b; font-weight: 700; cursor: pointer; }
     .encounter button:nth-child(2) { background: #2878d1; }
     .encounter button:nth-child(3) { background: #6f5aa8; }
-    #direction-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
-    .direction-arrow { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 1px; width: 96px; padding: 5px 4px; border: 0; border-radius: 12px; color: white; font-size: 11px; line-height: 1.1; text-align: center; pointer-events: auto; cursor: pointer; transform-origin: center; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
-    .direction-arrow .thumb { width: 38px; height: 38px; border-radius: 50%; overflow: hidden; background: rgba(255,255,255,.3); border: 2px solid rgba(255,255,255,.9); display: flex; align-items: center; justify-content: center; font-size: 20px; }
-    .direction-arrow .thumb img { width: 100%; height: 100%; object-fit: cover; }
-    .direction-arrow .pointer { font-size: 15px; line-height: 12px; }
-    .direction-arrow .label { display: block; max-width: 92px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0,0,0,.65); }
-    .direction-arrow.common { background: rgba(47, 125, 91, .9); }
-    .direction-arrow.rare { background: rgba(217, 157, 33, .95); }
-    #compass-button { position: absolute; z-index: 6; left: 50%; bottom: 24px; transform: translateX(-50%); border: 0; border-radius: 18px; padding: 9px 14px; color: white; background: rgba(35, 73, 53, .92); font-weight: 700; display: none; cursor: pointer; }
+    .maplibregl-popup { z-index: 9 !important; }
+    #nearby-panel { position: absolute; left: 8px; right: 8px; bottom: 98px; z-index: 6; background: rgba(255,255,255,.96); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.25); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; max-height: 52%; display: flex; flex-direction: column; }
+    #nearby-header { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
+    #nearby-title { font-weight: 800; color: #173c2b; font-size: 14px; flex: 1; }
+    #rare-toggle { border: 1px solid #d99d21; color: #b6810f; background: #fff; border-radius: 14px; padding: 4px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    #rare-toggle.on { background: #d99d21; color: #fff; }
+    #nearby-caret { color: #888; font-size: 13px; width: 14px; text-align: center; }
+    #nearby-list { overflow-y: auto; padding: 4px; -webkit-overflow-scrolling: touch; }
+    #nearby-panel.collapsed #nearby-list { display: none; }
+    .nb-row { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 12px; cursor: pointer; }
+    .nb-row:active { background: #f0f5f1; }
+    .nb-thumb { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; flex: none; background: #dbe7df; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .nb-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .nb-info { flex: 1; min-width: 0; }
+    .nb-name { font-weight: 700; color: #21362c; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nb-name .star { color: #d99d21; }
+    .nb-sub { color: #5c6f65; font-size: 12px; margin-top: 1px; }
+    .nb-go { border: 0; border-radius: 20px; padding: 9px 15px; background: #2f7d5b; color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; flex: none; }
+    .nb-row.rare .nb-go { background: #d99d21; }
+    .nb-empty { padding: 16px; text-align: center; color: #6b7d72; font-size: 13px; }
+    #track-hud { position: absolute; inset: 0; z-index: 5; pointer-events: none; display: none; }
+    #track-hud.on { display: block; }
+    #track-arrow { position: absolute; top: 40%; left: 50%; margin: -70px 0 0 -46px; font-size: 130px; line-height: 92px; color: rgba(47,125,91,.92); text-shadow: 0 3px 10px rgba(0,0,0,.4); transition: transform .18s ease-out; }
+    #track-arrow.rare { color: rgba(217,157,33,.96); }
+    #track-card { position: absolute; left: 8px; right: 8px; bottom: 98px; z-index: 8; background: rgba(255,255,255,.97); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.28); padding: 12px; display: none; align-items: center; gap: 12px; pointer-events: auto; font-family: -apple-system, system-ui, sans-serif; }
+    #track-card.on { display: flex; }
+    #track-thumb { width: 54px; height: 54px; border-radius: 50%; overflow: hidden; flex: none; background: #dbe7df; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+    #track-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    #track-meta { flex: 1; min-width: 0; }
+    #track-name { font-weight: 800; color: #173c2b; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #track-dist { color: #2f7d5b; font-weight: 700; font-size: 13px; margin-top: 2px; }
+    #track-actions { display: flex; gap: 8px; flex: none; }
+    #track-snap { border: 0; border-radius: 20px; padding: 10px 16px; background: #2f7d5b; color: #fff; font-weight: 800; cursor: pointer; }
+    #track-snap.ready { background: #d99d21; animation: snappulse 1s infinite; }
+    #track-stop { border: 0; border-radius: 20px; padding: 10px 14px; background: #eceff0; color: #445; font-weight: 700; cursor: pointer; }
+    @keyframes snappulse { 0%,100%{ transform: scale(1);} 50%{ transform: scale(1.07);} }
+    #snap-toast { position: absolute; left: 50%; top: 76px; transform: translateX(-50%); z-index: 8; max-width: 88%; background: rgba(217,157,33,.97); color: #fff; border: 0; border-radius: 22px; padding: 10px 16px; font-weight: 800; font-size: 13px; font-family: -apple-system, system-ui, sans-serif; box-shadow: 0 3px 12px rgba(0,0,0,.3); display: none; cursor: pointer; }
+    #snap-toast.on { display: block; }
+    #compass-button { position: absolute; z-index: 7; left: 50%; top: 120px; transform: translateX(-50%); border: 0; border-radius: 18px; padding: 9px 14px; color: white; background: rgba(35, 73, 53, .92); font-weight: 700; display: none; cursor: pointer; }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <div id="direction-overlay"></div>
+  <div id="track-hud"><div id="track-arrow">⬆</div></div>
+  <div id="nearby-panel" class="collapsed">
+    <div id="nearby-header">
+      <span id="nearby-title">Birds nearby</span>
+      <button id="rare-toggle" type="button">★ Rare</button>
+      <span id="nearby-caret">▸</span>
+    </div>
+    <div id="nearby-list"></div>
+  </div>
+  <div id="track-card">
+    <div id="track-thumb"></div>
+    <div id="track-meta"><div id="track-name"></div><div id="track-dist"></div></div>
+    <div id="track-actions"><button id="track-snap" type="button">📸 Snap</button><button id="track-stop" type="button">✕</button></div>
+  </div>
+  <button id="snap-toast" type="button"></button>
   <button id="compass-button" type="button">🧭 Enable compass</button>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script>
@@ -63,9 +107,28 @@ export function buildMapLibreHtml(): string {
       var orientationPermission = null;
       var currentHeading = null;
       var bearingFrame = null;
-      var directionFrame = null;
-      var directionOverlay = document.getElementById('direction-overlay');
+      var arrowFrame = null;
+      var trackId = null;
+      var rareOnly = false;
+      var panelCollapsed = true;
+      var SNAP_M = 60;
+      var ARRIVE_M = 30;
       var compassButton = document.getElementById('compass-button');
+      var nearbyPanel = document.getElementById('nearby-panel');
+      var nearbyHeader = document.getElementById('nearby-header');
+      var nearbyTitle = document.getElementById('nearby-title');
+      var rareToggle = document.getElementById('rare-toggle');
+      var nearbyCaret = document.getElementById('nearby-caret');
+      var nearbyList = document.getElementById('nearby-list');
+      var trackHud = document.getElementById('track-hud');
+      var trackArrow = document.getElementById('track-arrow');
+      var trackCard = document.getElementById('track-card');
+      var trackThumb = document.getElementById('track-thumb');
+      var trackName = document.getElementById('track-name');
+      var trackDist = document.getElementById('track-dist');
+      var trackSnap = document.getElementById('track-snap');
+      var trackStop = document.getElementById('track-stop');
+      var snapToast = document.getElementById('snap-toast');
 
       function postOutward(payload) {
         var serialized = JSON.stringify(payload);
@@ -93,17 +156,40 @@ export function buildMapLibreHtml(): string {
       }
 
       var birdImageCache = {};
-      function getBirdImage(name) {
-        if (!name) return false;
-        if (Object.prototype.hasOwnProperty.call(birdImageCache, name)) return birdImageCache[name];
-        birdImageCache[name] = null;
-        fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(name))
-          .then(function (response) { if (!response.ok) throw new Error('no summary'); return response.json(); })
-          .then(function (summary) {
-            birdImageCache[name] = (summary.thumbnail && summary.thumbnail.source) || false;
-            if (birdImageCache[name]) scheduleDirections();
-          })
-          .catch(function () { birdImageCache[name] = false; });
+      function thumbInnerHtml(bird, emojiFallback) {
+        var image = getBirdImage(bird);
+        if (typeof image === 'string' && image) {
+          return '<img src="' + escapeHtml(image) + '" alt="" />';
+        }
+        return emojiFallback || (bird.isNotable ? '★' : '🐦');
+      }
+
+      function getBirdImage(bird) {
+        var names = [bird && bird.comName, bird && bird.sciName].filter(Boolean);
+        var key = names[0] || (bird && bird.id);
+        if (!key) return false;
+        if (Object.prototype.hasOwnProperty.call(birdImageCache, key)) return birdImageCache[key];
+        birdImageCache[key] = null;
+        function tryName(index) {
+          if (index >= names.length) {
+            birdImageCache[key] = false;
+            refreshUi();
+            return;
+          }
+          fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(names[index]))
+            .then(function (response) { if (!response.ok) throw new Error('no summary'); return response.json(); })
+            .then(function (summary) {
+              var image = summary.thumbnail && summary.thumbnail.source;
+              if (image) {
+                birdImageCache[key] = image;
+                refreshUi();
+              } else {
+                tryName(index + 1);
+              }
+            })
+            .catch(function () { tryName(index + 1); });
+        }
+        tryName(0);
         return null;
       }
 
@@ -175,75 +261,182 @@ export function buildMapLibreHtml(): string {
         setTimeout(function () { attachPopupActions(popup, bird); }, 0);
       }
 
-      function scheduleDirections() {
-        if (directionFrame != null) return;
-        directionFrame = requestAnimationFrame(function () {
-          directionFrame = null;
-          drawDirections();
-        });
+      function fmtDist(km) {
+        return km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(1) + ' km';
       }
 
-      function drawDirections() {
-        directionOverlay.innerHTML = '';
-        if (!lastUserLocation) return;
-        var width = window.innerWidth;
-        var height = window.innerHeight;
-        var centerX = width / 2;
-        var centerY = height / 2;
-        var radius = Math.min(width, height) * 0.38;
-        var halfWidth = 52;
-        var halfHeight = 42;
-        var mapBearing = map.getBearing();
-        var nearest = latestMarkers.map(function (bird) {
+      function etaMin(km) {
+        return Math.max(1, Math.round(km * 1000 / 81));
+      }
+
+      function computeNearest() {
+        return latestMarkers.map(function (bird) {
           return { bird: bird, distance: haversineKm(lastUserLocation, bird) };
         }).filter(function (entry) {
           return entry.distance != null;
         }).sort(function (left, right) {
           return left.distance - right.distance;
-        }).slice(0, 6);
-        var placed = [];
-        nearest.forEach(function (entry) {
-          var bird = entry.bird;
-          var distance = entry.distance;
-          var screenAngle = (geographicBearing(lastUserLocation, bird) - mapBearing + 360) % 360;
-          var radians = screenAngle * Math.PI / 180;
-          var ringRadius = radius;
-          var x = 0;
-          var y = 0;
-          for (var attempt = 0; attempt < 6; attempt += 1) {
-            x = Math.max(halfWidth, Math.min(width - halfWidth, centerX + Math.sin(radians) * ringRadius));
-            y = Math.max(halfHeight, Math.min(height - halfHeight, centerY - Math.cos(radians) * ringRadius));
-            var collides = placed.some(function (point) {
-              return Math.abs(point.x - x) < 104 && Math.abs(point.y - y) < 72;
-            });
-            if (!collides) break;
-            ringRadius -= 50;
-          }
-          placed.push({ x: x, y: y });
-          var arrow = document.createElement('button');
-          arrow.type = 'button';
-          arrow.className = 'direction-arrow ' + (bird.isNotable ? 'rare' : 'common');
-          arrow.style.left = x + 'px';
-          arrow.style.top = y + 'px';
-          arrow.style.transform = 'translate(-50%, -50%)';
-          var displayDistance = distance < 1
-            ? Math.round(distance * 1000) + '\\u00a0m'
-            : distance.toFixed(1) + ' km';
-          var imageSource = getBirdImage(bird.comName);
-          var thumbInner = typeof imageSource === 'string' && imageSource
-            ? '<img src="' + escapeHtml(imageSource) + '" alt="" />'
-            : (bird.isNotable ? '★' : '🐦');
-          arrow.innerHTML = '<span class="thumb">' + thumbInner + '</span>' +
-            '<span class="pointer" style="transform:rotate(' + (screenAngle - 90) + 'deg)">➤</span>' +
-            '<span class="label">' + escapeHtml(bird.comName || 'Bird') + ' · ' + displayDistance + '</span>';
-          arrow.addEventListener('click', function () {
-            follow = false;
-            map.flyTo({ center: [bird.longitude, bird.latitude], zoom: Math.max(map.getZoom(), 17), duration: 900 });
-            map.once('moveend', function () { openBirdPopup(bird); });
-          });
-          directionOverlay.appendChild(arrow);
         });
       }
+
+      function capture(id) {
+        postOutward({ type: 'capture', id: id });
+      }
+
+      function refreshNearby() {
+        if (!lastUserLocation) {
+          nearbyTitle.textContent = 'Birds nearby';
+          nearbyList.innerHTML = '<div class="nb-empty">Finding your location…</div>';
+          snapToast.classList.remove('on');
+          return;
+        }
+        var nearest = computeNearest();
+        var filtered = rareOnly ? nearest.filter(function (entry) { return entry.bird.isNotable; }) : nearest;
+        nearbyTitle.textContent = 'Birds nearby (' + filtered.length + ')';
+        if (!filtered.length) {
+          nearbyList.innerHTML = '<div class="nb-empty">' + (rareOnly ? 'No rare birds nearby right now.' : 'No birds nearby right now.') + '</div>';
+        } else {
+          nearbyList.innerHTML = filtered.slice(0, 14).map(function (entry) {
+            var bird = entry.bird;
+            var name = bird.comName || bird.sciName || 'Bird';
+            var rareClass = bird.isNotable ? ' rare' : '';
+            return '<div class="nb-row' + rareClass + '" data-bird-id="' + escapeHtml(bird.id) + '">' +
+              '<div class="nb-thumb">' + thumbInnerHtml(bird) + '</div>' +
+              '<div class="nb-info"><div class="nb-name">' + escapeHtml(name) + (bird.isNotable ? ' <span class="star">★</span>' : '') + '</div>' +
+              '<div class="nb-sub">' + fmtDist(entry.distance) + ' · ' + etaMin(entry.distance) + ' min walk · ' + escapeHtml(bird.relativeTime || 'recently') + '</div></div>' +
+              '<button class="nb-go' + rareClass + '" type="button" data-go-id="' + escapeHtml(bird.id) + '">Go</button>' +
+              '</div>';
+          }).join('');
+        }
+        if (trackId) {
+          snapToast.classList.remove('on');
+        } else {
+          var closest = nearest[0];
+          if (closest && closest.distance * 1000 <= SNAP_M) {
+            var closestName = closest.bird.comName || closest.bird.sciName || 'Bird';
+            snapToast.textContent = '📸 Snap ' + closestName + ' · ' + Math.round(closest.distance * 1000) + ' m';
+            snapToast.classList.add('on');
+            snapToast.onclick = function () { capture(closest.bird.id); };
+          } else {
+            snapToast.classList.remove('on');
+            snapToast.onclick = null;
+          }
+        }
+      }
+
+      function updateTrackCard() {
+        if (!trackId) return;
+        var entry = latestMarkers.find(function (bird) { return bird.id === trackId; });
+        if (!entry) {
+          stopTrack();
+          return;
+        }
+        var name = entry.comName || entry.sciName || 'Bird';
+        trackThumb.innerHTML = thumbInnerHtml(entry);
+        trackName.innerHTML = escapeHtml(name) + (entry.isNotable ? ' <span class="star">★</span>' : '');
+        trackCard.classList.toggle('rare', Boolean(entry.isNotable));
+        trackArrow.classList.toggle('rare', Boolean(entry.isNotable));
+        var distance = haversineKm(lastUserLocation, entry);
+        if (distance != null && distance * 1000 <= ARRIVE_M) {
+          trackSnap.classList.add('ready');
+          trackSnap.textContent = '📸 Snap!';
+          trackDist.textContent = 'You’re here! Snap it 📸';
+        } else if (distance != null) {
+          trackSnap.classList.remove('ready');
+          trackSnap.textContent = '📸 Snap';
+          trackDist.textContent = fmtDist(distance) + ' · ' + etaMin(distance) + ' min walk';
+        } else {
+          trackSnap.classList.remove('ready');
+          trackSnap.textContent = '📸 Snap';
+          trackDist.textContent = 'Finding distance…';
+        }
+      }
+
+      function updateTrackArrow() {
+        if (!trackId || !lastUserLocation) return;
+        var bird = latestMarkers.find(function (entry) { return entry.id === trackId; });
+        if (!bird) return;
+        var screenAngle = (geographicBearing(lastUserLocation, bird) - map.getBearing() + 360) % 360;
+        trackArrow.style.transform = 'rotate(' + screenAngle + 'deg)';
+      }
+
+      function startTrack(bird) {
+        trackId = bird.id;
+        follow = true;
+        snapToast.classList.remove('on');
+        trackHud.classList.add('on');
+        trackCard.classList.add('on');
+        nearbyPanel.classList.add('collapsed');
+        nearbyCaret.textContent = '▸';
+        panelCollapsed = true;
+        if (lastUserLocation && !headingFollow) {
+          map.easeTo({
+            center: [lastUserLocation.longitude, lastUserLocation.latitude],
+            pitch: 68,
+            zoom: Math.max(map.getZoom(), 18),
+            duration: 600
+          });
+        }
+        updateTrackCard();
+        updateTrackArrow();
+      }
+
+      function stopTrack() {
+        trackId = null;
+        trackHud.classList.remove('on');
+        trackCard.classList.remove('on');
+        refreshUi();
+      }
+
+      function scheduleArrow() {
+        if (arrowFrame != null) return;
+        arrowFrame = requestAnimationFrame(function () {
+          arrowFrame = null;
+          updateTrackArrow();
+        });
+      }
+
+      function refreshUi() {
+        refreshNearby();
+        if (trackId) updateTrackCard();
+        updateTrackArrow();
+      }
+
+      nearbyList.addEventListener('click', function (event) {
+        var target = event.target;
+        var go = target.closest ? target.closest('[data-go-id]') : null;
+        var row = target.closest ? target.closest('[data-bird-id]') : null;
+        var id = go ? go.getAttribute('data-go-id') : row && row.getAttribute('data-bird-id');
+        var bird = latestMarkers.find(function (entry) { return String(entry.id) === String(id); });
+        if (!bird) return;
+        if (go) {
+          event.stopPropagation();
+          startTrack(bird);
+          return;
+        }
+        follow = false;
+        map.flyTo({ center: [bird.longitude, bird.latitude], zoom: Math.max(map.getZoom(), 17), duration: 900 });
+        map.once('moveend', function () { openBirdPopup(bird); });
+      });
+      nearbyHeader.addEventListener('click', function (event) {
+        if (event.target === rareToggle || (event.target.closest && event.target.closest('#rare-toggle'))) return;
+        panelCollapsed = !panelCollapsed;
+        nearbyPanel.classList.toggle('collapsed', panelCollapsed);
+        nearbyCaret.textContent = panelCollapsed ? '▸' : '▾';
+      });
+      rareToggle.addEventListener('click', function (event) {
+        event.stopPropagation();
+        rareOnly = !rareOnly;
+        rareToggle.classList.toggle('on', rareOnly);
+        refreshNearby();
+      });
+      trackSnap.addEventListener('click', function () {
+        if (trackId) {
+          capture(trackId);
+          stopTrack();
+        }
+      });
+      trackStop.addEventListener('click', stopTrack);
 
       function popupHtml(bird, userLocation) {
         var distance = haversineKm(userLocation, bird);
@@ -331,9 +524,9 @@ export function buildMapLibreHtml(): string {
         new ResizeObserver(function () { map.resize(); }).observe(document.getElementById('map'));
       }
       map.on('dragstart', function () { follow = false; });
-      map.on('move', scheduleDirections);
-      map.on('rotate', scheduleDirections);
-      map.on('pitch', scheduleDirections);
+      map.on('move', scheduleArrow);
+      map.on('rotate', scheduleArrow);
+      map.on('pitch', scheduleArrow);
 
       function render(data) {
         if (!data || !data.center) return;
@@ -369,10 +562,6 @@ export function buildMapLibreHtml(): string {
         latestMarkers = data.markers || [];
         birdMarkers.forEach(function (marker) { marker.remove(); });
         birdMarkers = [];
-        if (currentPopup) {
-          currentPopup.remove();
-          currentPopup = null;
-        }
         (data.markers || []).forEach(function (bird) {
           var element = document.createElement('div');
           element.className = 'bird-marker' + (bird.isNotable ? ' notable' : '');
@@ -395,7 +584,7 @@ export function buildMapLibreHtml(): string {
           map.setCenter([data.center.longitude, data.center.latitude]);
           firstData = false;
         }
-        scheduleDirections();
+        refreshUi();
       }
 
       map.on('moveend', function () {
