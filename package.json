@@ -1,0 +1,8 @@
+{
+  "name": "birdgo",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@vercel/node": "^3.2.14"
+  }
+}
