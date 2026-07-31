@@ -12,6 +12,8 @@ export interface BirdMapProps {
   userLocation?: Coordinates;
   birds: EbirdObservation[];
   mode: BirdMapMode;
+  firstPerson: boolean;
+  heading?: number;
   recenterRequest?: number;
   onCapture: (bird: EbirdObservation) => void;
   onDirections: (coordinates: Coordinates & { name: string }) => void;
@@ -35,8 +37,10 @@ interface LeafletMarker {
 interface LeafletData {
   center: Coordinates;
   userLocation?: Coordinates;
+  heading?: number;
   markers: LeafletMarker[];
-  command?: "recenter";
+  command?: "recenter" | "setView";
+  firstPerson?: boolean;
 }
 
 interface LeafletMessage {
@@ -60,17 +64,19 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, mode, recenterRequest, onCapture, onDirections, onAbout, onRegionChange },
+  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, onCapture, onDirections, onAbout, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
   const lastRecenterRef = useRef(0);
+  const lastFirstPersonRef = useRef(firstPerson);
   const dataRef = useRef<LeafletData | null>(null);
   useImperativeHandle(forwardedRef, () => webViewRef.current as WebView);
   const markerLookup = useMemo(() => new Map(birds.map((bird) => [markerId(bird), bird])), [birds]);
   const data = useMemo<LeafletData>(() => ({
     center,
     userLocation,
+    heading,
     markers: birds.map((bird) => ({
       id: markerId(bird),
       latitude: bird.latitude,
@@ -83,7 +89,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       speciesCode: bird.speciesCode,
       isNotable: Boolean(bird.isNotable),
     })),
-  }), [birds, center, userLocation]);
+  }), [birds, center, heading, userLocation]);
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
@@ -100,6 +106,14 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "recenter" }))}, '*'); true;`);
     }
   }, [recenterRequest]);
+  useEffect(() => {
+    if (firstPerson === lastFirstPersonRef.current) return;
+    lastFirstPersonRef.current = firstPerson;
+    const latestData = dataRef.current;
+    if (latestData) {
+      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "setView", firstPerson }))}, '*'); true;`);
+    }
+  }, [firstPerson]);
 
   const handleMessage = (event: WebViewMessageEvent) => {
     let message: LeafletMessage;

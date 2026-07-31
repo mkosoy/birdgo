@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import { useNavigation } from "@react-navigation/native";
@@ -15,6 +15,8 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const [location, setLocation] = useState<Coordinates>(SF_COORDS);
   const [center, setCenter] = useState<Coordinates>(SF_COORDS);
   const [mode, setMode] = useState<BirdMapMode>("classic");
+  const [firstPerson, setFirstPerson] = useState(false);
+  const [heading, setHeading] = useState<number | undefined>();
   const [recenterRequest, setRecenterRequest] = useState(0);
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
   const [rareDismissed, setRareDismissed] = useState(false);
@@ -59,6 +61,26 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   }, []);
 
   useEffect(() => {
+    if (Platform.OS === "web" || !firstPerson) {
+      setHeading(undefined);
+      return;
+    }
+    let mounted = true;
+    let subscription: Location.LocationSubscription | undefined;
+    void Location.watchHeadingAsync((update) => {
+      const nextHeading = update.trueHeading >= 0 ? update.trueHeading : update.magHeading;
+      if (Number.isFinite(nextHeading)) setHeading(nextHeading);
+    }).then((nextSubscription) => {
+      if (mounted) subscription = nextSubscription;
+      else nextSubscription.remove();
+    }).catch(() => undefined);
+    return () => {
+      mounted = false;
+      subscription?.remove();
+    };
+  }, [firstPerson]);
+
+  useEffect(() => {
     void saveSeen(birds.flatMap((bird) => bird.comName ? [{ speciesCode: bird.speciesCode, comName: bird.comName }] : []));
   }, [birds, saveSeen]);
 
@@ -74,6 +96,15 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
     }).catch(() => undefined);
   }, [notable]);
 
+  const toggleMode = () => {
+    if (mode === "adventure") {
+      setFirstPerson(false);
+      setMode("classic");
+    } else {
+      setMode("adventure");
+    }
+  };
+
   return (
     <View style={styles.container}>
       <BirdMap
@@ -81,6 +112,8 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         userLocation={location}
         birds={birds}
         mode={mode}
+        firstPerson={firstPerson}
+        heading={heading}
         recenterRequest={recenterRequest}
         onCapture={(bird) => {
           onCapture?.({ speciesCode: bird.speciesCode, comName: bird.comName ?? "Unknown bird" });
@@ -98,9 +131,14 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         onRegionChange={setCenter}
       />
       <View style={styles.topOverlay}>
-        <Pressable style={styles.modeButton} onPress={() => setMode((current) => current === "classic" ? "adventure" : "classic")}>
+        <Pressable style={styles.modeButton} onPress={toggleMode}>
           <Text style={styles.modeButtonText}>{mode === "classic" ? "🌿 Adventure" : "🗺 Classic"}</Text>
         </Pressable>
+        {mode === "adventure" && (
+          <Pressable style={styles.modeButton} onPress={() => setFirstPerson((current) => !current)}>
+            <Text style={styles.modeButtonText}>{firstPerson ? "🗺 Overhead" : "👣 First-person"}</Text>
+          </Pressable>
+        )}
         {locationNotice && <Text style={styles.notice}>{locationNotice}</Text>}
         {notable.length > 0 && !rareDismissed && (
           <Pressable style={styles.rareBanner} onPress={() => setRareDismissed(true)}>
