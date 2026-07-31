@@ -23,9 +23,11 @@ export function buildMapLibreHtml(): string {
     .encounter button:nth-child(2) { background: #2878d1; }
     .encounter button:nth-child(3) { background: #6f5aa8; }
     #direction-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
-    .direction-arrow { position: absolute; width: 86px; min-height: 42px; padding: 4px; border: 0; border-radius: 10px; color: white; font-size: 12px; line-height: 1.15; text-align: center; pointer-events: auto; cursor: pointer; transform-origin: center; }
-    .direction-arrow .glyph { display: block; font-size: 25px; line-height: 22px; }
-    .direction-arrow .label { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0,0,0,.65); }
+    .direction-arrow { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 1px; width: 96px; padding: 5px 4px; border: 0; border-radius: 12px; color: white; font-size: 11px; line-height: 1.1; text-align: center; pointer-events: auto; cursor: pointer; transform-origin: center; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+    .direction-arrow .thumb { width: 38px; height: 38px; border-radius: 50%; overflow: hidden; background: rgba(255,255,255,.3); border: 2px solid rgba(255,255,255,.9); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+    .direction-arrow .thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .direction-arrow .pointer { font-size: 15px; line-height: 12px; }
+    .direction-arrow .label { display: block; max-width: 92px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(0,0,0,.65); }
     .direction-arrow.common { background: rgba(47, 125, 91, .9); }
     .direction-arrow.rare { background: rgba(217, 157, 33, .95); }
     #compass-button { position: absolute; z-index: 6; left: 50%; bottom: 24px; transform: translateX(-50%); border: 0; border-radius: 18px; padding: 9px 14px; color: white; background: rgba(35, 73, 53, .92); font-weight: 700; display: none; cursor: pointer; }
@@ -88,6 +90,21 @@ export function buildMapLibreHtml(): string {
         var value = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
           Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
         return 6371 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+      }
+
+      var birdImageCache = {};
+      function getBirdImage(name) {
+        if (!name) return false;
+        if (Object.prototype.hasOwnProperty.call(birdImageCache, name)) return birdImageCache[name];
+        birdImageCache[name] = null;
+        fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(name))
+          .then(function (response) { if (!response.ok) throw new Error('no summary'); return response.json(); })
+          .then(function (summary) {
+            birdImageCache[name] = (summary.thumbnail && summary.thumbnail.source) || false;
+            if (birdImageCache[name]) scheduleDirections();
+          })
+          .catch(function () { birdImageCache[name] = false; });
+        return null;
       }
 
       function geographicBearing(a, b) {
@@ -174,8 +191,8 @@ export function buildMapLibreHtml(): string {
         var centerX = width / 2;
         var centerY = height / 2;
         var radius = Math.min(width, height) * 0.38;
-        var halfWidth = 48;
-        var halfHeight = 30;
+        var halfWidth = 52;
+        var halfHeight = 42;
         var mapBearing = map.getBearing();
         var nearest = latestMarkers.map(function (bird) {
           return { bird: bird, distance: haversineKm(lastUserLocation, bird) };
@@ -184,13 +201,25 @@ export function buildMapLibreHtml(): string {
         }).sort(function (left, right) {
           return left.distance - right.distance;
         }).slice(0, 6);
+        var placed = [];
         nearest.forEach(function (entry) {
           var bird = entry.bird;
           var distance = entry.distance;
           var screenAngle = (geographicBearing(lastUserLocation, bird) - mapBearing + 360) % 360;
           var radians = screenAngle * Math.PI / 180;
-          var x = Math.max(halfWidth, Math.min(width - halfWidth, centerX + Math.sin(radians) * radius));
-          var y = Math.max(halfHeight, Math.min(height - halfHeight, centerY - Math.cos(radians) * radius));
+          var ringRadius = radius;
+          var x = 0;
+          var y = 0;
+          for (var attempt = 0; attempt < 6; attempt += 1) {
+            x = Math.max(halfWidth, Math.min(width - halfWidth, centerX + Math.sin(radians) * ringRadius));
+            y = Math.max(halfHeight, Math.min(height - halfHeight, centerY - Math.cos(radians) * ringRadius));
+            var collides = placed.some(function (point) {
+              return Math.abs(point.x - x) < 104 && Math.abs(point.y - y) < 72;
+            });
+            if (!collides) break;
+            ringRadius -= 50;
+          }
+          placed.push({ x: x, y: y });
           var arrow = document.createElement('button');
           arrow.type = 'button';
           arrow.className = 'direction-arrow ' + (bird.isNotable ? 'rare' : 'common');
@@ -200,7 +229,12 @@ export function buildMapLibreHtml(): string {
           var displayDistance = distance < 1
             ? Math.round(distance * 1000) + '\\u00a0m'
             : distance.toFixed(1) + ' km';
-          arrow.innerHTML = '<span class="glyph" style="transform:rotate(' + (screenAngle - 90) + 'deg)">➤</span>' +
+          var imageSource = getBirdImage(bird.comName);
+          var thumbInner = typeof imageSource === 'string' && imageSource
+            ? '<img src="' + escapeHtml(imageSource) + '" alt="" />'
+            : (bird.isNotable ? '★' : '🐦');
+          arrow.innerHTML = '<span class="thumb">' + thumbInner + '</span>' +
+            '<span class="pointer" style="transform:rotate(' + (screenAngle - 90) + 'deg)">➤</span>' +
             '<span class="label">' + escapeHtml(bird.comName || 'Bird') + ' · ' + displayDistance + '</span>';
           arrow.addEventListener('click', function () {
             follow = false;
