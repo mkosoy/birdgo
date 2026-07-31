@@ -15,9 +15,14 @@ export function useBirds(latitude: number, longitude: number) {
         fetchRecentBirds(latitude, longitude),
         fetchNotableBirds(latitude, longitude),
       ]);
-      const dedupe = new Map(recent.map((bird) => [`${bird.speciesCode}:${bird.locId ?? ""}`, bird]));
-      setBirds([...dedupe.values()]);
-      setNotable(rare);
+      const merged = new Map(recent.map((bird) => [`${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`, bird]));
+      for (const bird of rare) {
+        const key = `${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`;
+        merged.set(key, { ...merged.get(key), ...bird, isNotable: true });
+      }
+      const notableByKey = new Map(rare.map((bird) => [`${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`, bird]));
+      setBirds([...merged.values()]);
+      setNotable([...notableByKey.values()]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load nearby birds");
     } finally {

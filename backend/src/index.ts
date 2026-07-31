@@ -1,6 +1,7 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express, { type Request, type Response } from "express";
+import { fileURLToPath } from "node:url";
 import {
   deduplicateObservations,
   ebirdGet,
@@ -10,10 +11,16 @@ import {
 import { identifyBird, type BirdIdProvider } from "./birdId.js";
 
 dotenv.config();
-const app = express();
+export const app = express();
 const port = Number(process.env.PORT ?? 4000);
 const token = process.env.EBIRD_API_TOKEN;
-const provider: BirdIdProvider = process.env.BIRD_ID_PROVIDER === "openai" ? "openai" : "heuristic";
+const configuredProvider = process.env.BIRD_ID_PROVIDER;
+const provider: BirdIdProvider =
+  configuredProvider === "openai" ||
+  configuredProvider === "huggingface" ||
+  configuredProvider === "gemini"
+    ? configuredProvider
+    : "heuristic";
 app.use(cors());
 app.use(express.json({ limit: "15mb" }));
 app.use((request, _response, next) => {
@@ -95,7 +102,12 @@ app.post("/api/identify", async (request, response) => {
   }
   const validHints = Array.isArray(hints) ? hints.filter((hint): hint is string => typeof hint === "string") : [];
   try {
-    response.json(await identifyBird(imageBase64, validHints, provider, process.env.OPENAI_API_KEY));
+    response.json(await identifyBird(imageBase64, validHints, provider, {
+      huggingface: process.env.HUGGINGFACE_API_KEY,
+      gemini: process.env.GEMINI_API_KEY,
+      openai: process.env.OPENAI_API_KEY,
+      huggingfaceModel: process.env.HF_BIRD_MODEL,
+    }));
   } catch (error) {
     console.error(error);
     response.status(502).json({ error: "Bird identification failed", status: 502 });
@@ -103,4 +115,6 @@ app.post("/api/identify", async (request, response) => {
 });
 
 if (!token) console.warn("EBIRD_API_TOKEN is not configured; eBird routes will return 503.");
-app.listen(port, () => console.info(`BirdGo backend listening on port ${port}`));
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  app.listen(port, () => console.info(`BirdGo backend listening on port ${port}`));
+}
