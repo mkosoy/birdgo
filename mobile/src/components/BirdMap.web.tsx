@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { EbirdObservation, Coordinates } from "../types";
 import { buildLeafletHtml } from "./leafletHtml";
+import { buildMapLibreHtml } from "./mapLibreHtml";
 import type { BirdMapProps } from "./BirdMap";
 
 interface LeafletMessage {
-  type: "markerPress" | "regionChange";
+  type: "capture" | "directions" | "about" | "regionChange";
   id?: string;
+  speciesCode?: string;
+  comName?: string;
+  name?: string;
   latitude?: number;
   longitude?: number;
 }
@@ -20,7 +24,7 @@ function relativeTime(date?: string): string {
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
-export function BirdMap({ center, userLocation, birds, onMarkerPress, onRegionChange }: BirdMapProps) {
+export function BirdMap({ center, userLocation, birds, mode, recenterRequest, onCapture, onDirections, onAbout, onRegionChange }: BirdMapProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const markerLookup = useMemo(() => new Map(birds.map((bird) => [markerId(bird), bird])), [birds]);
   const data = useMemo(() => ({
@@ -31,7 +35,11 @@ export function BirdMap({ center, userLocation, birds, onMarkerPress, onRegionCh
       latitude: bird.latitude,
       longitude: bird.longitude,
       comName: bird.comName ?? "Bird",
+      sciName: bird.sciName,
+      locName: bird.locName,
       relativeTime: relativeTime(bird.obsDt),
+      howMany: bird.howMany,
+      speciesCode: bird.speciesCode,
       isNotable: Boolean(bird.isNotable),
     })),
   }), [birds, center, userLocation]);
@@ -44,20 +52,28 @@ export function BirdMap({ center, userLocation, birds, onMarkerPress, onRegionCh
       } catch {
         return;
       }
-      if (message.type === "markerPress" && message.id) {
+      if (message.type === "capture" && message.id) {
         const bird = markerLookup.get(message.id);
-        if (bird) onMarkerPress(bird);
+        if (bird) onCapture(bird);
+      } else if (message.type === "directions" && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name) {
+        onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name });
+      } else if (message.type === "about" && message.speciesCode && message.comName) {
+        onAbout({ speciesCode: message.speciesCode, comName: message.comName });
       } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
         onRegionChange({ latitude: message.latitude, longitude: message.longitude });
       }
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [markerLookup, onMarkerPress, onRegionChange]);
+  }, [markerLookup, onAbout, onCapture, onDirections, onRegionChange]);
 
   useEffect(() => {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify(data), "*");
   }, [data]);
+  useEffect(() => {
+    if (recenterRequest) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...data, command: "recenter" }), "*");
+  }, [data, recenterRequest]);
 
-  return <iframe ref={iframeRef} srcDoc={buildLeafletHtml()} onLoad={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify(data), "*")} style={{ border: 0, width: "100%", height: "100%" }} title="BirdGo map" />;
+  const html = mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml();
+  return <iframe ref={iframeRef} srcDoc={html} onLoad={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify(data), "*")} style={{ border: 0, width: "100%", height: "100%" }} title="BirdGo map" />;
 }

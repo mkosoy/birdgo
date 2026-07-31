@@ -1,18 +1,18 @@
-export function buildLeafletHtml(): string {
+export function buildMapLibreHtml(): string {
   return `<!doctype html>
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
   <style>
     html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }
     .bird-marker, .user-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 18px; font-weight: bold; }
-    .bird-marker { width: 32px; height: 32px; background: #2f7d5b; border: 2px solid white; }
+    .bird-marker { width: 32px; height: 32px; background: #2f7d5b; border: 2px solid white; cursor: pointer; }
     .bird-marker.notable { background: #d99d21; }
     .user-marker { position: relative; width: 22px; height: 22px; background: #2878d1; border: 3px solid white; box-shadow: 0 0 0 2px #2878d1; }
     .user-marker::before { content: ''; position: absolute; top: 50%; left: 50%; width: 42px; height: 42px; border-radius: 50%; border: 2px solid rgba(40, 120, 209, 0.55); animation: pulse 1.8s ease-out infinite; }
     @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(1.45); opacity: 0; } }
-    .encounter { min-width: 220px; line-height: 1.35; }
+    .encounter { min-width: 220px; line-height: 1.35; color: #26342d; }
     .encounter h3 { margin: 0 0 2px; font-size: 16px; }
     .encounter .scientific { font-style: italic; color: #4c5c54; }
     .encounter .meta, .encounter .distance, .encounter .info { margin-top: 6px; }
@@ -25,15 +25,19 @@ export function buildLeafletHtml(): string {
 </head>
 <body>
   <div id="map"></div>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script>
     (function () {
-      var map = L.map('map', { zoomControl: true }).setView([37.7749, -122.4194], 13);
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
-      var markers = L.layerGroup().addTo(map);
+      var map = new maplibregl.Map({
+        container: 'map',
+        style: 'https://tiles.openfreemap.org/styles/bright',
+        center: [-122.4194, 37.7749],
+        zoom: 13,
+        pitch: 55,
+        bearing: 0
+      });
+      map.addControl(new maplibregl.NavigationControl(), 'top-right');
+      var birdMarkers = [];
       var userMarker = null;
       var firstData = true;
       var moveTimer = null;
@@ -44,14 +48,6 @@ export function buildLeafletHtml(): string {
         if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(serialized);
         else if (window.parent && window.parent !== window) window.parent.postMessage(serialized, '*');
         else window.postMessage(serialized, '*');
-      }
-
-      function markerIcon(isNotable) {
-        return L.divIcon({
-          className: '',
-          html: '<div class="bird-marker' + (isNotable ? ' notable' : '') + '">' + (isNotable ? '★' : '🐦') + '</div>',
-          iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -18]
-        });
       }
 
       function escapeHtml(value) {
@@ -106,28 +102,73 @@ export function buildLeafletHtml(): string {
           .catch(function () {});
       }
 
+      function styleAdventureMap() {
+        var layers = map.getStyle().layers || [];
+        layers.forEach(function (layer) {
+          try {
+            if (layer.type === 'background') map.setPaintProperty(layer.id, 'background-color', '#cce8c6');
+            if (layer.type === 'fill' && layer['source-layer'] === 'water') map.setPaintProperty(layer.id, 'fill-color', '#8cc9e8');
+            if (layer.type === 'fill' && layer['source-layer'] === 'park') map.setPaintProperty(layer.id, 'fill-color', '#76b86b');
+            if (layer.type === 'symbol' && layer.layout && layer.layout.visibility !== 'none') map.setLayoutProperty(layer.id, 'visibility', 'none');
+          } catch (_) {}
+        });
+        if (map.getSource('openmaptiles') && !map.getLayer('birdgo-buildings-3d')) {
+          try {
+            map.addLayer({
+              id: 'birdgo-buildings-3d',
+              type: 'fill-extrusion',
+              source: 'openmaptiles',
+              'source-layer': 'building',
+              minzoom: 14,
+              paint: {
+                'fill-extrusion-color': '#a9c6a1',
+                'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 8],
+                'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+                'fill-extrusion-opacity': 0.8
+              }
+            });
+          } catch (_) {}
+        }
+        map.setPitch(55);
+        map.setZoom(15.5);
+        map.setBearing(0);
+      }
+
+      map.on('load', function () { styleAdventureMap(); });
+
       function render(data) {
         if (!data || !data.center) return;
         if (data.userLocation) lastUserLocation = data.userLocation;
         if (data.command === 'recenter') {
           var target = data.userLocation || data.center;
-          map.setView([target.latitude, target.longitude], map.getZoom() < 13 ? 13 : map.getZoom());
+          map.easeTo({ center: [target.longitude, target.latitude], duration: 450, pitch: 55, zoom: Math.max(map.getZoom(), 15.5), bearing: 0 });
         }
-        markers.clearLayers();
+        birdMarkers.forEach(function (marker) { marker.remove(); });
+        birdMarkers = [];
         (data.markers || []).forEach(function (bird) {
-          var marker = L.marker([bird.latitude, bird.longitude], { icon: markerIcon(bird.isNotable) });
-          var popup = L.popup({ maxWidth: 300 }).setContent(popupHtml(bird, lastUserLocation));
-          marker.bindPopup(popup);
-          marker.on('popupopen', function () { attachPopupActions(popup, bird); });
-          marker.addTo(markers);
+          var element = document.createElement('div');
+          element.className = 'bird-marker' + (bird.isNotable ? ' notable' : '');
+          element.textContent = bird.isNotable ? '★' : '🐦';
+          var marker = new maplibregl.Marker({ element: element })
+            .setLngLat([bird.longitude, bird.latitude])
+            .addTo(map);
+          element.addEventListener('click', function () {
+            var popup = new maplibregl.Popup({ offset: 20, maxWidth: '300px' })
+              .setLngLat([bird.longitude, bird.latitude])
+              .setHTML(popupHtml(bird, lastUserLocation))
+              .addTo(map);
+            setTimeout(function () { attachPopupActions(popup, bird); }, 0);
+          });
+          birdMarkers.push(marker);
         });
         if (data.userLocation) {
-          var userPoint = [data.userLocation.latitude, data.userLocation.longitude];
-          if (userMarker) userMarker.setLatLng(userPoint);
-          else userMarker = L.marker(userPoint, { icon: L.divIcon({ className: '', html: '<div class="user-marker"></div>', iconSize: [22, 22], iconAnchor: [11, 11] }), interactive: false }).addTo(map);
+          var userElement = document.createElement('div');
+          userElement.className = 'user-marker';
+          if (userMarker) userMarker.setLngLat([data.userLocation.longitude, data.userLocation.latitude]);
+          else userMarker = new maplibregl.Marker({ element: userElement }).setLngLat([data.userLocation.longitude, data.userLocation.latitude]).addTo(map);
         }
         if (firstData) {
-          map.setView([data.center.latitude, data.center.longitude], 13);
+          map.setCenter([data.center.longitude, data.center.latitude]);
           firstData = false;
         }
       }
