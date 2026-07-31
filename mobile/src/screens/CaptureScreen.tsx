@@ -65,14 +65,21 @@ export function CaptureScreen({ hint }: Props) {
     Alert.alert("Added to Bird-dex", `${result.commonName ?? hint?.comName ?? "Bird"} is now in your collection.`);
   };
 
-  if (!permission?.granted) {
-    return <View style={styles.center}><Text style={styles.title}>Camera access needed</Text><Text style={styles.copy}>Allow camera access to photograph birds, or choose a photo from your library.</Text><Pressable style={styles.button} onPress={() => void requestPermission()}><Text style={styles.buttonText}>Enable camera</Text></Pressable><Pressable style={styles.secondary} onPress={() => void pickPhoto()}><Text>Pick from library</Text></Pressable></View>;
-  }
   return <View style={styles.container}>
-    {!photoUri ? <CameraView ref={camera} style={styles.camera} facing={cameraType} /> : <Image source={{ uri: photoUri }} style={styles.camera} />}
+    {!photoUri
+      ? permission?.granted
+        ? <CameraView ref={camera} style={styles.camera} facing={cameraType} />
+        : <View style={styles.noCamera}>
+          <Text style={styles.title}>Camera access needed</Text>
+          <Text style={styles.copy}>Allow camera access to photograph birds, or choose a photo from your library.</Text>
+          <Pressable style={styles.button} onPress={() => void requestPermission()}><Text style={styles.buttonText}>Enable camera</Text></Pressable>
+          <Pressable style={styles.secondary} onPress={() => void pickPhoto()}><Text>Pick from library</Text></Pressable>
+        </View>
+      : <Image source={{ uri: photoUri }} style={styles.camera} />}
     <View style={styles.controls}>
-      {!photoUri ? <Pressable style={styles.shutter} onPress={() => void takePhoto()}><Text style={styles.shutterText}>●</Text></Pressable> : <Pressable style={styles.button} onPress={() => { setPhotoUri(null); setResult(null); }}><Text style={styles.buttonText}>Try another</Text></Pressable>}
-      <Pressable style={styles.secondaryDark} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Pick from library</Text></Pressable>
+      {!photoUri && permission?.granted && <Pressable style={styles.shutter} onPress={() => void takePhoto()}><Text style={styles.shutterText}>●</Text></Pressable>}
+      {photoUri && <Pressable style={styles.button} onPress={() => { setPhotoUri(null); setResult(null); }}><Text style={styles.buttonText}>Try another</Text></Pressable>}
+      {photoUri && <Pressable style={styles.secondaryDark} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Pick from library</Text></Pressable>}
       {busy && <ActivityIndicator color="#fff" />}
       {result && !busy && <View style={styles.result}><Text style={styles.resultTitle}>{result.isBird ? result.commonName : "That doesn't look like a bird"}</Text>{result.isBird && <><Text style={styles.scientific}>{result.sciName ?? "Species unknown"}</Text><Text style={styles.confidence}>{Math.round(result.confidence * 100)}% confidence</Text><Pressable style={styles.button} onPress={() => void addToCollection()}><Text style={styles.buttonText}>Add to collection</Text></Pressable></>}</View>}
     </View>
@@ -82,6 +89,7 @@ export function CaptureScreen({ hint }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#101814" },
   camera: { flex: 1 },
+  noCamera: { flex: 1, padding: 28, justifyContent: "center", alignItems: "center", gap: 14 },
   controls: { padding: 20, alignItems: "center", gap: 12 },
   shutter: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
   shutterText: { color: "#2f7d5b", fontSize: 50, lineHeight: 50 },

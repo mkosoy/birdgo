@@ -1,8 +1,13 @@
+import { useCallback } from "react";
 import { FlatList, Image, StyleSheet, Text, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useCollection } from "../hooks/useCollection";
 
 export function DexScreen() {
-  const { captures, seenSpecies, loading } = useCollection();
+  const { captures, seenSpecies, loading, refresh } = useCollection();
+  useFocusEffect(useCallback(() => {
+    void refresh();
+  }, [refresh]));
   if (loading) return <View style={styles.center}><Text>Loading your Bird-dex…</Text></View>;
   const capturedCodes = new Set(captures.map((capture) => capture.speciesCode).filter(Boolean));
   const capturedNames = new Set(captures.map((capture) => capture.commonName.trim().toLowerCase()));
