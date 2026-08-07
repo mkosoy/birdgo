@@ -16,6 +16,7 @@ export interface BirdMapProps {
   heading?: number;
   recenterRequest?: number;
   overviewRequest?: number;
+  nearestRequest?: number;
   onCapture: (bird: EbirdObservation) => void;
   onDirections: (coordinates: Coordinates & { name: string }) => void;
   onAbout: (bird: { speciesCode: string; comName: string }) => void;
@@ -41,7 +42,7 @@ interface LeafletData {
   userLocation?: Coordinates;
   heading?: number;
   markers: LeafletMarker[];
-  command?: "recenter" | "setView";
+  command?: "recenter" | "setView" | "overview" | "nearest";
   firstPerson?: boolean;
 }
 
@@ -66,13 +67,14 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, onCapture, onDirections, onAbout, onRegionChange },
+  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, onCapture, onDirections, onAbout, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
   const lastOverviewRef = useRef(0);
+  const lastNearestRef = useRef(0);
   const dataRef = useRef<LeafletData | null>(null);
   useImperativeHandle(forwardedRef, () => webViewRef.current as WebView);
   const markerLookup = useMemo(() => new Map(birds.map((bird) => [markerId(bird), bird])), [birds]);
@@ -127,6 +129,14 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "overview" }))}, '*'); true;`);
     }
   }, [overviewRequest]);
+  useEffect(() => {
+    if (!nearestRequest || nearestRequest === lastNearestRef.current) return;
+    lastNearestRef.current = nearestRequest;
+    const latestData = dataRef.current;
+    if (latestData) {
+      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "nearest" }))}, '*'); true;`);
+    }
+  }, [nearestRequest]);
 
   const handleMessage = (event: WebViewMessageEvent) => {
     let message: LeafletMessage;

@@ -24,11 +24,12 @@ function relativeTime(date?: string): string {
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
-export function BirdMap({ center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, onCapture, onDirections, onAbout, onRegionChange }: BirdMapProps) {
+export function BirdMap({ center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, onCapture, onDirections, onAbout, onRegionChange }: BirdMapProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
   const lastOverviewRef = useRef(0);
+  const lastNearestRef = useRef(0);
   const markerLookup = useMemo(() => new Map(birds.map((bird) => [markerId(bird), bird])), [birds]);
   const data = useMemo(() => ({
     center,
@@ -98,6 +99,12 @@ export function BirdMap({ center, userLocation, birds, mode, firstPerson, headin
     const latestData = dataRef.current;
     if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "overview" }), "*");
   }, [overviewRequest]);
+  useEffect(() => {
+    if (!nearestRequest || nearestRequest === lastNearestRef.current) return;
+    lastNearestRef.current = nearestRequest;
+    const latestData = dataRef.current;
+    if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "nearest" }), "*");
+  }, [nearestRequest]);
 
   const html = mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml();
   const blobUrl = useMemo(() => URL.createObjectURL(new Blob([html], { type: "text/html" })), [html]);

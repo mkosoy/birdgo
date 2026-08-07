@@ -9,6 +9,7 @@ export function buildMapLibreHtml(): string {
     body { position: relative; overflow: hidden; }
     .bird-marker, .user-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 18px; font-weight: bold; }
     .bird-marker { width: 32px; height: 32px; background: #2f7d5b; border: 2px solid white; cursor: pointer; }
+    .bird-marker.in-range { box-shadow: 0 0 0 5px rgba(217,157,33,.38), 0 2px 8px rgba(0,0,0,.3); }
     .bird-marker.notable { background: #d99d21; }
     .user-marker { position: relative; width: 22px; height: 22px; background: #2878d1; border: 3px solid white; box-shadow: 0 0 0 2px #2878d1; }
     .user-marker::before { content: ''; position: absolute; top: 50%; left: 50%; width: 42px; height: 42px; border-radius: 50%; border: 2px solid rgba(40, 120, 209, 0.55); animation: pulse 1.8s ease-out infinite; }
@@ -23,7 +24,7 @@ export function buildMapLibreHtml(): string {
     .encounter button:nth-child(2) { background: #2878d1; }
     .encounter button:nth-child(3) { background: #6f5aa8; }
     .maplibregl-popup { z-index: 9 !important; }
-    #nearby-panel { position: absolute; left: 8px; right: 8px; bottom: 98px; z-index: 6; background: rgba(255,255,255,.96); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.25); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; max-height: 52%; display: flex; flex-direction: column; }
+    #nearby-panel { position: absolute; left: 8px; right: 84px; bottom: 98px; z-index: 6; background: rgba(255,255,255,.96); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.25); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; max-height: 52%; display: flex; flex-direction: column; }
     #nearby-header { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
     #nearby-title { font-weight: 800; color: #173c2b; font-size: 14px; flex: 1; }
     #rare-toggle { border: 1px solid #d99d21; color: #b6810f; background: #fff; border-radius: 14px; padding: 4px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
@@ -47,7 +48,7 @@ export function buildMapLibreHtml(): string {
     #track-hud.on { display: block; }
     #track-arrow { position: absolute; top: 40%; left: 50%; margin: -70px 0 0 -46px; font-size: 104px; line-height: 92px; color: rgba(47,125,91,.92); text-shadow: 0 3px 10px rgba(0,0,0,.4); transition: transform .18s ease-out; }
     #track-arrow.rare { color: rgba(217,157,33,.96); }
-    #track-card { position: absolute; left: 8px; right: 8px; bottom: 98px; z-index: 8; background: rgba(255,255,255,.97); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.28); padding: 12px; display: none; align-items: center; gap: 12px; pointer-events: auto; font-family: -apple-system, system-ui, sans-serif; }
+    #track-card { position: absolute; left: 8px; right: 84px; bottom: 98px; z-index: 8; background: rgba(255,255,255,.97); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.28); padding: 12px; display: none; align-items: center; gap: 12px; pointer-events: auto; font-family: -apple-system, system-ui, sans-serif; }
     #track-card.on { display: flex; }
     #track-thumb { width: 54px; height: 54px; border-radius: 50%; overflow: hidden; flex: none; background: #dbe7df; display: flex; align-items: center; justify-content: center; font-size: 26px; }
     #track-thumb img { width: 100%; height: 100%; object-fit: cover; }
@@ -58,6 +59,22 @@ export function buildMapLibreHtml(): string {
     #track-snap { border: 0; border-radius: 20px; padding: 10px 16px; background: #2f7d5b; color: #fff; font-weight: 800; cursor: pointer; }
     #track-snap.ready { background: #d99d21; animation: snappulse 1s infinite; }
     #track-stop { border: 0; border-radius: 20px; padding: 10px 14px; background: #eceff0; color: #445; font-weight: 700; cursor: pointer; }
+    #route-panel { position: absolute; left: 8px; right: 84px; bottom: 188px; z-index: 8; max-height: 38%; display: none; background: rgba(255,255,255,.97); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.28); overflow: hidden; font-family: -apple-system, system-ui, sans-serif; pointer-events: auto; }
+    #route-panel.on { display: block; }
+    #route-header { display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer; border-bottom: 1px solid #eee; color: #173c2b; font-size: 13px; }
+    #route-header-copy { flex: 1; min-width: 0; }
+    #route-current { display: flex; align-items: baseline; gap: 6px; font-weight: 800; white-space: nowrap; overflow: hidden; }
+    #route-current-icon { flex: none; color: #2878d1; font-size: 18px; line-height: 18px; }
+    #route-current-text { overflow: hidden; text-overflow: ellipsis; }
+    #route-current-distance { flex: none; color: #6b7d72; font-size: 12px; }
+    #route-summary { margin-top: 2px; color: #6b7d72; font-size: 11px; font-weight: 600; }
+    #route-caret { color: #888; }
+    #route-steps { overflow-y: auto; max-height: 220px; padding: 4px; }
+    #route-panel.collapsed #route-steps { display: none; }
+    .route-step { display: flex; gap: 9px; align-items: flex-start; padding: 8px; border-radius: 10px; color: #5c6f65; font-size: 12px; }
+    .route-step.current { background: #eaf3ff; color: #173c2b; font-weight: 700; }
+    .route-step-icon { width: 22px; text-align: center; color: #2878d1; font-size: 18px; line-height: 18px; }
+    .route-step-distance { margin-left: auto; white-space: nowrap; color: #6b7d72; font-weight: 600; }
     @keyframes snappulse { 0%,100%{ transform: scale(1);} 50%{ transform: scale(1.07);} }
     #snap-toast { position: absolute; left: 50%; top: 76px; transform: translateX(-50%); z-index: 8; max-width: 88%; background: rgba(217,157,33,.97); color: #fff; border: 0; border-radius: 22px; padding: 10px 16px; font-weight: 800; font-size: 13px; font-family: -apple-system, system-ui, sans-serif; box-shadow: 0 3px 12px rgba(0,0,0,.3); display: none; cursor: pointer; }
     #snap-toast.on { display: block; }
@@ -79,6 +96,16 @@ export function buildMapLibreHtml(): string {
     <div id="track-thumb"></div>
     <div id="track-meta"><div id="track-name"></div><div id="track-dist"></div></div>
     <div id="track-actions"><button id="track-snap" type="button">📸 Snap</button><button id="track-stop" type="button">✕</button></div>
+  </div>
+  <div id="route-panel" class="collapsed">
+    <div id="route-header">
+      <div id="route-header-copy">
+        <div id="route-current"><span id="route-current-icon">➤</span><span id="route-current-text">Walking directions</span><span id="route-current-distance"></span></div>
+        <div id="route-summary">Walking route</div>
+      </div>
+      <span id="route-caret">▸</span>
+    </div>
+    <div id="route-steps"></div>
   </div>
   <button id="snap-toast" type="button"></button>
   <button id="compass-button" type="button">🧭 Enable compass</button>
@@ -111,6 +138,9 @@ export function buildMapLibreHtml(): string {
       var arrowFrame = null;
       var trackId = null;
       var routeDistanceM = null;
+      var routeSteps = [];
+      var routeStepIndex = 0;
+      var routePanelCollapsed = true;
       var routeSeq = 0;
       var lastRouteOrigin = null;
       var lastRouteTargetKey = null;
@@ -133,6 +163,14 @@ export function buildMapLibreHtml(): string {
       var trackDist = document.getElementById('track-dist');
       var trackSnap = document.getElementById('track-snap');
       var trackStop = document.getElementById('track-stop');
+      var routePanel = document.getElementById('route-panel');
+      var routeHeader = document.getElementById('route-header');
+      var routeCurrentIcon = document.getElementById('route-current-icon');
+      var routeCurrentText = document.getElementById('route-current-text');
+      var routeCurrentDistance = document.getElementById('route-current-distance');
+      var routeSummary = document.getElementById('route-summary');
+      var routeCaret = document.getElementById('route-caret');
+      var routeStepsElement = document.getElementById('route-steps');
       var snapToast = document.getElementById('snap-toast');
 
       function postOutward(payload) {
@@ -248,6 +286,20 @@ export function buildMapLibreHtml(): string {
         startOrientation();
       }
 
+      var firstPersonPadding = { top: 28, right: 0, bottom: 220, left: 0 };
+      var firstPersonOffset = [0, -120];
+      function frameUser(target, duration) {
+        if (!target || typeof target.latitude !== 'number' || typeof target.longitude !== 'number') return;
+        map.easeTo({
+          center: [target.longitude, target.latitude],
+          padding: firstPersonPadding,
+          offset: firstPersonOffset,
+          pitch: 72,
+          zoom: Math.max(map.getZoom(), 18),
+          duration: duration
+        });
+      }
+
       compassButton.addEventListener('click', function () {
         var deviceOrientation = window.DeviceOrientationEvent;
         if (!deviceOrientation || typeof deviceOrientation.requestPermission !== 'function') {
@@ -303,17 +355,120 @@ export function buildMapLibreHtml(): string {
             geometry: { type: 'LineString', coordinates: coordinates }
           }]
         });
-        var color = bird && bird.isNotable ? '#d99d21' : '#2f7d5b';
+        var color = bird && bird.isNotable ? '#d99d21' : '#1e63d0';
         if (map.getLayer('track-route-main')) map.setPaintProperty('track-route-main', 'line-color', color);
+      }
+
+      function clearDirections() {
+        routeSteps = [];
+        routeStepIndex = 0;
+        routeCurrentIcon.textContent = '➤';
+        routeCurrentText.textContent = 'Walking directions';
+        routeCurrentDistance.textContent = '';
+        routeSummary.textContent = 'Walking route';
+        routeStepsElement.innerHTML = '';
+        routePanel.classList.remove('on');
       }
 
       function clearRoute() {
         routeSeq += 1;
         routeDistanceM = null;
+        clearDirections();
         lastRouteOrigin = null;
         lastRouteTargetKey = null;
         var source = map.getSource('track-route');
         if (source) source.setData({ type: 'FeatureCollection', features: [] });
+      }
+
+      function maneuverIcon(maneuver) {
+        var type = maneuver && maneuver.type;
+        var modifier = maneuver && maneuver.modifier;
+        if (type === 'arrive') return '🏁';
+        if (type === 'depart') return '➤';
+        if (type === 'roundabout' || type === 'rotary') return '⟳';
+        if (modifier === 'sharp right') return '⤳';
+        if (modifier === 'right') return '↱';
+        if (modifier === 'slight right') return '↗';
+        if (modifier === 'sharp left') return '⤲';
+        if (modifier === 'left') return '↰';
+        if (modifier === 'slight left') return '↖';
+        if (modifier === 'uturn') return '⤴';
+        return '⬆';
+      }
+
+      function compassDirection(bearing) {
+        if (typeof bearing !== 'number' || !Number.isFinite(bearing)) return null;
+        var directions = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
+        var index = Math.round(((bearing % 360) + 360) % 360 / 45) % 8;
+        return directions[index];
+      }
+
+      function maneuverText(step) {
+        var maneuver = step.maneuver || {};
+        var type = maneuver.type || 'continue';
+        var modifier = maneuver.modifier ? String(maneuver.modifier).replace('-', ' ') : '';
+        var name = typeof step.name === 'string' ? step.name : '';
+        if (type === 'arrive') return 'Arrive at the bird';
+        if (type === 'depart') {
+          var direction = compassDirection(maneuver.bearing_after);
+          return direction ? 'Head ' + direction + (name ? ' on ' + name : '') : 'Start walking' + (name ? ' on ' + name : '');
+        }
+        if (type === 'roundabout' || type === 'rotary') return 'Take the roundabout' + (name ? ' onto ' + name : '');
+        if (type === 'turn' || type === 'merge' || type === 'ramp' || type === 'fork' || type === 'end of road') {
+          return (modifier ? modifier.charAt(0).toUpperCase() + modifier.slice(1) : 'Continue') + (name ? ' onto ' + name : '');
+        }
+        return (modifier ? 'Continue ' + modifier : 'Continue') + (name ? ' on ' + name : '');
+      }
+
+      function updateRouteProgress() {
+        if (!routeSteps.length || !lastUserLocation) return;
+        var bestIndex = routeStepIndex;
+        var bestDistance = Infinity;
+        for (var index = routeStepIndex; index < routeSteps.length; index += 1) {
+          var location = routeSteps[index].maneuver && routeSteps[index].maneuver.location;
+          if (!Array.isArray(location) || location.length < 2) continue;
+          var distance = haversineKm(lastUserLocation, { latitude: location[1], longitude: location[0] });
+          if (distance != null && distance < bestDistance) {
+            bestDistance = distance;
+            bestIndex = index;
+          }
+        }
+        routeStepIndex = bestIndex;
+        var currentStep = routeSteps[routeStepIndex];
+        if (currentStep) {
+          routeCurrentIcon.textContent = maneuverIcon(currentStep.maneuver);
+          routeCurrentText.textContent = maneuverText(currentStep);
+          routeCurrentDistance.textContent = typeof currentStep.distance === 'number'
+            ? fmtDist(currentStep.distance / 1000)
+            : '';
+        }
+        routeStepsElement.querySelectorAll('.route-step').forEach(function (element, index) {
+          element.classList.toggle('current', index === routeStepIndex);
+        });
+      }
+
+      function renderRouteSteps(steps) {
+        routeSteps = Array.isArray(steps) ? steps.filter(function (step) {
+          return step && step.maneuver && Array.isArray(step.maneuver.location);
+        }) : [];
+        routeStepIndex = 0;
+        if (!routeSteps.length) {
+          clearDirections();
+          return;
+        }
+        routeStepsElement.innerHTML = routeSteps.map(function (step, index) {
+          var distance = typeof step.distance === 'number' ? fmtDist(step.distance / 1000) : '';
+          return '<div class="route-step' + (index === 0 ? ' current' : '') + '">' +
+            '<span class="route-step-icon">' + escapeHtml(maneuverIcon(step.maneuver)) + '</span>' +
+            '<span>' + escapeHtml(maneuverText(step)) + '</span>' +
+            '<span class="route-step-distance">' + escapeHtml(distance) + '</span>' +
+            '</div>';
+        }).join('');
+        routeSummary.textContent = routeDistanceM == null ? 'Walking route' : fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min walk';
+        routePanel.classList.add('on');
+        routePanel.classList.toggle('collapsed', routePanelCollapsed);
+        routeCaret.textContent = routePanelCollapsed ? '▸' : '▾';
+        updateRouteProgress();
       }
 
       function updateRoute() {
@@ -345,7 +500,7 @@ export function buildMapLibreHtml(): string {
         var sequence = ++routeSeq;
         var url = 'https://router.project-osrm.org/route/v1/foot/' +
           origin.longitude + ',' + origin.latitude + ';' + bird.longitude + ',' + bird.latitude +
-          '?overview=full&geometries=geojson';
+          '?overview=full&geometries=geojson&steps=true';
         fetch(url)
           .then(function (response) { if (!response.ok) throw new Error('route request failed'); return response.json(); })
           .then(function (route) {
@@ -354,6 +509,8 @@ export function buildMapLibreHtml(): string {
             if (!selected.geometry || !Array.isArray(selected.geometry.coordinates)) return;
             routeDistanceM = typeof selected.distance === 'number' ? selected.distance : null;
             setRouteGeometry(selected.geometry.coordinates, bird);
+            var legs = Array.isArray(selected.legs) ? selected.legs : [];
+            renderRouteSteps(legs[0] && legs[0].steps);
             updateTrackCard();
           })
           .catch(function () {});
@@ -397,6 +554,11 @@ export function buildMapLibreHtml(): string {
             snapToast.textContent = '📸 Snap ' + closestName + ' · ' + Math.round(closest.distance * 1000) + ' m';
             snapToast.classList.add('on');
             snapToast.onclick = function () { capture(closest.bird.id); };
+          } else if (closest && closest.distance * 1000 <= 180) {
+            var nearbyName = closest.bird.comName || closest.bird.sciName || 'Bird';
+            snapToast.textContent = '🐦 Nearby ' + nearbyName + ' · ' + Math.round(closest.distance * 1000) + ' m · Go';
+            snapToast.classList.add('on');
+            snapToast.onclick = function () { startTrack(closest.bird); };
           } else {
             snapToast.classList.remove('on');
             snapToast.onclick = null;
@@ -434,6 +596,7 @@ export function buildMapLibreHtml(): string {
           trackSnap.textContent = '📸 Snap';
           trackDist.textContent = 'Finding distance…';
         }
+        updateRouteProgress();
       }
 
       function updateTrackArrow() {
@@ -526,6 +689,11 @@ export function buildMapLibreHtml(): string {
         }
       });
       trackStop.addEventListener('click', stopTrack);
+      routeHeader.addEventListener('click', function () {
+        routePanelCollapsed = !routePanelCollapsed;
+        routePanel.classList.toggle('collapsed', routePanelCollapsed);
+        routeCaret.textContent = routePanelCollapsed ? '▸' : '▾';
+      });
 
       function popupHtml(bird, userLocation) {
         var distance = haversineKm(userLocation, bird);
@@ -535,6 +703,7 @@ export function buildMapLibreHtml(): string {
           '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div>' +
           '<div class="meta">' + escapeHtml(bird.locName || 'Unknown hotspot') + ' • ' + escapeHtml(bird.relativeTime || 'recently') + count + '</div>' +
           (distance == null ? '' : '<div class="distance">' + distance.toFixed(1) + ' km away</div>') +
+          (distance == null ? '' : '<div class="distance">Walk estimate: ' + etaMin(distance) + ' min</div>') +
           '<div class="info" data-info>About ' + escapeHtml(bird.sciName || bird.comName || 'this species') + '</div>' +
           '<div class="actions"><button data-action="capture">Capture</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
           '</div>';
@@ -664,21 +833,40 @@ export function buildMapLibreHtml(): string {
           if (data.heading != null) updateBearing(data.heading);
         }
         latestMarkers = data.markers || [];
+        if (firstData) {
+          var initialTarget = data.userLocation || data.center;
+          map.setCenter([initialTarget.longitude, initialTarget.latitude]);
+          if (data.firstPerson) {
+            headingFollow = true;
+            frameUser(initialTarget, 700);
+            enableOrientation();
+          } else {
+            map.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, pitch: 58, zoom: 15.5, bearing: 0, duration: 500 });
+          }
+          firstData = false;
+        }
         if (data.command === 'recenter') {
           follow = true;
           var target = data.userLocation || data.center;
+          if (data.firstPerson || headingFollow) {
+            headingFollow = true;
+            frameUser(target, 450);
+            if (typeof data.heading === 'number') updateBearing(data.heading);
+            enableOrientation();
+          } else {
+            map.easeTo({ center: [target.longitude, target.latitude], padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 450, pitch: 55, zoom: Math.max(map.getZoom(), 15.5), bearing: 0 });
+          }
           programmatic = true;
-          map.easeTo({ center: [target.longitude, target.latitude], duration: 450, pitch: headingFollow ? 78 : 55, zoom: Math.max(map.getZoom(), headingFollow ? 18.5 : 15.5), bearing: headingFollow && typeof currentHeading === 'number' ? currentHeading : 0 });
           setTimeout(function () { programmatic = false; }, 600);
         } else if (data.command === 'setView') {
           headingFollow = Boolean(data.firstPerson);
           if (headingFollow) {
-            map.easeTo({ pitch: 78, zoom: 18.5, duration: 700 });
+            frameUser(data.userLocation || lastUserLocation || data.center, 700);
             if (typeof data.heading === 'number') updateBearing(data.heading);
             enableOrientation();
           } else {
             compassButton.style.display = 'none';
-            map.easeTo({ pitch: 58, zoom: 15.5, bearing: 0, duration: 700 });
+            map.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, pitch: 58, zoom: 15.5, bearing: 0, duration: 700 });
           }
         } else if (data.command === 'overview') {
           follow = false;
@@ -698,11 +886,17 @@ export function buildMapLibreHtml(): string {
               duration: 700
             });
           } else if (overviewTarget) {
-            map.easeTo({ center: [overviewTarget.longitude, overviewTarget.latitude], pitch: 0, zoom: 14, bearing: 0, duration: 700 });
+            map.easeTo({ center: [overviewTarget.longitude, overviewTarget.latitude], padding: { top: 0, right: 0, bottom: 0, left: 0 }, pitch: 0, zoom: 14, bearing: 0, duration: 700 });
+          }
+        } else if (data.command === 'nearest') {
+          var closestEntry = computeNearest()[0];
+          if (closestEntry) {
+            openBirdPopup(closestEntry.bird);
+            startTrack(closestEntry.bird);
           }
         } else if (data.userLocation && follow && !programmatic && (!previousLocation || haversineKm(previousLocation, data.userLocation) > 0.003)) {
           programmatic = true;
-          map.easeTo({ center: [data.userLocation.longitude, data.userLocation.latitude], duration: 800 });
+          map.easeTo({ center: [data.userLocation.longitude, data.userLocation.latitude], padding: headingFollow ? firstPersonPadding : { top: 0, right: 0, bottom: 0, left: 0 }, offset: headingFollow ? firstPersonOffset : [0, 0], duration: 800 });
           setTimeout(function () { programmatic = false; }, 950);
         }
         if (trackId) updateRoute();
@@ -710,7 +904,8 @@ export function buildMapLibreHtml(): string {
         birdMarkers = [];
         (data.markers || []).forEach(function (bird) {
           var element = document.createElement('div');
-          element.className = 'bird-marker' + (bird.isNotable ? ' notable' : '');
+          var inRange = lastUserLocation && haversineKm(lastUserLocation, bird) != null && haversineKm(lastUserLocation, bird) <= 0.18;
+          element.className = 'bird-marker' + (bird.isNotable ? ' notable' : '') + (inRange ? ' in-range' : '');
           element.textContent = bird.isNotable ? '★' : '🐦';
           var marker = new maplibregl.Marker({ element: element })
             .setLngLat([bird.longitude, bird.latitude])
@@ -725,15 +920,6 @@ export function buildMapLibreHtml(): string {
           userElement.className = 'user-marker';
           if (userMarker) userMarker.setLngLat([data.userLocation.longitude, data.userLocation.latitude]);
           else userMarker = new maplibregl.Marker({ element: userElement }).setLngLat([data.userLocation.longitude, data.userLocation.latitude]).addTo(map);
-        }
-        if (firstData) {
-          map.setCenter([data.center.longitude, data.center.latitude]);
-          if (data.firstPerson) {
-            headingFollow = true;
-            map.easeTo({ pitch: 72, zoom: 18, duration: 700 });
-            enableOrientation();
-          }
-          firstData = false;
         }
         refreshUi();
       }

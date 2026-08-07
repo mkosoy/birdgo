@@ -19,6 +19,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const [heading, setHeading] = useState<number | undefined>();
   const [recenterRequest, setRecenterRequest] = useState(0);
   const [overviewRequest, setOverviewRequest] = useState(0);
+  const [nearestRequest, setNearestRequest] = useState(0);
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
   const [rareDismissed, setRareDismissed] = useState(false);
   const { birds, notable, loading, error, refresh } = useBirds(center.latitude, center.longitude);
@@ -39,6 +40,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
           const firstFix = { latitude: current.coords.latitude, longitude: current.coords.longitude };
           setLocation(firstFix);
           setCenter(firstFix);
+          setFirstPerson(true);
           setRecenterRequest((request) => request + 1);
         }
       } catch {
@@ -118,6 +120,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         heading={heading}
         recenterRequest={recenterRequest}
         overviewRequest={overviewRequest}
+        nearestRequest={nearestRequest}
         onCapture={(bird) => {
           onCapture?.({ speciesCode: bird.speciesCode, comName: bird.comName ?? "Unknown bird" });
           navigation.navigate("Capture" as never);
@@ -154,8 +157,13 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         {loading && <ActivityIndicator color="#fff" />}
       </View>
       {!loading && !error && birds.length === 0 && <View style={styles.empty}><Text style={styles.emptyText}>No birds spotted nearby — try moving the map.</Text></View>}
-      {mode === "adventure" && <Pressable style={styles.overviewButton} onPress={() => setOverviewRequest((request) => request + 1)}><Text style={styles.recenterText}>🗺</Text></Pressable>}
-      <Pressable style={styles.recenterButton} onPress={() => setRecenterRequest((request) => request + 1)}><Text style={styles.recenterText}>◎</Text></Pressable>
+      {mode === "adventure" && (
+        <>
+          <Pressable accessibilityLabel="Find closest bird" style={styles.nearestButton} onPress={() => setNearestRequest((request) => request + 1)}><Text style={styles.recenterText}>🐦</Text></Pressable>
+          <Pressable accessibilityLabel="See all birds" style={styles.overviewButton} onPress={() => setOverviewRequest((request) => request + 1)}><Text style={styles.recenterText}>🗺</Text></Pressable>
+        </>
+      )}
+      <Pressable accessibilityLabel="Back to me" style={styles.recenterButton} onPress={() => setRecenterRequest((request) => request + 1)}><Text style={styles.recenterText}>◎</Text></Pressable>
       <Pressable style={styles.captureButton} onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}><Text style={styles.captureText}>📷</Text><Text style={styles.captureLabel}>Capture</Text></Pressable>
     </View>
   );
@@ -172,8 +180,9 @@ const styles = StyleSheet.create({
   error: { backgroundColor: "#ffd9d9", padding: 12, borderRadius: 8 },
   empty: { position: "absolute", top: "42%", left: 35, right: 35, backgroundColor: "#ffffffe8", padding: 16, borderRadius: 12 },
   emptyText: { textAlign: "center", color: "#555" },
-  recenterButton: { position: "absolute", right: 20, bottom: 122, width: 48, height: 48, borderRadius: 24, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
-  overviewButton: { position: "absolute", right: 20, bottom: 178, width: 48, height: 48, borderRadius: 24, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
+  recenterButton: { position: "absolute", right: 16, bottom: 190, width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
+  overviewButton: { position: "absolute", right: 16, bottom: 250, width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
+  nearestButton: { position: "absolute", right: 16, bottom: 310, width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
   recenterText: { color: "#2878d1", fontSize: 30, lineHeight: 32 },
   captureButton: { position: "absolute", bottom: 22, alignSelf: "center", width: 82, height: 82, borderRadius: 41, backgroundColor: "#2f7d5b", alignItems: "center", justifyContent: "center", borderWidth: 5, borderColor: "#fff", elevation: 5 },
   captureText: { fontSize: 28 },
