@@ -221,11 +221,11 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
       <View pointerEvents="box-none" style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}>
         <View style={styles.controlRail}>
         <Pressable accessibilityLabel={`Current map mode: ${mode === "classic" ? "Classic" : "Adventure"}. Tap to switch.`} style={[styles.modeButton, styles.modeButtonActive]} onPress={toggleMode}>
-          <Text style={styles.modeButtonText}>{mode === "classic" ? "CLS" : "ADV"}</Text>
+          <Text style={styles.modeButtonText}>{mode === "classic" ? "🗺 2D" : "🌿 3D"}</Text>
         </Pressable>
         {mode === "adventure" && (
           <Pressable accessibilityLabel={`Current view: ${firstPerson ? "First-person" : "Overhead"}. Tap to switch.`} style={[styles.modeButton, styles.modeButtonActive]} onPress={() => setFirstPerson((current) => !current)}>
-            <Text style={styles.modeButtonText}>{firstPerson ? "1P" : "TOP"}</Text>
+            <Text style={styles.modeButtonText}>{firstPerson ? "👣 Walk" : "🐦 Above"}</Text>
           </Pressable>
         )}
         </View>
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   topOverlay: { position: "absolute", top: 0, left: 16, right: 16, paddingTop: 8, gap: 8 },
   controlRail: { alignSelf: "flex-end", flexDirection: "row", gap: 6 },
-  modeButton: { minWidth: 52, height: 44, paddingHorizontal: 6, backgroundColor: "#ffffffee", borderRadius: 14, elevation: 3, alignItems: "center", justifyContent: "center" },
+  modeButton: { minWidth: 64, height: 44, paddingHorizontal: 5, backgroundColor: "#ffffffee", borderRadius: 14, elevation: 3, alignItems: "center", justifyContent: "center" },
   modeButtonActive: { backgroundColor: "#d9efe1", borderWidth: 2, borderColor: "#2f7d5b" },
   modeButtonText: { color: "#173c2b", fontWeight: "700" },
   topMessage: { minHeight: 44, maxWidth: 360, alignSelf: "flex-start", backgroundColor: "#ffffffee", paddingHorizontal: 12, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 8 },
