@@ -18,7 +18,8 @@ export function buildLeafletHtml(): string {
     .encounter .meta, .encounter .distance, .encounter .info { margin-top: 6px; }
     .encounter .info { color: #4c5c54; }
     .encounter .actions { display: flex; gap: 5px; margin-top: 9px; }
-    .encounter button { border: 0; border-radius: 5px; padding: 6px 8px; color: white; background: #2f7d5b; font-weight: 700; cursor: pointer; }
+    .leaflet-popup-close-button { width: 44px !important; height: 44px !important; padding: 0; font-size: 24px; line-height: 40px !important; text-align: center; }
+    .encounter button { min-height: 44px; border: 0; border-radius: 5px; padding: 8px 10px; color: white; background: #2f7d5b; font-weight: 700; cursor: pointer; }
     .encounter button:nth-child(2) { background: #2878d1; }
     .encounter button:nth-child(3) { background: #6f5aa8; }
   </style>

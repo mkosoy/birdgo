@@ -103,6 +103,24 @@ iPhone width. Use `Emulation.setDeviceMetricsOverride` (`width:390, height:844, 
 mobile:true`) plus `Emulation.setTouchEmulationEnabled`, and clear it afterwards. Test **both** 390×844 and
 **375×667** — the tighter height is where panels start clipping, and several defects appear at 375 but not 390.
 
+### Making a true iPhone viewport legible in a screen recording
+With device metrics applied to a maximized window, the app renders in a small top-left corner and the
+recording is unwatchable. Two things that do **not** work: `xdotool key super+Up` (tiles to half-screen), and
+the `scale` field of `setDeviceMetricsOverride` — `scale` **clips** the rendered output to the emulated size
+rather than magnifying it, so you lose the bottom/right of the page.
+
+What works is resizing the real window to phone proportions so the emulated viewport nearly fills it:
+```bash
+export DISPLAY=:0
+wmctrl -r "Map - Google Chrome for Testing" -b remove,maximized_vert,maximized_horz
+wmctrl -r "Map - Google Chrome for Testing" -e 0,60,20,405,830    # for 375x667
+wmctrl -r "Map - Google Chrome for Testing" -e 0,60,8,420,1010    # for 390x844
+```
+The CSS viewport stays exactly 375/390 px (verify with `innerWidth`), so geometry assertions remain valid
+while the recording shows a phone-shaped app. Screenshot coords map to page coords as
+`screenshot = (page + windowContentOrigin) * (1024/screenWidth)`; derive the origin once from any element
+whose page rect you already know, then reuse it for clicking.
+
 Many layout bugs exist *only* below ~400 px, so always re-probe every state after switching metrics:
 idle first-person, Nearby expanded, tracking with directions collapsed **and** expanded, popup open, and a
 top message showing. Things found this way: the expanded tray showing only ~2.3 of 14 rows
@@ -142,46 +160,97 @@ afterwards. Correct plumbing moved the tray up 34 px and the zoom control down 4
   the current coordinates instead of dropped (verify by checking whether listed species actually appear in the
   current `/api/birds/recent` response for that location).
 
-## Known issues to re-check (as of commit be1e947)
+## Measuring overlap of **rotated** elements
+When icons are positioned with `left`/`top` plus `transform: rotate()` (e.g. `.bird-edge`), the axis-aligned
+`getBoundingClientRect()` **grows** with rotation: a 44×44 arrow measures 49–62 px depending on angle. Any
+de-overlap logic whose minimum gap is smaller than the rotated bbox will still visually collide even though
+the spacing code "worked". So always compare *bounding boxes*, not just the inline `left`/`top` centres, and
+read both: `parseFloat(el.style.top)` for the intended placement and `getBoundingClientRect()` for the truth.
+A gap that exactly equals the configured `minGap` is the signature of spacing logic that ran correctly but was
+configured too small.
+
+## Cross-origin evaluation (production smoke)
+A CDP helper that filters targets by `localhost:8081` silently detaches the moment you navigate to
+`birdgo.vercel.app` and returns `no app page attached`. Keep a separate direct-websocket evaluator that
+selects the page by URL substring (`/json/list` → `webSocketDebuggerUrl` → `Runtime.evaluate` with
+`returnByValue:true`) so production can be probed with the same scripts.
+
+## Driving the image picker end-to-end
+"Pick from library" opens a native GTK file dialog that computer-use cannot fill. Intercept it instead:
+enable `Page.setInterceptFileChooserDialog`, click the button via `Runtime.evaluate` with `userGesture:true`,
+wait for the `Page.fileChooserOpened` event, then `DOM.setFileInputFiles` with its `backendNodeId`. This makes
+the whole keyless-capture → Bird-dex flow testable without a camera. Generate a deterministic non-bird image
+with PIL rather than relying on a checked-in fixture.
+
+## Known issues to re-check (as of commit e86c12a)
 These may already be fixed; treat as "look here first" rather than fact.
 
-Verified **fixed** at `be1e947` (don't re-report without fresh evidence, but they have regressed before, so
-spot-check): camera follow keeping the avatar at y68 % for a whole walk; `.bird-marker` taps opening popups;
-44 px zoom controls that no longer toggle the view mode; seen placeholders stamped with the *fetched* area
-(`loadedArea`) so out-of-area species are dropped rather than re-stamped; late permission grant reframing
-without a reload; Overhead being genuinely top-down (`pitch: 0`).
+Verified **fixed** at `e86c12a` (don't re-report without fresh evidence, but they have regressed before, so
+spot-check): camera follow keeping the avatar at x50 %/y68 % for a whole walk; `.bird-marker` taps opening
+popups; 44 px zoom controls that no longer toggle the view mode; seen placeholders stamped with the *fetched*
+area (`loadedArea`) so out-of-area species are dropped (106 east-coast species dropped on a NYC→SF jump);
+late permission grant reframing without a reload; Overhead genuinely top-down (`pitch: 0`);
+toast↔rare-banner arbitration via an outward `{type:'toast',open}` message (`0 px²` occlusion at both widths,
+and dismissing the toast makes the banner return); Capture FAB dimming to `opacity .35` +
+`pointer-events:none` while a popup is open (all 5 points across Directions reachable, real click on the
+dimmed FAB does nothing); popup "Directions" starting the **in-app** route (`maps/dir` gone from both
+bundles); follow-pause announcing "Camera follow paused — tap ◎ to resume." and ◎ genuinely re-arming follow;
+Nearby tray showing 3 full rows with 38 px thumbs; popup close `44×44`; CaptureScreen body copy `#c9ddce`
+(12.66:1).
 
-Still open at `be1e947`:
-- **Mobile-only occlusion (worst class):** the parent rare banner covers ~87 % of the in-iframe `#snap-toast`
-  so its "Go" is unclickable, and the parent Capture FAB blocks the left ~40 % of the popup's Directions
-  button. Both are cross-document — see the occlusion recipe above.
-- Track card crushes name/distance into a ~67 px flex column (name ellipsized, distance wrapped to 3 lines)
-  and overlaps the route panel by ~5 px at 375–390 px.
-- The three `.bird-edge` awareness arrows collide with the round controls and the Nearby/route panels, stack
-  on top of each other (~37 px overlap at 390 px), and still render when zoomed out where they're redundant.
-- After a **manual zoom**, follow is disabled by the `userGesture` gate, so continued walking pushes the
-  avatar off-screen (measured x99.8 %, clipped) with no cue; `◎` recovers and re-arms follow. The zoom level
-  itself *is* correctly preserved.
-- Popup "Directions" calls `Linking.openURL` to Google Maps instead of starting the in-app route
-  (`MapScreen.tsx` `onDirections`); only the tray/toast "Go" starts in-app navigation.
-- Switching Adventure ↔ Classic silently discards the active Track/route with no warning.
-- Popup close `×` is 20×17 px and the toast dismiss `×` is 22×44 px — both under the 44 px floor everything
-  else now meets. Toast "Go" is inline text in `#snap-toast-copy`, not a discrete button.
-- CaptureScreen body copy is `rgb(85,85,85)` on near-black (~2.3:1, fails WCAG AA); the heading above it was
-  fixed to `rgb(215,232,218)`.
+Still open at `e86c12a`:
+- **`.bird-edge` awareness arrows still overlap each other** at both widths. Suppression (Nearby/Track/route
+  panel/Overview) and collisions with controls **are** fixed, but `minGap` is 56 px while the rotated bboxes
+  are 49–62 px, so adjacent arrows still intersect (measured 1899 px² and 380 px²). The de-overlap also only
+  pushes `y` downward in a single pass, so a crowded column cannot separate.
+- **The arrows are inert and unlabelled**: `#bird-awareness` is `pointer-events:none`, each arrow is a `<span>`
+  with no click handler, and its only label is a `title` attribute — which never appears on touch. They convey
+  direction plus a rare/common colour and nothing else, while the Nearby tray gives species + distance + ETA +
+  a working Go. Recommend making them tappable-to-Track with a distance label, or removing them.
+- `startTrack()` does not call `refreshBirdAwareness()`, so arrows linger for one fix after Track starts and
+  only clear on the next map move/render.
+- At **375×667** `#track-dist` ellipsizes (`"Walk · 873 m · 11 …"`, scrollW 159 vs clientW 148) — the 3-line
+  wrap and the route-panel overlap are fixed, but the string is now clipped instead. The route-panel step and
+  the arrival copy clip the same way. 390×844 is clean.
+- **The avatar is hidden behind the HUD while navigating at 375×667**: follow frames it at y68 % (page y≈418)
+  but `#route-panel` occupies y 378–430, so the "you are here" dot is covered. Check
+  `avatarCentre ∈ panelRect`, not just `framedOk`.
+- Toast `Go` measures **43** px wide and `#snap-toast-dismiss` **24** px wide (CSS declares 44 px but the flex
+  row compresses it) — both under the 44 px floor, though both are real `BUTTON`s now.
+- **Classic mode never received the 44 px pass**: its popup buttons are 27 px tall and its close `×` is 24×24.
+- Bottom-nav inactive label is `rgb(142,142,143)` on white = 3.27:1, fails AA.
+- Toast copy wraps to 3 lines at 375 px inside a 188 px bubble.
+- Switching Adventure ↔ Classic silently discards the active Track/route — **known and accepted**, do not
+  re-report as new.
 - Only ~1–2 of ~536 markers are visible in the first-person pose (zoom 17 / pitch 60) — building occlusion is
   fixed, but bird visibility is still poor, worse on mobile.
+- A large location jump (NYC→SF) via `move` updated the avatar but did **not** trigger a data re-fetch; a
+  reload was required. An independent `watchPosition` registered at that moment returned no fix, so this may
+  be a CDP-override artifact rather than an app bug — treat as inconclusive until reproduced.
 - **Android emulator:** Adventure mode has been observed rendering the 3D map, roads, buildings, user dot,
   bird markers, rare banner and Nearby tray correctly. A prior blank-tile observation was a stale/paused
   emulator artifact, not a confirmed app defect. Real GPS, compass heading and camera capture have
   **never** been verified on real hardware.
 
 ## Deployment / bundle-provenance trap
-Production (`birdgo.vercel.app`) is frequently an **older export** than local dev, so never validate a fresh
-fix against it. Fingerprint both before concluding anything: grep the served bundle for strings unique to the
-revision under test (e.g. `recoveringFromFallback`, `loadedArea`, `bird-awareness`, `firstPersonPadding`) and
-for strings the revision *deleted*. A prod bundle that has some new strings but zero occurrences of the
-newest one predates that commit — test locally and say so explicitly in the report.
+Production (`birdgo.vercel.app`) has often been an **older export** than local dev, so fingerprint both before
+concluding anything. **Only string literals, CSS/StyleSheet literals and DOM ids/classNames are reliable
+fingerprints** — local variable and function names (`recoveringFromFallback`, `loadedArea`) are *minified away*
+in the production export, and treating their absence as "stale bundle" produced a false claim once. Use markers
+like `snap-toast-go`, `captureButtonDimmed`, `Camera follow paused`, `c9ddce`, plus a count of strings the
+revision **deleted** (e.g. `maps/dir` should be 0).
+
+The local bundle URL is not `/index.bundle` (that returns a ~4 KB Expo resolution error). Read the served HTML
+for the real entry, currently:
+`http://localhost:8081/node_modules/expo/AppEntry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app`
+
+Also make sure only **one** Expo dev server is running (a second on `:8083` served a stale bundle to an
+attached page and cost real time) — `pkill -f "expo start"` then start one with `--clear`, and confirm the
+browser page is on the port you think it is.
+
+A quick production DOM smoke is often more convincing than bundle greps: check `snap-toast-go`/
+`snap-toast-dismiss` resolve to `BUTTON`, `.maplibregl-popup-close-button` computes to `44px`, and
+`#nearby-panel` max-height is `42%`.
 
 ## Devin Secrets Needed
 - eBird API token (`EBIRD_API_TOKEN`) — provided by the user for the app; no OpenAI key needed while `BIRD_ID_PROVIDER=heuristic`.

@@ -58,7 +58,7 @@ export function buildMapLibreHtml(): string {
     #track-thumb img { width: 100%; height: 100%; object-fit: cover; }
     #track-meta { flex: 1; min-width: 0; }
     #track-name { font-weight: 800; color: #173c2b; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #track-dist { color: #2f7d5b; font-weight: 700; font-size: 13px; line-height: 17px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #track-dist { color: #2f7d5b; font-weight: 700; font-size: 13px; line-height: 17px; margin-top: 2px; min-width: 0; overflow-wrap: anywhere; }
     #track-actions { display: flex; gap: 4px; flex: none; }
     #track-snap { min-height: 44px; border: 0; border-radius: 22px; padding: 10px 10px; background: #2f7d5b; color: #fff; font-weight: 800; cursor: pointer; white-space: nowrap; }
     #track-snap.ready { background: #d99d21; animation: snappulse 1s infinite; }
@@ -76,20 +76,18 @@ export function buildMapLibreHtml(): string {
     #route-steps { overflow-y: auto; max-height: 220px; padding: 4px; }
     #route-panel.collapsed #route-steps { display: none; }
     .route-step { display: flex; gap: 8px; align-items: center; min-height: 44px; box-sizing: border-box; padding: 8px; border-radius: 10px; color: #5c6f65; font-size: 12px; }
+    .route-step > span:nth-child(2) { min-width: 0; overflow-wrap: anywhere; }
     .route-step.current { background: #eaf3ff; color: #173c2b; font-weight: 700; }
     .route-step-icon { width: 26px; text-align: center; color: #2878d1; font-size: 22px; line-height: 22px; font-weight: 900; }
     .route-step-distance { margin-left: auto; white-space: nowrap; color: #6b7d72; font-weight: 600; }
     @keyframes snappulse { 0%,100%{ transform: scale(1);} 50%{ transform: scale(1.07);} }
     #snap-toast { position: absolute; left: 50%; top: calc(var(--safe-top) + 108px); transform: translateX(-50%); z-index: 8; max-width: 88%; display: none; align-items: center; gap: 8px; background: rgba(217,157,33,.97); color: #fff; border: 0; border-radius: 22px; padding: 4px 10px 4px 14px; font-weight: 800; font-size: 12px; font-family: -apple-system, system-ui, sans-serif; box-shadow: 0 3px 12px rgba(0,0,0,.3); pointer-events: auto; }
     #snap-toast.on { display: flex; }
-    #snap-toast-copy { display: inline-block; min-width: 0; }
-    #snap-toast-go { min-height: 44px; border: 0; border-radius: 18px; padding: 8px 12px; background: rgba(255,255,255,.22); color: #fff; font-weight: 800; cursor: pointer; }
-    #snap-toast-dismiss { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: -8px -10px -8px 0; border: 0; background: transparent; color: #fff; border-radius: 50%; font-size: 20px; cursor: pointer; }
+    #snap-toast-copy { display: inline-block; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+    #snap-toast-go { min-width: 44px; min-height: 44px; flex: 0 0 44px; border: 0; border-radius: 18px; padding: 8px 10px; background: rgba(255,255,255,.22); color: #fff; font-weight: 800; cursor: pointer; }
+    #snap-toast-dismiss { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: 0 0 44px; margin: -8px -10px -8px 0; border: 0; background: transparent; color: #fff; border-radius: 50%; font-size: 20px; cursor: pointer; }
     #compass-button { position: absolute; z-index: 7; left: 50%; top: calc(var(--safe-top) + 108px); transform: translateX(-50%); min-height: 44px; border: 0; border-radius: 18px; padding: 9px 14px; color: white; background: rgba(35, 73, 53, .92); font-weight: 700; display: none; cursor: pointer; }
-    #bird-awareness { position: absolute; inset: 0; z-index: 6; pointer-events: none; display: none; }
-    #bird-awareness.on { display: block; }
-    .bird-edge { position: absolute; width: 44px; height: 44px; margin: -22px; border: 0; border-radius: 22px; background: rgba(35, 73, 53, .9); color: #fff; font-size: 22px; line-height: 44px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
-    .bird-edge.rare { background: rgba(217, 157, 33, .95); }
+    .leaflet-popup-close-button { width: 44px; height: 44px; padding: 0; font-size: 24px; line-height: 40px; text-align: center; }
     @media (max-width: 600px) {
       #nearby-panel { max-height: 42%; }
       .nb-thumb { width: 38px; height: 38px; font-size: 18px; }
@@ -105,7 +103,6 @@ export function buildMapLibreHtml(): string {
 </head>
 <body>
   <div id="map"></div>
-  <div id="bird-awareness" aria-hidden="true"></div>
   <div id="track-hud"><div id="track-arrow">⬆</div></div>
   <div id="nearby-panel" class="collapsed">
     <div id="nearby-header">
@@ -161,7 +158,6 @@ export function buildMapLibreHtml(): string {
       var currentHeading = null;
       var bearingFrame = null;
       var arrowFrame = null;
-      var birdAwareness = document.getElementById('bird-awareness');
       var trackId = null;
       var routeDistanceM = null;
       var routeGeometryCoordinates = [];
@@ -419,7 +415,17 @@ export function buildMapLibreHtml(): string {
 
       function firstPersonPadding() {
         var height = map.getContainer().clientHeight || 600;
-        return { top: Math.round(height * 0.36), right: 0, bottom: 0, left: 0 };
+        var targetY = height * 0.68;
+        if (routePanel.classList.contains('on')) {
+          var routeTop = routePanel.getBoundingClientRect().top;
+          if (routeTop > 0) targetY = Math.min(targetY, routeTop - 24);
+        }
+        return {
+          top: Math.max(0, Math.round(targetY * 2 - height)),
+          right: 0,
+          bottom: Math.max(0, Math.round(height - targetY * 2)),
+          left: 0,
+        };
       }
       function frameUser(target, duration) {
         if (!target || typeof target.latitude !== 'number' || typeof target.longitude !== 'number') return;
@@ -619,6 +625,7 @@ export function buildMapLibreHtml(): string {
         routePanel.classList.add('on');
         routePanel.classList.toggle('collapsed', routePanelCollapsed);
         routeCaret.textContent = routePanelCollapsed ? '▸' : '▾';
+        if (headingFollow && lastUserLocation) frameUser(lastUserLocation, 250);
         updateRouteProgress();
       }
 
@@ -805,13 +812,13 @@ export function buildMapLibreHtml(): string {
           var closest = nearest[0];
           if (closest && closest.distance * 1000 <= SNAP_M) {
             var closestName = closest.bird.comName || closest.bird.sciName || 'Bird';
-            snapToastCopy.textContent = '📸 Snap ' + closestName + ' · Direct ' + fmtDist(closest.distance);
+            snapToastCopy.textContent = (window.innerWidth <= 380 ? '' : '📸 Snap ') + closestName + (window.innerWidth <= 380 ? '' : ' · Direct ' + fmtDist(closest.distance));
             snapToastGo.textContent = 'Snap';
             setToast(true);
             snapToastAction = function () { capture(closest.bird.id); };
           } else if (closest && closest.distance * 1000 <= 180) {
             var nearbyName = closest.bird.comName || closest.bird.sciName || 'Bird';
-            snapToastCopy.textContent = '🐦 Nearby ' + nearbyName + ' · Direct ' + fmtDist(closest.distance);
+            snapToastCopy.textContent = (window.innerWidth <= 380 ? '' : '🐦 Nearby ') + nearbyName + (window.innerWidth <= 380 ? '' : ' · Direct ' + fmtDist(closest.distance));
             snapToastGo.textContent = 'Go';
             setToast(true);
             snapToastAction = function () { startTrack(closest.bird); };
@@ -820,54 +827,6 @@ export function buildMapLibreHtml(): string {
             snapToastAction = null;
           }
         }
-      }
-
-      function refreshBirdAwareness() {
-        if (!headingFollow || !lastUserLocation || !follow || !panelCollapsed || trackId || !routePanelCollapsed) {
-          birdAwareness.classList.remove('on');
-          birdAwareness.innerHTML = '';
-          return;
-        }
-        var width = map.getContainer().clientWidth || 600;
-        var height = map.getContainer().clientHeight || 600;
-        var insetLeft = 72;
-        var insetRight = 120;
-        var insetTop = Math.max(180, 120 + (Number(getComputedStyle(document.documentElement).getPropertyValue('--safe-top').replace('px', '')) || 0));
-        var insetBottom = height - Math.max(insetTop + 44, height - (98 + (Number(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom').replace('px', '')) || 0)) - 30);
-        var candidates = computeNearest().filter(function (entry) {
-          var point = map.project([entry.bird.longitude, entry.bird.latitude]);
-          return point.x < -22 || point.x > width + 22 || point.y < -22 || point.y > height + 22;
-        }).slice(0, 3);
-        var placed = [];
-        birdAwareness.innerHTML = candidates.map(function (entry) {
-          var point = map.project([entry.bird.longitude, entry.bird.latitude]);
-          var dx = point.x - width / 2;
-          var dy = point.y - height / 2;
-          var angle = Math.atan2(dy, dx);
-          var horizontal = Math.abs(dx) / Math.max(1, width / 2);
-          var vertical = Math.abs(dy) / Math.max(1, height / 2);
-          var x;
-          var y;
-          if (horizontal >= vertical) {
-            x = dx < 0 ? insetLeft : width - insetRight;
-            y = height / 2 + dy * (width / 2 - insetRight) / Math.max(1, Math.abs(dx));
-          } else {
-            y = dy < 0 ? insetTop : height - insetBottom;
-            x = width / 2 + dx * (height / 2 - 220) / Math.max(1, Math.abs(dy));
-          }
-          x = Math.max(insetLeft, Math.min(width - insetRight, x));
-          y = Math.max(insetTop, Math.min(height - insetBottom, y));
-          var minGap = 56;
-          placed.forEach(function (candidatePoint) {
-            if (Math.abs(candidatePoint.x - x) < minGap && Math.abs(candidatePoint.y - y) < minGap) {
-              y = Math.min(height - insetBottom, y + minGap);
-            }
-          });
-          placed.push({ x: x, y: y });
-          var classes = 'bird-edge' + (entry.bird.isNotable ? ' rare' : '');
-          return '<span class="' + classes + '" title="' + escapeHtml(entry.bird.comName || 'Bird') + '" style="left:' + x + 'px;top:' + y + 'px;transform:rotate(' + angle + 'rad)">➤</span>';
-        }).join('');
-        birdAwareness.classList.toggle('on', candidates.length > 0);
       }
 
       function updateTrackCard() {
@@ -945,7 +904,7 @@ export function buildMapLibreHtml(): string {
         trackCard.classList.remove('on');
         nearbyPanel.classList.remove('tracking');
         refreshUi();
-        refreshBirdAwareness();
+        if (headingFollow && lastUserLocation) frameUser(lastUserLocation, 250);
       }
 
       function scheduleArrow() {
@@ -983,7 +942,6 @@ export function buildMapLibreHtml(): string {
         panelCollapsed = !panelCollapsed;
         nearbyPanel.classList.toggle('collapsed', panelCollapsed);
         nearbyCaret.textContent = panelCollapsed ? '▸' : '▾';
-        refreshBirdAwareness();
       });
       rareToggle.addEventListener('click', function (event) {
         event.stopPropagation();
@@ -1002,7 +960,7 @@ export function buildMapLibreHtml(): string {
         routePanelCollapsed = !routePanelCollapsed;
         routePanel.classList.toggle('collapsed', routePanelCollapsed);
         routeCaret.textContent = routePanelCollapsed ? '▸' : '▾';
-        refreshBirdAwareness();
+        if (headingFollow && lastUserLocation) frameUser(lastUserLocation, 250);
       });
       snapToastGo.addEventListener('click', function () {
         if (snapToastAction) snapToastAction();
@@ -1146,9 +1104,6 @@ export function buildMapLibreHtml(): string {
       map.on('move', scheduleArrow);
       map.on('rotate', scheduleArrow);
       map.on('pitch', scheduleArrow);
-      map.on('move', refreshBirdAwareness);
-      map.on('zoom', refreshBirdAwareness);
-      map.on('rotate', refreshBirdAwareness);
 
       function render(data) {
         if (!data || !data.center) return;
@@ -1210,8 +1165,6 @@ export function buildMapLibreHtml(): string {
           follow = false;
           userGesture = true;
           headingFollow = false;
-          birdAwareness.classList.remove('on');
-          birdAwareness.innerHTML = '';
           var overviewTarget = data.userLocation || data.center;
           var overviewBirds = computeNearest().slice(0, 25);
           var bounds = new maplibregl.LngLatBounds();
@@ -1289,7 +1242,7 @@ export function buildMapLibreHtml(): string {
           }
         }
         refreshUi();
-        refreshBirdAwareness();
+        if (headingFollow && lastUserLocation) map.setPadding(firstPersonPadding());
       }
 
       map.on('moveend', function () {

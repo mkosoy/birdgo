@@ -14,7 +14,7 @@ export default function App() {
   const [captureHint, setCaptureHint] = useState<SeenSpecies | undefined>();
   return <SafeAreaProvider>
     <NavigationContainer>
-      <Tab.Navigator screenOptions={{ headerShown: false, tabBarActiveTintColor: "#2f7d5b" }}>
+      <Tab.Navigator screenOptions={{ headerShown: false, tabBarActiveTintColor: "#2f7d5b", tabBarInactiveTintColor: "#52635a" }}>
         <Tab.Screen name="Map">{() => <MapScreen onCapture={(hint) => { setCaptureHint(hint); }} />}</Tab.Screen>
         <Tab.Screen name="Capture">{() => <CaptureScreen hint={captureHint} />}</Tab.Screen>
         <Tab.Screen name="Bird-dex" component={DexScreen} />
