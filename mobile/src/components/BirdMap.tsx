@@ -6,6 +6,12 @@ import { buildMapLibreHtml } from "./mapLibreHtml";
 import type { Coordinates, EbirdObservation } from "../types";
 
 export type BirdMapMode = "classic" | "adventure";
+export interface SafeAreaInsets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
 
 export interface BirdMapProps {
   center: Coordinates;
@@ -17,6 +23,7 @@ export interface BirdMapProps {
   recenterRequest?: number;
   overviewRequest?: number;
   nearestRequest?: number;
+  safeArea?: SafeAreaInsets;
   onCapture: (bird: EbirdObservation) => void;
   onDirections: (coordinates: Coordinates & { name: string }) => void;
   onAbout: (bird: { speciesCode: string; comName: string }) => void;
@@ -45,6 +52,7 @@ interface LeafletData {
   markers: LeafletMarker[];
   command?: "recenter" | "setView" | "overview" | "nearest";
   firstPerson?: boolean;
+  safeArea?: SafeAreaInsets;
 }
 
 interface LeafletMessage {
@@ -69,7 +77,7 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, onCapture, onDirections, onAbout, onPopupChange, onRegionChange },
+  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, safeArea, onCapture, onDirections, onAbout, onPopupChange, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
@@ -85,6 +93,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     userLocation,
     heading,
     firstPerson,
+    safeArea,
     markers: birds.map((bird) => ({
       id: markerId(bird),
       latitude: bird.latitude,
@@ -98,7 +107,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       isNotable: Boolean(bird.isNotable),
       imageUrl: bird.imageUrl,
     })),
-  }), [birds, center, firstPerson, heading, userLocation]);
+  }), [birds, center, firstPerson, heading, safeArea, userLocation]);
   useEffect(() => {
     dataRef.current = data;
   }, [data]);

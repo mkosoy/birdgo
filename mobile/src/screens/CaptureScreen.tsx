@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions, type CameraType } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
@@ -13,6 +14,7 @@ import type { SeenSpecies } from "../types";
 type Props = { hint?: SeenSpecies };
 
 export function CaptureScreen({ hint }: Props) {
+  const insets = useSafeAreaInsets();
   const camera = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraType] = useState<CameraType>("back");
@@ -80,7 +82,7 @@ export function CaptureScreen({ hint }: Props) {
           <Pressable style={styles.secondary} onPress={() => void pickPhoto()}><Text style={styles.secondaryText}>Pick from library</Text></Pressable>
         </View>
       : <Image source={{ uri: photoUri }} style={styles.camera} />}
-    <View style={styles.controls}>
+    <View style={[styles.controls, { paddingBottom: insets.bottom + 20 }]}>
       {!photoUri && permission?.granted && <Pressable style={styles.shutter} onPress={() => void takePhoto()}><Text style={styles.shutterText}>●</Text></Pressable>}
       {photoUri && <Pressable style={styles.button} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); }}><Text style={styles.buttonText}>Try another</Text></Pressable>}
       {photoUri && <Pressable style={styles.secondaryDark} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Pick from library</Text></Pressable>}
@@ -109,11 +111,11 @@ const styles = StyleSheet.create({
   center: { flex: 1, padding: 28, justifyContent: "center", alignItems: "center", gap: 14 },
   title: { fontSize: 24, fontWeight: "700", color: "#173c2b" },
   copy: { textAlign: "center", color: "#555", lineHeight: 22 },
-  button: { backgroundColor: "#2f7d5b", paddingHorizontal: 18, paddingVertical: 12, borderRadius: 10 },
+  button: { minHeight: 44, backgroundColor: "#2f7d5b", paddingHorizontal: 18, paddingVertical: 12, borderRadius: 10, justifyContent: "center" },
   buttonText: { color: "#fff", fontWeight: "700" },
-  secondary: { paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, backgroundColor: "#e2eee5" },
+  secondary: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, backgroundColor: "#e2eee5", justifyContent: "center" },
   secondaryText: { color: "#173c2b", fontWeight: "700" },
-  secondaryDark: { paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, backgroundColor: "#2f7d5b" },
+  secondaryDark: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, backgroundColor: "#2f7d5b", justifyContent: "center" },
   lightText: { color: "#fff" },
   result: { alignItems: "center", gap: 5 },
   resultTitle: { color: "#fff", fontSize: 21, fontWeight: "700" },

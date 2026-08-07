@@ -3,6 +3,7 @@ import { ActivityIndicator, AppState, Linking, Platform, Pressable, StyleSheet, 
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SF_COORDS } from "../config";
 import { BirdMap } from "../components/BirdMap";
 import type { BirdMapMode } from "../components/BirdMap";
@@ -12,6 +13,7 @@ import type { Coordinates, SeenSpecies } from "../types";
 
 export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => void }) {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const [location, setLocation] = useState<Coordinates>(SF_COORDS);
   const [center, setCenter] = useState<Coordinates>(SF_COORDS);
   const [mode, setMode] = useState<BirdMapMode>("adventure");
@@ -27,6 +29,13 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const [rareDismissed, setRareDismissed] = useState(false);
   const { birds, notable, loading, error, refresh } = useBirds(center.latitude, center.longitude);
   const { saveSeen } = useCollection();
+  const topMessage = locationNotice
+    ? { text: locationNotice, onPress: () => setLocationRetry((request) => request + 1) }
+    : error
+      ? { text: "Couldn’t load birds. Tap to retry.", onPress: () => void refresh() }
+      : notable.length > 0 && !rareDismissed
+        ? { text: `Rare bird nearby: ${notable[0].comName ?? "Unknown"}!`, onPress: () => setRareDismissed(true) }
+        : null;
 
   useEffect(() => {
     let mounted = true;
@@ -168,6 +177,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
       <BirdMap
         center={center}
         userLocation={location}
+        safeArea={insets}
         birds={birds}
         mode={mode}
         firstPerson={firstPerson}
@@ -193,7 +203,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         onPopupChange={setPopupOpen}
         onRegionChange={setCenter}
       />
-      <View pointerEvents="box-none" style={styles.topOverlay}>
+      <View pointerEvents="box-none" style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}>
         <Pressable style={styles.modeButton} onPress={toggleMode}>
           <Text style={styles.modeButtonText}>{mode === "classic" ? "🌿 Adventure" : "🗺 Classic"}</Text>
         </Pressable>
@@ -202,49 +212,42 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
             <Text style={styles.modeButtonText}>{firstPerson ? "🗺 Overhead" : "👣 First-person"}</Text>
           </Pressable>
         )}
-        {locationNotice && (
-          <Pressable style={styles.notice} onPress={() => setLocationRetry((request) => request + 1)}>
-            <Text style={styles.noticeText}>{locationNotice}</Text>
+        {topMessage && !popupOpen && (
+          <Pressable style={styles.topMessage} onPress={topMessage.onPress}>
+            <Text style={styles.topMessageText}>{topMessage.text}</Text>
+            <Text style={styles.topMessageDismiss}>×</Text>
           </Pressable>
         )}
-        {notable.length > 0 && !rareDismissed && !popupOpen && (
-          <Pressable style={styles.rareBanner} onPress={() => setRareDismissed(true)}>
-            <Text style={styles.bannerText}>Rare bird nearby: {notable[0].comName ?? "Unknown"}!  ×</Text>
-          </Pressable>
-        )}
-        {error && <Pressable style={styles.error} onPress={() => void refresh()}><Text>Couldn’t load birds. Tap to retry.</Text></Pressable>}
         {loading && <ActivityIndicator color="#fff" />}
       </View>
       {!loading && !error && birds.length === 0 && <View style={styles.empty}><Text style={styles.emptyText}>No birds spotted nearby — try moving the map.</Text></View>}
       {mode === "adventure" && (
         <>
-          <Pressable accessibilityLabel="Find closest bird" style={styles.nearestButton} onPress={() => setNearestRequest((request) => request + 1)}><Text style={styles.recenterText}>🐦</Text></Pressable>
-          <Pressable accessibilityLabel="See all birds" style={styles.overviewButton} onPress={() => setOverviewRequest((request) => request + 1)}><Text style={styles.recenterText}>🗺</Text></Pressable>
+          <Pressable accessibilityLabel="Find closest bird" style={[styles.nearestButton, { bottom: insets.bottom + 310 }]} onPress={() => setNearestRequest((request) => request + 1)}><Text style={styles.recenterText}>🐦</Text></Pressable>
+          <Pressable accessibilityLabel="See all birds" style={[styles.overviewButton, { bottom: insets.bottom + 250 }]} onPress={() => setOverviewRequest((request) => request + 1)}><Text style={styles.recenterText}>🗺</Text></Pressable>
         </>
       )}
-      <Pressable accessibilityLabel="Back to me" style={styles.recenterButton} onPress={() => setRecenterRequest((request) => request + 1)}><Text style={styles.recenterText}>◎</Text></Pressable>
-      <Pressable style={styles.captureButton} onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}><Text style={styles.captureText}>📷</Text><Text style={styles.captureLabel}>Capture</Text></Pressable>
+      <Pressable accessibilityLabel="Back to me" style={[styles.recenterButton, { bottom: insets.bottom + 190 }]} onPress={() => setRecenterRequest((request) => request + 1)}><Text style={styles.recenterText}>◎</Text></Pressable>
+      <Pressable style={[styles.captureButton, { bottom: insets.bottom + 12 }]} onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}><Text style={styles.captureText}>📷</Text><Text style={styles.captureLabel}>Capture</Text></Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  topOverlay: { position: "absolute", top: 52, left: 16, right: 16, gap: 8 },
-  modeButton: { alignSelf: "flex-end", backgroundColor: "#ffffffee", paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, elevation: 3 },
+  topOverlay: { position: "absolute", top: 0, left: 16, right: 16, paddingTop: 8, gap: 8 },
+  modeButton: { minHeight: 44, alignSelf: "flex-end", backgroundColor: "#ffffffee", paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, elevation: 3, justifyContent: "center" },
   modeButtonText: { color: "#173c2b", fontWeight: "700" },
-  notice: { backgroundColor: "#fff", padding: 8, borderRadius: 8 },
-  noticeText: { color: "#555" },
-  rareBanner: { backgroundColor: "#d99d21", padding: 14, borderRadius: 12 },
-  bannerText: { color: "#fff", fontWeight: "700" },
-  error: { backgroundColor: "#ffd9d9", padding: 12, borderRadius: 8 },
+  topMessage: { minHeight: 44, backgroundColor: "#ffffffee", paddingHorizontal: 12, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 8 },
+  topMessageText: { flex: 1, color: "#173c2b", fontWeight: "700", fontSize: 13 },
+  topMessageDismiss: { color: "#173c2b", fontSize: 22, lineHeight: 24 },
   empty: { position: "absolute", top: "42%", left: 35, right: 35, backgroundColor: "#ffffffe8", padding: 16, borderRadius: 12 },
   emptyText: { textAlign: "center", color: "#555" },
-  recenterButton: { position: "absolute", right: 16, bottom: 190, width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
-  overviewButton: { position: "absolute", right: 16, bottom: 250, width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
-  nearestButton: { position: "absolute", right: 16, bottom: 310, width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
+  recenterButton: { position: "absolute", right: 16, width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
+  overviewButton: { position: "absolute", right: 16, width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
+  nearestButton: { position: "absolute", right: 16, width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
   recenterText: { color: "#2878d1", fontSize: 30, lineHeight: 32 },
-  captureButton: { position: "absolute", bottom: 22, alignSelf: "center", width: 82, height: 82, borderRadius: 41, backgroundColor: "#2f7d5b", alignItems: "center", justifyContent: "center", borderWidth: 5, borderColor: "#fff", elevation: 5 },
+  captureButton: { position: "absolute", alignSelf: "center", width: 82, height: 82, borderRadius: 41, backgroundColor: "#2f7d5b", alignItems: "center", justifyContent: "center", borderWidth: 5, borderColor: "#fff", elevation: 5 },
   captureText: { fontSize: 28 },
   captureLabel: { color: "#fff", fontWeight: "700", fontSize: 11 },
 });
