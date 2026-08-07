@@ -221,16 +221,58 @@ export function buildMapLibreHtml(): string {
       var routeSummary = document.getElementById('route-summary');
       var routeCaret = document.getElementById('route-caret');
       var routeStepsElement = document.getElementById('route-steps');
-      function updateControlStack() {
+      var nearbyGeometryFrame = null;
+      var compassDisplayBeforeToast = null;
+      function updateControlStack(panelRect) {
         var zoomGroup = document.querySelector('.maplibregl-ctrl-top-right');
         if (!zoomGroup) return;
         var rootStyle = getComputedStyle(document.documentElement);
         var safeTop = parseFloat(rootStyle.getPropertyValue('--safe-top')) || 0;
-        var panelTop = nearbyPanel.getBoundingClientRect().top;
+        var settledPanelRect = panelRect || nearbyPanel.getBoundingClientRect();
+        var panelTop = settledPanelRect.top;
+        var toastOpen = snapToast.classList.contains('on');
+        var builtInCompass = document.querySelector('.maplibregl-ctrl-compass');
+        if (toastOpen) {
+          if (builtInCompass) builtInCompass.style.display = 'none';
+          if (compassDisplayBeforeToast == null) compassDisplayBeforeToast = compassButton.style.display;
+          compassButton.style.display = 'none';
+        } else {
+          if (builtInCompass) builtInCompass.style.display = '';
+          if (compassDisplayBeforeToast != null) {
+            compassButton.style.display = compassDisplayBeforeToast;
+            compassDisplayBeforeToast = null;
+          }
+        }
         var zoomHeight = zoomGroup.getBoundingClientRect().height || 142;
         var compassHeight = compassButton.getBoundingClientRect().height || 44;
-        zoomGroup.style.top = Math.max(safeTop + 8, Math.min(safeTop + 156, panelTop - zoomHeight - 8)) + 'px';
-        compassButton.style.top = Math.max(safeTop + 8, Math.min(safeTop + 214, panelTop - compassHeight - 8)) + 'px';
+        var minimumTop = safeTop + 8;
+        var maximumTop = panelTop - zoomHeight - 8;
+        var toastRect = toastOpen ? snapToast.getBoundingClientRect() : null;
+        var toastBottom = toastRect ? toastRect.bottom + 8 : minimumTop;
+        var belowToastTop = Math.min(toastBottom, maximumTop);
+        var aboveToastTop = toastRect ? toastRect.top - zoomHeight - 2 : minimumTop;
+        var zoomTop = toastOpen && toastBottom <= maximumTop
+          ? belowToastTop
+          : toastOpen && aboveToastTop >= minimumTop
+            ? aboveToastTop
+            : Math.max(minimumTop, Math.min(safeTop + 156, maximumTop));
+        zoomGroup.style.top = zoomTop + 'px';
+        var compassMaximumTop = panelTop - compassHeight - 8;
+        compassButton.style.top = Math.max(minimumTop, Math.min(safeTop + 214, compassMaximumTop)) + 'px';
+      }
+      function scheduleNearbyGeometry() {
+        if (nearbyGeometryFrame != null) return;
+        nearbyGeometryFrame = requestAnimationFrame(function () {
+          nearbyGeometryFrame = null;
+          if (nearbyPanel.style.transform) return;
+          var settledPanelRect = nearbyPanel.getBoundingClientRect();
+          updateControlStack(settledPanelRect);
+          postOutward({
+            type: 'nearbyState',
+            state: panelState,
+            height: settledPanelRect.height
+          });
+        });
       }
       attributionToggle.addEventListener('click', function () {
         var open = attribution.classList.toggle('open');
@@ -259,7 +301,9 @@ export function buildMapLibreHtml(): string {
 
       function setToast(open) {
         snapToast.classList.toggle('on', open);
+        if (open) attribution.classList.remove('open');
         reportToast(open);
+        scheduleNearbyGeometry();
       }
 
       function reportFollowPaused(paused) {
@@ -1012,8 +1056,7 @@ export function buildMapLibreHtml(): string {
         nearbyPanel.classList.add(state);
         if (state === 'peek') nearbyPanel.classList.add('collapsed');
         nearbyCaret.textContent = state === 'peek' ? '▸' : '⌄';
-        updateControlStack();
-        postOutward({ type: 'nearbyState', state: state, height: nearbyPanel.getBoundingClientRect().height });
+        scheduleNearbyGeometry();
       }
       var dragStartY = null;
       nearbyHandle.addEventListener('pointerdown', function (event) {
@@ -1039,6 +1082,7 @@ export function buildMapLibreHtml(): string {
         if (delta < -35) setNearbyState('half');
         else if (delta > 35) setNearbyState('peek');
         else setNearbyState(panelState === 'peek' ? 'half' : 'peek');
+        scheduleNearbyGeometry();
         event.preventDefault();
         event.stopPropagation();
       });
@@ -1206,8 +1250,17 @@ export function buildMapLibreHtml(): string {
 
       map.on('load', function () {
         styleAdventureMap();
-        updateControlStack();
-        postOutward({ type: 'nearbyState', state: panelState, height: nearbyPanel.getBoundingClientRect().height });
+        scheduleNearbyGeometry();
+        setTimeout(scheduleNearbyGeometry, 100);
+        setTimeout(function () {
+          var zoomGroup = document.querySelector('.maplibregl-ctrl-top-right');
+          if (zoomGroup && typeof MutationObserver !== 'undefined') {
+            new MutationObserver(function () {
+              if (snapToast.classList.contains('on')) scheduleNearbyGeometry();
+            }).observe(zoomGroup, { childList: true, subtree: true });
+          }
+          scheduleNearbyGeometry();
+        }, 250);
         if (headingFollow && lastUserLocation) {
           programmatic = true;
           frameUser(lastUserLocation, 350);
@@ -1217,6 +1270,7 @@ export function buildMapLibreHtml(): string {
       });
       if (typeof ResizeObserver !== 'undefined') {
         new ResizeObserver(function () { map.resize(); }).observe(document.getElementById('map'));
+        new ResizeObserver(function () { scheduleNearbyGeometry(); }).observe(nearbyPanel);
       }
       map.on('dragstart', function (event) { if (event && event.originalEvent) { userGesture = true; follow = false; reportFollowPaused(true); } });
       map.on('zoomstart', function (event) { if (!programmatic && event && event.originalEvent) { userGesture = true; follow = false; reportFollowPaused(true); } });

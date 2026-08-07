@@ -27,7 +27,6 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const [popupOpen, setPopupOpen] = useState(false);
   const [toastOpen, setToastOpen] = useState(false);
   const [nearbyState, setNearbyState] = useState<"peek" | "half">("peek");
-  const [nearbyHeight, setNearbyHeight] = useState(58);
   const [followPaused, setFollowPaused] = useState(false);
   const [locationRetry, setLocationRetry] = useState(0);
   const hasRealLocation = useRef(false);
@@ -218,10 +217,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         }}
         onPopupChange={setPopupOpen}
         onToastChange={setToastOpen}
-        onNearbyStateChange={(state, height) => {
-          setNearbyState(state);
-          if (typeof height === "number" && Number.isFinite(height)) setNearbyHeight(height);
-        }}
+        onNearbyStateChange={setNearbyState}
         onFollowChange={setFollowPaused}
         onRegionChange={setCenter}
       />
@@ -257,15 +253,17 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
       {mode === "classic" && (
         <Pressable accessibilityLabel="Back to me" style={[styles.actionButton, styles.classicRecenter, { top: insets.top + 112 }]} onPress={() => setRecenterRequest((request) => request + 1)}><Text style={styles.recenterText}>◎</Text></Pressable>
       )}
-      <Pressable
-        disabled={popupOpen}
-        pointerEvents={popupOpen ? "none" : "auto"}
-        style={[styles.captureButton, { bottom: insets.bottom + 164 + Math.max(0, nearbyHeight - 58) }, popupOpen && styles.captureButtonDimmed]}
-        onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}
-      >
-        <Text style={styles.captureText}>📷</Text>
-        <Text style={styles.captureLabel}>Capture</Text>
-      </Pressable>
+      {nearbyState !== "half" && (
+        <Pressable
+          disabled={popupOpen}
+          pointerEvents={popupOpen ? "none" : "auto"}
+          style={[styles.captureButton, { bottom: insets.bottom + 164 }, popupOpen && styles.captureButtonDimmed]}
+          onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}
+        >
+          <Text style={styles.captureText}>📷</Text>
+          <Text style={styles.captureLabel}>Capture</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -286,7 +284,7 @@ const styles = StyleSheet.create({
   actionButton: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
   classicRecenter: { position: "absolute", right: 16 },
   recenterText: { color: "#2878d1", fontSize: 30, lineHeight: 32 },
-  captureButton: { position: "absolute", alignSelf: "center", width: 82, height: 82, borderRadius: 41, backgroundColor: "#2f7d5b", alignItems: "center", justifyContent: "center", borderWidth: 5, borderColor: "#fff", elevation: 5 },
+  captureButton: { position: "absolute", left: 16, width: 82, height: 82, borderRadius: 41, backgroundColor: "#2f7d5b", alignItems: "center", justifyContent: "center", borderWidth: 5, borderColor: "#fff", elevation: 5 },
   captureButtonDimmed: { opacity: 0.35 },
   captureText: { fontSize: 28 },
   captureLabel: { color: "#fff", fontWeight: "700", fontSize: 11 },
