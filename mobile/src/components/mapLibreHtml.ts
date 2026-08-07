@@ -285,7 +285,7 @@ export function buildMapLibreHtml(): string {
       var snapToastAction = null;
       var toastReported = false;
       var followPauseReported = false;
-      var preserveToastUntil = 0;
+      var programmaticCameraMove = false;
 
       function postOutward(payload) {
         var serialized = JSON.stringify(payload);
@@ -684,11 +684,15 @@ export function buildMapLibreHtml(): string {
         var currentStep = routeSteps[routeStepIndex];
         if (currentStep) {
           var approachM = Math.max(0, (currentStep._alongM || 0) - routeAlongM);
+          var previousStep = routeSteps[routeStepIndex - 1];
+          var currentRoad = previousStep && previousStep.name
+            ? previousStep.name
+            : currentStep.name || 'the current road';
           var approachText = approachM <= 12
             ? 'Now · '
             : approachM < 80
               ? 'In ' + Math.round(approachM) + ' m · '
-              : 'Continue on ' + (currentStep.name || 'the current road') + ' · ';
+              : 'Continue on ' + currentRoad;
           routeCurrentIcon.textContent = maneuverIcon(currentStep.maneuver);
           routeCurrentText.textContent = approachM >= 80
             ? approachText
@@ -923,9 +927,7 @@ export function buildMapLibreHtml(): string {
               '</div>';
           }).join('');
         }
-        if (Date.now() < preserveToastUntil) {
-          return;
-        } else if (trackId) {
+        if (trackId) {
           setToast(false);
           snapToastAction = null;
         } else {
@@ -1284,7 +1286,7 @@ export function buildMapLibreHtml(): string {
             target.closest &&
             target.closest('.maplibregl-ctrl-zoom-in, .maplibregl-ctrl-zoom-out')
           ) {
-            preserveToastUntil = Date.now() + 5000;
+            programmaticCameraMove = true;
           }
         }, true);
         if (headingFollow && lastUserLocation) {
@@ -1449,6 +1451,10 @@ export function buildMapLibreHtml(): string {
       }
 
       map.on('moveend', function () {
+        if (programmaticCameraMove) {
+          programmaticCameraMove = false;
+          return;
+        }
         clearTimeout(moveTimer);
         moveTimer = setTimeout(function () {
           var center = map.getCenter();

@@ -65,6 +65,35 @@ Useful mock spots: Times Square `40.7580,-73.9855` (dense, ~535 merged sightings
 SF `37.7749,-122.4194`. To force the proximity toast you must move to ~150 m of a bird — the nearest NYC bird
 is ~243 m away by default.
 
+### If CDP geolocation starts returning `code 3 Timeout expired`, stop debugging it and use a stub
+On Chrome 137.0.7118.2 the **required grant flavour is not stable**: it depends on hidden per-origin
+content settings persisted in the `--user-data-dir`, and it can *flip mid-session*. Measured back-to-back
+with one trial per clean permission state, `getCurrentPosition` after each:
+
+```
+run A (profile poisoned by earlier grants)   run B (brand-new --user-data-dir)
+  origin-scoped grant -> ERR 3 Timeout         origin-scoped grant -> OK
+  browser-wide grant  -> OK                    browser-wide grant  -> ERR 1 User denied
+  browser-wide+origin -> ERR 1 User denied     browser-wide+origin -> ERR 1 User denied
+```
+
+So any SKILL/daemon comment asserting "browser-wide works, origin-scoped breaks it" (or the reverse) is
+only true for one profile state. Do not spend a run bisecting it. Escalation ladder:
+1. Relaunch Chrome with a **fresh `--user-data-dir`** — this clears a persisted per-origin DENY, which is
+   the usual cause of a sudden `code 3` after you have been experimenting with grants.
+2. If it still misbehaves, install a **`navigator.geolocation` test double** instead of fighting the
+   permission layer. `/home/ubuntu/geostub.py` does this: it injects a stub via
+   `Page.addScriptToEvaluateOnNewDocument` (so it is present in every frame *before* app code runs, which
+   matters because the app subscribes on mount), then reloads. Drive it with `window.__setPos(lat,lng)`,
+   which notifies every live `watchPosition` subscriber synchronously. Verify the install reports
+   `watchers >= 1` — that is your proof the app is actually subscribed to the stub.
+   Movement then becomes exact and instant, which is what a route-walking test needs.
+   **Trade-off to disclose:** this bypasses the real permission code path, so "late permission grant" and
+   "permission denied" notices cannot be tested while the stub is installed.
+3. Only one connection should own geolocation state. Two attached connections both issuing
+   `setGeolocationOverride`/`clearGeolocationOverride` fight each other; if you run a separate holder,
+   keep the main daemon at `geo=None` so its `apply_state` never clears the override.
+
 ## Asserting things objectively
 - **The iframe DOM is readable from the parent** (`iframe.contentDocument`), so overlap/hit-target/framing
   claims should be *measured*, not eyeballed. Offset iframe rects by the iframe's own rect to compare with
@@ -320,6 +349,42 @@ a wheel-zoom over the canvas — i.e. the proxy could not detect a zoom that cer
 Treat any "zoom did/didn't change" conclusion from such a proxy as **inconclusive**, say so, and do not report it
 as a product failure. If you must assert zoom, pause follow first and compare screenshots.
 
+## Overlay occlusion: `peek` + tracking is a distinct state, and it is the one navigation uses
+The sheet-state occlusion matrix is not just `peek` vs `half`. **Tracking adds two full-width bars**
+(`#route-panel` with `#route-current-text`/`#route-summary`, and `#track-card` with `#track-dist`) low on
+the screen, in the same band as a left- or centre-laned Capture FAB. A fix that removes the FAB from
+`half` closes every `half` collision and still leaves navigation broken, because navigation runs in
+`peek`. Always re-run the matrix in **`peek` with a route active**, with these as targets, and hit-test
+them: a real occlusion shows up as `elementFromPoint` returning the FAB's `📷` glyph instead of the
+`IFRAME`. Symptom that a human would notice: a truncated street name (`"54th Street"` rendering as
+`"1th Street"`).
+
+## An "immediate read" is not sufficient proof that a click did not dismiss an overlay
+Last round's trap was that a toast **re-arms** ~1 s after being wrongly dismissed, so a *delayed* read
+falsely passes. The opposite failure also exists: a dismissal can arrive on the map's `move`/`moveend`
+event ~1.2 s **after** the click, so an *immediate* read falsely passes. Sample at t+0, t+1.3 s and
+t+3.3 s, and always run a **no-click control** at the same timestamps — otherwise you cannot distinguish
+"the click dismissed it" from "it expires on its own".
+Also note a real zoom click only proves anything if the map actually moved: at min/max zoom the click is a
+no-op, nothing moves, and no dismissal fires, which looks like a pass. Check for a persistent marker
+displacement (e.g. `x 286 -> 337` that survives 1.5 s) to confirm the zoom took effect — that *is* a valid
+zoom proxy when the mock position is static and follow-mode therefore is not re-framing.
+
+## Arrival tests must target the bird, not the end of the route polyline
+OSRM's geometry ends at the **road point nearest the destination**, which on a measured NYC route was
+**131.7 m** from the bird — far outside `ARRIVE_M = 30`. Moving to `coordinates[coordinates.length-1]`
+therefore does *not* trigger arrival, and it looks exactly like an arrival-detection bug. Take the bird's
+own lat/lng from the tracked row / the OSRM request's destination pair and move to within ~15 m of that.
+
+## Proving route *trimming* rather than redrawing
+Fetch the exact captured OSRM URL from the shell, take `routes[0].geometry.coordinates`, and step **those
+vertices** — perpendicular distance is then ~0 by construction, so an off-route reroute cannot fire
+spuriously (stepping arbitrary "nearby" points is what produced a false off-route result once). Then
+compare the displayed remaining distance against your own haversine sum of the *remaining* vertices: a
+correctly trimmed route matches within ~1 m, whereas a redrawn or direct-distance implementation drifts
+badly. Build the step table (`maneuver_at_along` = cumulative distance of each step) before judging the
+turn banner, so you know where each maneuver actually is.
+
 ## Verify your occlusion evaluator actually found each source before trusting a zero
 An evaluator that identifies the Capture FAB by `innerText.indexOf('📷')===0` silently stopped matching it in one
 run, and the matrix then reported `parent × iframe = 0 overlaps` for a state where a **direct** rect measurement
@@ -327,7 +392,25 @@ showed `FAB [147,138,82,82] × toast Go [186,112,44,44] = 774 px²`. A "0 overla
 the run also lists every expected source. Print the enumerated source list every time, assert the FAB/rail/tab
 bar are present in it, and cross-check any headline zero with a direct two-rect measurement.
 
-## Known issues to re-check (as of commit c68ebdf)
+## Known issues to re-check (as of commit 6c65a16)
+- **Capture FAB covers the live `#route-panel` in `peek`+tracking, at 375 *and* 390** (4838 / 4756 px²;
+  `#route-current-text` 1767 px²). Occlusion confirmed by hit-test; truncates the street name. The
+  `half`-state FAB collisions are genuinely gone (FAB is unmounted there, count 0) and `FAB × avatar` is
+  now 0 at both widths.
+- **The turn banner does not advance past a passed maneuver.** `updateRouteProgress` picks the *last* step
+  within an 80 m lookahead, and `approachM` floors at 0, so a maneuver already walked past renders as
+  `"Now · <that turn>"` until you come within 80 m of the *next* one — 640 m of "Now · Left onto 6th
+  Avenue" on a real route. Verify with a step table, not by eyeballing that the text "changes".
+- Routing itself is solid: 1 OSRM request to start, 0 while on-route, 0 at arrival, exactly 1 after >35 m
+  off-route, 0 while holding off-route; trimming within 1 m; ETA exactly `round(m/81)`.
+- Zoom/compass yield correctly to the toast (2 px gap, 0 intersection, all 44×44, both compasses hidden
+  while the toast is up, and the custom `#compass-button` is `display:none` — it is *removed*, not moved).
+- Seen once and **not reproducible**: `#snap-toast`, `#nearby-panel` and `#nearby-title` all vanished from
+  the iframe DOM while markers/avatar survived, after heavy tracking + repeated mid-flight viewport
+  changes. A reload fixed it; a controlled zoom click did not reproduce it. Suspect harness churn, but if
+  you see it after a *user-level* action, that is a real defect — capture the sequence.
+
+## Older known issues (as of commit c68ebdf)
 These may already be fixed; treat as "look here first" rather than fact.
 
 ### Open at `c68ebdf` (newest first) — all of these are **375-only**; 390×844 measured clean
