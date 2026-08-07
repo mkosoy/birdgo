@@ -118,10 +118,10 @@ These may already be fixed; treat as "look here first" rather than fact.
   banner, so tapping `+` changes the view mode instead of zooming.
 - Only ~2 of ~535 markers are visible in the first-person pose (zoom 17 / pitch 60) — building occlusion is
   fixed, but bird visibility is still poor, worse on mobile.
-- **Android emulator:** the app shell, backend data and the user dot render, but map tiles were blank in
-  *both* Adventure and Classic even though the emulator had working DNS/network to the tile hosts and logcat
-  was clean. This is likely a software-GPU/WebView artifact of nested virtualization — needs one real device
-  to classify. Real GPS, compass heading and camera capture have **never** been verified on real hardware.
+- **Android emulator:** Adventure mode has been observed rendering the 3D map, roads, buildings, user dot,
+  bird markers, rare banner and Nearby tray correctly. A prior blank-tile observation was a stale/paused
+  emulator artifact, not a confirmed app defect. Real GPS, compass heading and camera capture have
+  **never** been verified on real hardware.
 
 ## Devin Secrets Needed
 - eBird API token (`EBIRD_API_TOKEN`) — provided by the user for the app; no OpenAI key needed while `BIRD_ID_PROVIDER=heuristic`.
