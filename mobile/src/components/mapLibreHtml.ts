@@ -24,6 +24,7 @@ export function buildMapLibreHtml(): string {
     .encounter button:nth-child(2) { background: #2878d1; }
     .encounter button:nth-child(3) { background: #6f5aa8; }
     .maplibregl-popup { z-index: 9 !important; }
+    .maplibregl-ctrl-top-right { top: 100px; right: 8px; }
     #nearby-panel { position: absolute; left: 8px; right: 84px; bottom: 98px; z-index: 6; background: rgba(255,255,255,.96); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.25); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; max-height: 52%; display: flex; flex-direction: column; }
     #nearby-header { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
     #nearby-title { font-weight: 800; color: #173c2b; font-size: 14px; flex: 1; }
@@ -971,8 +972,8 @@ export function buildMapLibreHtml(): string {
               minzoom: 14,
               paint: {
                 'fill-extrusion-color': '#eef3ea',
-                'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 10],
-                'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+                'fill-extrusion-height': ['min', ['coalesce', ['get', 'render_height'], 10], 36],
+                'fill-extrusion-base': ['min', ['coalesce', ['get', 'render_min_height'], 0], 30],
                 'fill-extrusion-opacity': 0.88
               }
             });
