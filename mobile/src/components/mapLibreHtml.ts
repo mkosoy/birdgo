@@ -392,16 +392,15 @@ export function buildMapLibreHtml(): string {
         startOrientation();
       }
 
-      function firstPersonOffset() {
+      function firstPersonPadding() {
         var height = map.getContainer().clientHeight || 600;
-        return [0, Math.round(height * 0.18)];
+        return { top: Math.round(height * 0.36), right: 0, bottom: 0, left: 0 };
       }
       function frameUser(target, duration) {
         if (!target || typeof target.latitude !== 'number' || typeof target.longitude !== 'number') return;
-        map.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
+        map.setPadding(firstPersonPadding());
         map.easeTo({
           center: [target.longitude, target.latitude],
-          offset: firstPersonOffset(),
           pitch: 60,
           zoom: 17,
           bearing: typeof currentHeading === 'number' ? currentHeading : map.getBearing(),
@@ -1201,8 +1200,7 @@ export function buildMapLibreHtml(): string {
             duration: 0
           };
           if (headingFollow) {
-            map.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
-            followCamera.offset = firstPersonOffset();
+            map.setPadding(firstPersonPadding());
             if (typeof currentHeading === 'number') followCamera.bearing = currentHeading;
             map.jumpTo(followCamera);
           } else {
