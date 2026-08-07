@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchNotableBirds, fetchRecentBirds } from "../api";
-import type { EbirdObservation } from "../types";
+import type { Coordinates, EbirdObservation } from "../types";
 
 export function useBirds(latitude: number, longitude: number) {
   const [birds, setBirds] = useState<EbirdObservation[]>([]);
   const [notable, setNotable] = useState<EbirdObservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadedArea, setLoadedArea] = useState<Coordinates | null>(null);
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -23,6 +24,7 @@ export function useBirds(latitude: number, longitude: number) {
       const notableByKey = new Map(rare.map((bird) => [`${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`, bird]));
       setBirds([...merged.values()]);
       setNotable([...notableByKey.values()]);
+      setLoadedArea({ latitude, longitude });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load nearby birds");
     } finally {
@@ -30,5 +32,5 @@ export function useBirds(latitude: number, longitude: number) {
     }
   }, [latitude, longitude]);
   useEffect(() => { void refresh(); }, [refresh]);
-  return { birds, notable, loading, error, refresh };
+  return { birds, notable, loading, error, loadedArea, refresh };
 }

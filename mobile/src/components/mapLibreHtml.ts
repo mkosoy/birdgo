@@ -25,7 +25,7 @@ export function buildMapLibreHtml(): string {
     .encounter button:nth-child(2) { background: #2878d1; }
     .encounter button:nth-child(3) { background: #6f5aa8; }
     .maplibregl-popup { z-index: 9 !important; }
-    .maplibregl-ctrl-top-right { top: calc(var(--safe-top) + 104px); right: 8px; }
+    .maplibregl-ctrl-top-right { top: calc(var(--safe-top) + 156px); right: 8px; }
     .maplibregl-ctrl-group button { width: 44px; height: 44px; }
     #nearby-panel { position: absolute; left: 8px; right: 84px; bottom: var(--bottom-hud); z-index: 6; background: rgba(255,255,255,.96); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.25); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; max-height: 36%; display: flex; flex-direction: column; }
     #nearby-header { display: flex; align-items: center; gap: 8px; min-height: 44px; box-sizing: border-box; padding: 6px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
@@ -84,6 +84,10 @@ export function buildMapLibreHtml(): string {
     #snap-toast-copy { display: inline-block; }
     #snap-toast-dismiss { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: -8px -10px -8px 0; border-radius: 50%; font-size: 20px; }
     #compass-button { position: absolute; z-index: 7; left: 50%; top: calc(var(--safe-top) + 108px); transform: translateX(-50%); min-height: 44px; border: 0; border-radius: 18px; padding: 9px 14px; color: white; background: rgba(35, 73, 53, .92); font-weight: 700; display: none; cursor: pointer; }
+    #bird-awareness { position: absolute; inset: 0; z-index: 6; pointer-events: none; display: none; }
+    #bird-awareness.on { display: block; }
+    .bird-edge { position: absolute; width: 44px; height: 44px; margin: -22px; border: 0; border-radius: 22px; background: rgba(35, 73, 53, .9); color: #fff; font-size: 22px; line-height: 44px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+    .bird-edge.rare { background: rgba(217, 157, 33, .95); }
     @media (max-width: 600px) {
       #nearby-panel { max-height: 34%; }
       #route-panel { max-height: 30%; }
@@ -96,6 +100,7 @@ export function buildMapLibreHtml(): string {
 </head>
 <body>
   <div id="map"></div>
+  <div id="bird-awareness" aria-hidden="true"></div>
   <div id="track-hud"><div id="track-arrow">⬆</div></div>
   <div id="nearby-panel" class="collapsed">
     <div id="nearby-header">
@@ -149,6 +154,7 @@ export function buildMapLibreHtml(): string {
       var currentHeading = null;
       var bearingFrame = null;
       var arrowFrame = null;
+      var birdAwareness = document.getElementById('bird-awareness');
       var trackId = null;
       var routeDistanceM = null;
       var routeGeometryCoordinates = [];
@@ -350,7 +356,10 @@ export function buildMapLibreHtml(): string {
         if (bearingFrame != null) return;
         bearingFrame = requestAnimationFrame(function () {
           bearingFrame = null;
-          if (headingFollow && typeof currentHeading === 'number') map.setBearing(currentHeading);
+          if (headingFollow && typeof currentHeading === 'number') {
+            map.setBearing(currentHeading);
+            if (follow && lastUserLocation) stabilizeUserFrame(lastUserLocation);
+          }
         });
       }
 
@@ -386,6 +395,7 @@ export function buildMapLibreHtml(): string {
       }
       function frameUser(target, duration) {
         if (!target || typeof target.latitude !== 'number' || typeof target.longitude !== 'number') return;
+        map.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
         map.easeTo({
           center: [target.longitude, target.latitude],
           offset: firstPersonOffset(),
@@ -393,6 +403,26 @@ export function buildMapLibreHtml(): string {
           zoom: 17,
           bearing: typeof currentHeading === 'number' ? currentHeading : map.getBearing(),
           duration: duration
+        });
+      }
+
+      function stabilizeUserFrame(target) {
+        if (!target || !headingFollow || !userElement) return;
+        userElement.style.left = '0px';
+        userElement.style.top = '0px';
+        var apply = function () {
+          var container = map.getContainer().getBoundingClientRect();
+          var marker = userElement.getBoundingClientRect();
+          var desiredX = container.left + container.width * 0.5;
+          var desiredY = container.top + container.height * 0.68;
+          var dx = desiredX - (marker.left + marker.width * 0.5);
+          var dy = desiredY - (marker.top + marker.height * 0.5);
+          userElement.style.left = dx.toFixed(1) + 'px';
+          userElement.style.top = dy.toFixed(1) + 'px';
+        };
+        requestAnimationFrame(function () {
+          apply();
+          requestAnimationFrame(apply);
         });
       }
 
@@ -783,6 +813,42 @@ export function buildMapLibreHtml(): string {
         }
       }
 
+      function refreshBirdAwareness() {
+        if (!headingFollow || !lastUserLocation) {
+          birdAwareness.classList.remove('on');
+          birdAwareness.innerHTML = '';
+          return;
+        }
+        var width = map.getContainer().clientWidth || 600;
+        var height = map.getContainer().clientHeight || 600;
+        var candidates = computeNearest().filter(function (entry) {
+          var point = map.project([entry.bird.longitude, entry.bird.latitude]);
+          return point.x < -22 || point.x > width + 22 || point.y < -22 || point.y > height + 22;
+        }).slice(0, 3);
+        birdAwareness.innerHTML = candidates.map(function (entry) {
+          var point = map.project([entry.bird.longitude, entry.bird.latitude]);
+          var dx = point.x - width / 2;
+          var dy = point.y - height / 2;
+          var angle = Math.atan2(dy, dx);
+          var horizontal = Math.abs(dx) / Math.max(1, width / 2);
+          var vertical = Math.abs(dy) / Math.max(1, height / 2);
+          var x;
+          var y;
+          if (horizontal >= vertical) {
+            x = dx < 0 ? 28 : width - 28;
+            y = height / 2 + dy * (width / 2 - 28) / Math.max(1, Math.abs(dx));
+          } else {
+            y = dy < 0 ? 170 : height - 220;
+            x = width / 2 + dx * (height / 2 - 220) / Math.max(1, Math.abs(dy));
+          }
+          x = Math.max(28, Math.min(width - 28, x));
+          y = Math.max(170, Math.min(height - 220, y));
+          var classes = 'bird-edge' + (entry.bird.isNotable ? ' rare' : '');
+          return '<span class="' + classes + '" title="' + escapeHtml(entry.bird.comName || 'Bird') + '" style="left:' + x + 'px;top:' + y + 'px;transform:rotate(' + angle + 'rad)">➤</span>';
+        }).join('');
+        birdAwareness.classList.toggle('on', candidates.length > 0);
+      }
+
       function updateTrackCard() {
         if (!trackId) return;
         var entry = latestMarkers.find(function (bird) { return bird.id === trackId; });
@@ -837,12 +903,14 @@ export function buildMapLibreHtml(): string {
         nearbyCaret.textContent = '▸';
         panelCollapsed = true;
         if (lastUserLocation && !headingFollow) {
+          programmatic = true;
           map.easeTo({
             center: [lastUserLocation.longitude, lastUserLocation.latitude],
             pitch: 60,
             zoom: 17,
             duration: 600
           });
+          setTimeout(function () { programmatic = false; }, 700);
         }
         updateTrackCard();
         updateTrackArrow();
@@ -1039,7 +1107,11 @@ export function buildMapLibreHtml(): string {
 
       map.on('load', function () {
         styleAdventureMap();
-        if (headingFollow && lastUserLocation) frameUser(lastUserLocation, 350);
+        if (headingFollow && lastUserLocation) {
+          programmatic = true;
+          frameUser(lastUserLocation, 350);
+          setTimeout(function () { programmatic = false; }, 450);
+        }
         updateRoute();
       });
       if (typeof ResizeObserver !== 'undefined') {
@@ -1052,6 +1124,9 @@ export function buildMapLibreHtml(): string {
       map.on('move', scheduleArrow);
       map.on('rotate', scheduleArrow);
       map.on('pitch', scheduleArrow);
+      map.on('move', refreshBirdAwareness);
+      map.on('zoom', refreshBirdAwareness);
+      map.on('rotate', refreshBirdAwareness);
 
       function render(data) {
         if (!data || !data.center) return;
@@ -1070,15 +1145,18 @@ export function buildMapLibreHtml(): string {
           map.setCenter([initialTarget.longitude, initialTarget.latitude]);
           if (data.firstPerson) {
             headingFollow = true;
+            programmatic = true;
             frameUser(initialTarget, 700);
+            setTimeout(function () { programmatic = false; }, 800);
             enableOrientation();
           } else {
-            map.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, pitch: 58, zoom: 15.5, bearing: 0, duration: 500 });
+            map.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, pitch: 0, zoom: 15.5, bearing: 0, duration: 500 });
           }
           firstData = false;
         }
         if (data.command === 'recenter') {
           follow = true;
+          programmatic = true;
           var target = data.userLocation || data.center;
           if (data.firstPerson || headingFollow) {
             headingFollow = true;
@@ -1092,14 +1170,16 @@ export function buildMapLibreHtml(): string {
           setTimeout(function () { programmatic = false; }, 600);
         } else if (data.command === 'setView') {
           headingFollow = Boolean(data.firstPerson);
+          programmatic = true;
           if (headingFollow) {
             frameUser(data.userLocation || lastUserLocation || data.center, 700);
             if (typeof data.heading === 'number') updateBearing(data.heading);
             enableOrientation();
           } else {
             compassButton.style.display = 'none';
-            map.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, pitch: 58, zoom: 15.5, bearing: 0, duration: 700 });
+            map.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, pitch: 0, zoom: 15.5, bearing: 0, duration: 700 });
           }
+          setTimeout(function () { programmatic = false; }, 800);
         } else if (data.command === 'overview') {
           follow = false;
           var overviewTarget = data.userLocation || data.center;
@@ -1127,18 +1207,18 @@ export function buildMapLibreHtml(): string {
             startTrack(closestEntry.bird);
           }
         } else if (data.userLocation && follow && !programmatic && (!previousLocation || haversineKm(previousLocation, data.userLocation) > 0.003)) {
-          programmatic = true;
           var followCamera = {
             center: [data.userLocation.longitude, data.userLocation.latitude],
-            padding: { top: 0, right: 0, bottom: 0, left: 0 },
-            duration: 450
+            duration: 0
           };
           if (headingFollow) {
+            map.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
             followCamera.offset = firstPersonOffset();
             if (typeof currentHeading === 'number') followCamera.bearing = currentHeading;
+            map.jumpTo(followCamera);
+          } else {
+            map.easeTo(followCamera);
           }
-          map.easeTo(followCamera);
-          setTimeout(function () { programmatic = false; }, 550);
         }
         if (trackId) updateRoute();
         birdMarkers.forEach(function (marker) { marker.remove(); });
@@ -1151,9 +1231,11 @@ export function buildMapLibreHtml(): string {
           var marker = new maplibregl.Marker({ element: element })
             .setLngLat([bird.longitude, bird.latitude])
             .addTo(map);
-          element.addEventListener('click', function () {
+          element.style.pointerEvents = 'auto';
+          element.onclick = function (event) {
+            event.stopPropagation();
             openBirdPopup(bird);
-          });
+          };
           birdMarkers.push(marker);
         });
         if (data.userLocation) {
@@ -1161,8 +1243,10 @@ export function buildMapLibreHtml(): string {
           userElement.className = 'user-marker';
           if (userMarker) userMarker.setLngLat([data.userLocation.longitude, data.userLocation.latitude]);
           else userMarker = new maplibregl.Marker({ element: userElement }).setLngLat([data.userLocation.longitude, data.userLocation.latitude]).addTo(map);
+          if (headingFollow && follow) stabilizeUserFrame(data.userLocation);
         }
         refreshUi();
+        refreshBirdAwareness();
       }
 
       map.on('moveend', function () {

@@ -26,8 +26,9 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const [popupOpen, setPopupOpen] = useState(false);
   const [locationRetry, setLocationRetry] = useState(0);
   const hasRealLocation = useRef(false);
+  const fallbackActive = useRef(true);
   const [rareDismissed, setRareDismissed] = useState(false);
-  const { birds, notable, loading, error, refresh } = useBirds(center.latitude, center.longitude);
+  const { birds, notable, loading, error, loadedArea, refresh } = useBirds(center.latitude, center.longitude);
   const { saveSeen } = useCollection();
   const topMessage = locationNotice
     ? { text: locationNotice, onPress: () => setLocationRetry((request) => request + 1) }
@@ -47,17 +48,22 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
       if (!mounted || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
       const next = { latitude, longitude };
       const firstFix = !hasRealLocation.current;
+      const recoveringFromFallback = fallbackActive.current;
       hasRealLocation.current = true;
+      fallbackActive.current = false;
       setLocation(next);
       setLocationNotice(null);
-      if (firstFix) {
+      if (firstFix || recoveringFromFallback) {
         setCenter(next);
         setFirstPerson(true);
         setRecenterRequest((request) => request + 1);
       }
     };
     const handleFailure = () => {
-      if (mounted && !hasRealLocation.current) setLocationNotice("Location unavailable — tap to request access.");
+      if (mounted && !hasRealLocation.current) {
+        fallbackActive.current = true;
+        setLocationNotice("Location unavailable — tap to request access.");
+      }
     };
     const startWebWatch = () => {
       if (!mounted || !navigator.geolocation) {
@@ -143,12 +149,12 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   }, [firstPerson]);
 
   useEffect(() => {
-    if (!birds.length) return;
+    if (!birds.length || !loadedArea) return;
     void saveSeen(
       birds.flatMap((bird) => bird.comName ? [{ speciesCode: bird.speciesCode, comName: bird.comName }] : []),
-      location,
+      loadedArea,
     );
-  }, [birds, location, saveSeen]);
+  }, [birds, loadedArea, saveSeen]);
 
   useEffect(() => {
     if (!notable.length) return;
@@ -238,7 +244,7 @@ const styles = StyleSheet.create({
   topOverlay: { position: "absolute", top: 0, left: 16, right: 16, paddingTop: 8, gap: 8 },
   modeButton: { minHeight: 44, alignSelf: "flex-end", backgroundColor: "#ffffffee", paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, elevation: 3, justifyContent: "center" },
   modeButtonText: { color: "#173c2b", fontWeight: "700" },
-  topMessage: { minHeight: 44, backgroundColor: "#ffffffee", paddingHorizontal: 12, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 8 },
+  topMessage: { minHeight: 44, maxWidth: 360, alignSelf: "flex-start", backgroundColor: "#ffffffee", paddingHorizontal: 12, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 8 },
   topMessageText: { flex: 1, color: "#173c2b", fontWeight: "700", fontSize: 13 },
   topMessageDismiss: { color: "#173c2b", fontSize: 22, lineHeight: 24 },
   empty: { position: "absolute", top: "42%", left: 35, right: 35, backgroundColor: "#ffffffe8", padding: 16, borderRadius: 12 },
