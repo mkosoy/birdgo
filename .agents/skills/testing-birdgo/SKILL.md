@@ -159,6 +159,46 @@ zoom-out and compass buttons (all five hit points resolved to `#nearby-panel` / 
 parent-only matrix cannot see. And re-run the matrix in **every sheet state** — a state-aware floating button
 (the Capture FAB moves with `peek`/`half`) is clean in one state and overlapping in the other.
 
+**When a fix moves an overlay to escape a collision, immediately attack its new neighbourhood.** "Solved at the
+bottom by relocating into a crowded top band" is the same bug wearing a hat, and it happened verbatim at
+`c68ebdf`: deriving the Capture FAB's `bottom` from the sheet height cleared every `.nb-row`/`.nb-go`, but at
+375 `half` it lifted the FAB to `y≈138` — straight into the top band, where it covered 774 px² of the
+`#snap-toast` `Go` button and 4740 px² of the **expanded** attribution credits. So enumerate the whole top band
+as *targets* too, not just as sources: `#snap-toast` **and its `Go`/`×` children**, the expanded
+`#map-attribution-copy`, the parent top message / rare banner, and the parent 3D/Walk pills. Also always test
+attribution **collapsed and expanded** — the collapsed `ⓘ` is a tiny 44 px target that hides a ~242×63 panel.
+
+**Beware overlays that re-arm themselves and hide the evidence of a mis-hit.** The proximity toast re-appears
+~1 s after being dismissed, so a click that actually hit the toast looks like a click that did nothing if you
+sample 2 s later. Read the state **immediately** after the click with no sleep, then again at +1 s:
+```
+t0                : #snap-toast class = "on"
+click Zoom-out centre
+immediately after : class = ""    <-- the toast was dismissed: the click hit the TOAST, not the button
++1s               : class = "on"  <-- re-triggered, evidence gone
+```
+This "did the click activate the overlay instead of the control" check is the strongest behavioural proof of an
+occlusion defect, and it works even when the control's own effect is unobservable.
+
+**A height/state value pushed from the iframe to the parent goes stale, and the parent's derived layout goes
+with it.** At `c68ebdf` the parent positions the FAB from a `nearbyHeight` the iframe reports **only on panel
+state change and map load**. The sheet is `44vh`, so anything else that changes its height leaves the parent
+using the old number. Two reproducible consequences, both of which resurrect the previous round's defect:
+- **Viewport/orientation change while the sheet is open**: after `375→390` the panel was 359 px but the FAB was
+  still placed for 278 px, landing on the sheet header (4647 px²), the rare filter, the handle and row 0, with
+  the header's centre hit-testing to the FAB. It self-corrects on the next state toggle.
+- **After a drag**: the control stack is recomputed from the *mid-drag transformed* rect, clamps to the
+  `safeTop+8` floor, and is never recomputed once the panel settles — leaving the zoom group at `top:8` under the
+  parent 3D/Walk pills, with `Zoom in` blocked at all five hit fractions.
+So re-run the matrix after **a resize** and after **a drag that returns to the same state**, not only after a
+state toggle, and verify the parent's derived offset against the *measured* panel height each time
+(`FAB bottom offset == 164 + max(0, measuredPanelHeight - 58)`).
+
+**Mid-drag, nothing tracks the panel** (the state-change callback is the only thing that repositions the FAB,
+the rail and the control stack). While the handle is **held**, expect FAB × sheet header ≈ 4647 px², rail
+"Back to me" × sort toggle ≈ 749 px², and the compass resolving to `#rare-toggle`. Report it as transient but do
+measure it — it means every drag passes through an overlapping state.
+
 `env(safe-area-inset-*)` is **0** under Chrome device emulation, so notch/home-indicator behaviour cannot be
 tested natively. Simulate it (and label it as a simulation) by setting the iframe's CSS vars directly:
 `iframe.contentDocument.documentElement.style.setProperty('--safe-top','47px')` and `--safe-bottom:34px`
@@ -272,31 +312,75 @@ after the position jumps, so the tray shows the previous area's birds against th
 **then** reload, and sanity-check that row 1 reads a plausible distance before trusting any distance/sort/nav
 assertion or starting a recording.
 
-## Known issues to re-check (as of commit 89deaec)
+## Do not use a marker-spread proxy for MapLibre zoom — follow-mode reverts it
+Beyond the "markers have no ids" problem noted above, there is a worse failure: with a mocked position being
+re-delivered, follow-mode re-frames the camera on each fix, so a zoom change is undone before you can sample it.
+At `c68ebdf` the spread of `.bird-marker` positions was **byte-identical** after a zoom-button click *and* after
+a wheel-zoom over the canvas — i.e. the proxy could not detect a zoom that certainly happened for the wheel.
+Treat any "zoom did/didn't change" conclusion from such a proxy as **inconclusive**, say so, and do not report it
+as a product failure. If you must assert zoom, pause follow first and compare screenshots.
+
+## Verify your occlusion evaluator actually found each source before trusting a zero
+An evaluator that identifies the Capture FAB by `innerText.indexOf('📷')===0` silently stopped matching it in one
+run, and the matrix then reported `parent × iframe = 0 overlaps` for a state where a **direct** rect measurement
+showed `FAB [147,138,82,82] × toast Go [186,112,44,44] = 774 px²`. A "0 overlaps" result is only meaningful if
+the run also lists every expected source. Print the enumerated source list every time, assert the FAB/rail/tab
+bar are present in it, and cross-check any headline zero with a direct two-rect measurement.
+
+## Known issues to re-check (as of commit c68ebdf)
 These may already be fixed; treat as "look here first" rather than fact.
 
-### Open at `89deaec` (newest first)
-- **The state-aware Capture FAB overlaps an interactive Nearby row in `half`, at BOTH widths.** This is the
-  fifth iteration of the cross-document occlusion class and the first that is *not* 375-only, so it affects
-  390×844 demo framing too:
-  `375: FAB [147,445,82,82] ∩ nbRow2 [12,430,351,66] = 4193 px²`;
-  `390: FAB [154,622,82,82] ∩ nbRow3 [12,592,366,66] = 2942 px²`.
-  A real tap on the row's visual centre **opens the Capture screen instead of the encounter card**, and the FAB
-  visually covers that row's name and distance line. Look here first, and see the occlusion rules above about
-  including `.nb-row`/`.nb-go`.
-- **At 375 `half` the sheet buries the iframe's own zoom-out and compass buttons** (`Zoom out [237,210,44,44]`
-  and `Reset bearing [237,254,44,44]`; all five hit points resolve to `#nearby-panel` / `#rare-toggle`). This is
-  iframe-internal, so a parent-vs-iframe matrix reports clean. Clear at 390.
-- **Release matches on species code OR normalised common name**, so it is name-based even when a code is
-  present. `CaptureScreen` defaults `commonName` to `"Unidentified bird"`, so two genuinely different keyless
-  saves share one name and **releasing one deletes both**. Reachable via the no-vision-key / "save unidentified
-  photo" flows.
-- No error boundary anywhere: one malformed capture record blanks the whole screen including the tab bar (see
-  the fixture-shape section above).
-- Minor: dragging the sheet down from `peek` lets the panel follow the pointer off-screen before clamping on
-  release; the Capture FAB corner-touches the avatar in `peek` at 390 (89 px², avatar still hit-testable).
+### Open at `c68ebdf` (newest first) — all of these are **375-only**; 390×844 measured clean
+The sixth iteration of the cross-document occlusion class. The FAB no longer touches the sheet's rows, but the
+height-derived offset moved it into the top band and made the control stack stale:
+- **375 `half`: the FAB covers the `#snap-toast` `Go` button by 774 px²** (`FAB [147,138,82,82]` ×
+  `Go [186,112,44,44]`; FAB × complete toast 1820 px²) — that `Go` is the demo's primary call to action.
+- **375 `half` with attribution expanded: the FAB covers 4740 px² of the OSM licence credits**
+  (`copy [8,162,242,63]`), i.e. the credit the licence requires to stay reachable.
+- **375 `half`: the toast now buries the repositioned zoom buttons** (toast × zoom group 2297 px², × `Zoom in`
+  1047 px², × `Zoom out` 1241 px²). Centres resolve to `snap-toast` / `snap-toast-dismiss`, and a real click on
+  the `Zoom out` centre **dismisses the toast** instead of zooming.
+- **The stale-height class** (see the occlusion section): after a viewport change the FAB lands back on the sheet
+  header (4647 px²) with the header centre hit-testing to the FAB; after a drag the zoom stack sticks at `top:8`
+  and `Zoom in` is blocked behind the 3D/Walk pills at all five fractions. Both clear on the next state toggle.
+- **Mid-drag nothing tracks the panel** — transient, but every drag passes through FAB × sheet header 4647 px².
+- Judgement item, not a defect: the FAB **sits on the avatar** in `peek` (1111 px² at 375, 422 px² at 390), so the
+  hero shot has the camera button over the "you are here" dot. The toast also clips `Zoom in` by 243 px² at 390
+  (cosmetic; all hit points still resolve).
+- Coordinate hardening is a **per-field guard, not an error boundary** — a different malformed field would still
+  blank the screen including the tab bar.
 
-### Verified fixed at `89deaec` (fresh evidence; spot-check only)
+### Verified fixed at `c68ebdf` (fresh evidence; spot-check only)
+- **FAB × every visible `.nb-row` and `.nb-go` = 0 px²** in `half` at both widths when the sheet height was
+  reported freshly (`375: FAB [147,138,82,82]`, panel top 228/h 278; `390: FAB [154,233,82,82]`, panel top 323/
+  h 359), and a real tap on a row centre at 390 opened the **correct** encounter card (`onCaptureScreen:false`).
+- **Panel × zoom group / compass = 0 px² at 390** in both states, every button resolving to itself.
+- **Release predicate**: both-coded compares codes, otherwise normalised names. Coded-side release reported
+  `"3 photos"` and removed the coded pair *and* the uncoded sibling; uncoded-side reported `"2 photos"` and also
+  removed the coded sibling; two captures with **different** codes sharing `"Unidentified bird"` reported
+  singular `"1 photo"` and **only the tapped one** was deleted (the `89deaec` over-deletion is gone). `Keep` is
+  inert (hash unchanged); `birdgo.captures` changed while `birdgo.seen` and `birdgo.seen-area` stayed
+  **byte-identical within the session**; SEEN silhouette fallback; no resurrect on refocus/refetch/reload.
+  Caveat: across a full **reload** the seen keys legitimately change because live eBird data is refetched and
+  rewritten — do not mistake that for a release-time mutation.
+- **`DexScreen` coordinate hardening**: five malformed variants (`location:{}`, key absent, null lat/lng, string
+  lat/lng, legacy `{lat,lng}`) all render a normal card with **no coordinate line**, exactly 2 coordinate lines
+  on screen for the 2 well-formed records, tab bar intact, no `toFixed` TypeError, and `Release` still opens.
+- **Prod serves this revision.** Because the prod export is minified, `nearbyHeight`/`coordinateLabel` are
+  renamed and their absence proves nothing — fingerprint with `+164+Math.max(` (present), the old `154`/`76`
+  ternary (absent) and `updateControlStack` (present, it lives inside the map HTML **string** so it survives
+  minification). Runtime: 436 markers, sheet `half` 250 px with `hasFull:false`, compact `ⓘ`, Ionicons tab bar.
+
+### Open at `89deaec`, since fixed (kept because this class regresses)
+- The state-aware Capture FAB overlapped an interactive Nearby row in `half` at **both** widths
+  (`375: 4193 px²`, `390: 2942 px²`) and a real row-centre tap opened the Capture screen.
+- At 375 `half` the sheet buried the iframe's own zoom-out and compass buttons (all five hit points resolved to
+  `#nearby-panel` / `#rare-toggle`).
+- Release matched on code **or** normalised name even when a code was present, so two different keyless saves
+  sharing `"Unidentified bird"` over-deleted each other.
+- One malformed capture record blanked the whole screen including the tab bar.
+
+### Verified fixed at `89deaec` (older evidence; re-verify before citing)
 Release works via a cross-platform `Modal` and is correctly species-scoped **from both the coded and uncoded
 side**, with `birdgo.seen`/`birdgo.seen-area` byte-identical across a release, SEEN-silhouette fallback,
 no resurrect on refocus/refetch/reload, singular `"1 photo"` on recapture, and full disappearance after an
