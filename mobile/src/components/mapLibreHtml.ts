@@ -87,7 +87,6 @@ export function buildMapLibreHtml(): string {
     #snap-toast-go { min-width: 44px; min-height: 44px; flex: 0 0 44px; border: 0; border-radius: 18px; padding: 8px 10px; background: rgba(255,255,255,.22); color: #fff; font-weight: 800; cursor: pointer; }
     #snap-toast-dismiss { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: 0 0 44px; margin: -8px -10px -8px 0; border: 0; background: transparent; color: #fff; border-radius: 50%; font-size: 20px; cursor: pointer; }
     #compass-button { position: absolute; z-index: 7; left: 50%; top: calc(var(--safe-top) + 108px); transform: translateX(-50%); min-height: 44px; border: 0; border-radius: 18px; padding: 9px 14px; color: white; background: rgba(35, 73, 53, .92); font-weight: 700; display: none; cursor: pointer; }
-    .leaflet-popup-close-button { width: 44px; height: 44px; padding: 0; font-size: 24px; line-height: 40px; text-align: center; }
     @media (max-width: 600px) {
       #nearby-panel { max-height: 42%; }
       .nb-thumb { width: 38px; height: 38px; font-size: 18px; }
@@ -471,6 +470,9 @@ export function buildMapLibreHtml(): string {
       function fmtDist(km) {
         return km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(1) + ' km';
       }
+      function compactToast() {
+        return window.innerWidth <= 380;
+      }
 
       function etaMin(km) {
         return Math.max(1, Math.round(km * 1000 / 81));
@@ -812,13 +814,13 @@ export function buildMapLibreHtml(): string {
           var closest = nearest[0];
           if (closest && closest.distance * 1000 <= SNAP_M) {
             var closestName = closest.bird.comName || closest.bird.sciName || 'Bird';
-            snapToastCopy.textContent = (window.innerWidth <= 380 ? '' : '📸 Snap ') + closestName + (window.innerWidth <= 380 ? '' : ' · Direct ' + fmtDist(closest.distance));
+            snapToastCopy.textContent = (compactToast() ? '' : '📸 Snap ') + closestName + ' · ' + fmtDist(closest.distance);
             snapToastGo.textContent = 'Snap';
             setToast(true);
             snapToastAction = function () { capture(closest.bird.id); };
           } else if (closest && closest.distance * 1000 <= 180) {
             var nearbyName = closest.bird.comName || closest.bird.sciName || 'Bird';
-            snapToastCopy.textContent = (window.innerWidth <= 380 ? '' : '🐦 Nearby ') + nearbyName + (window.innerWidth <= 380 ? '' : ' · Direct ' + fmtDist(closest.distance));
+            snapToastCopy.textContent = (compactToast() ? '' : '🐦 Nearby ') + nearbyName + ' · ' + fmtDist(closest.distance);
             snapToastGo.textContent = 'Go';
             setToast(true);
             snapToastAction = function () { startTrack(closest.bird); };
