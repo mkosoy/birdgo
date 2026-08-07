@@ -23,11 +23,14 @@ export interface BirdMapProps {
   recenterRequest?: number;
   overviewRequest?: number;
   nearestRequest?: number;
+  trackRequest?: Coordinates & { name: string };
   safeArea?: SafeAreaInsets;
   onCapture: (bird: EbirdObservation) => void;
   onDirections: (coordinates: Coordinates & { name: string }) => void;
   onAbout: (bird: { speciesCode: string; comName: string }) => void;
   onPopupChange?: (open: boolean) => void;
+  onToastChange?: (open: boolean) => void;
+  onFollowChange?: (paused: boolean) => void;
   onRegionChange: (coordinates: Coordinates) => void;
 }
 
@@ -50,14 +53,16 @@ interface LeafletData {
   userLocation?: Coordinates;
   heading?: number;
   markers: LeafletMarker[];
-  command?: "recenter" | "setView" | "overview" | "nearest";
+  command?: "recenter" | "setView" | "overview" | "nearest" | "track";
+  trackTarget?: Coordinates & { name: string };
   firstPerson?: boolean;
   safeArea?: SafeAreaInsets;
 }
 
 interface LeafletMessage {
-  type: "capture" | "directions" | "about" | "regionChange" | "popup";
+  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "follow";
   open?: boolean;
+  paused?: boolean;
   id?: string;
   speciesCode?: string;
   comName?: string;
@@ -77,7 +82,7 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, safeArea, onCapture, onDirections, onAbout, onPopupChange, onRegionChange },
+  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onFollowChange, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
@@ -148,6 +153,13 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "nearest" }))}, '*'); true;`);
     }
   }, [nearestRequest]);
+  useEffect(() => {
+    if (!trackRequest) return;
+    const latestData = dataRef.current;
+    if (latestData) {
+      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "track", trackTarget: trackRequest }))}, '*'); true;`);
+    }
+  }, [trackRequest]);
 
   const handleMessage = (event: WebViewMessageEvent) => {
     let message: LeafletMessage;
@@ -165,6 +177,10 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       onAbout({ speciesCode: message.speciesCode, comName: message.comName });
     } else if (message.type === "popup") {
       onPopupChange?.(Boolean(message.open));
+    } else if (message.type === "toast") {
+      onToastChange?.(Boolean(message.open));
+    } else if (message.type === "follow") {
+      onFollowChange?.(Boolean(message.paused));
     } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
       onRegionChange({ latitude: message.latitude, longitude: message.longitude });
     }

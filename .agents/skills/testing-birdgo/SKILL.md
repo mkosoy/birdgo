@@ -80,6 +80,15 @@ is ~243 m away by default.
 - **Count OSRM traffic from the network, not the UI:** listen to `Network.requestWillBeSent` and filter
   `router.project-osrm.org`. Expected budget: 1 request when Track starts, **0** during on-route movement,
   **0** inside the arrival radius, and exactly 1 when >35 m off-route (with a ~15 s failure backoff).
+- **The on-route budget test gives false failures unless your waypoints are truly on the polyline.** Eyeballing
+  "near the route" is not enough — a plausible-looking point was measured at **96 m** off-route and correctly
+  triggered a reroute, which looks identical to a budget regression. Fetch the route GeoJSON yourself, compute
+  each candidate's perpendicular distance to every segment, and **step only on actual polyline vertices**
+  (offroute == 0.0). Re-fetch the polyline after any reroute — the old geometry is stale.
+- **One `move` can deliver more than one fix** (typically 2). Before calling a reroute count a burst, log
+  `window.__fixes.length` around the move: "2 fixes → 1 request" is correct behaviour, not a duplicate.
+  Reroute counts are also worth repeating — a one-off burst of 3 identical requests did not reproduce in two
+  controlled retries, so treat a single observation as unconfirmed.
 - **Walking ETA** must be `round(metres / 81)` (~4.9 km/h). OSRM's own `duration` is car-like (~462 m/min) and
   must never be displayed — this has regressed before.
 - **First-person framing** is deliberately *low* on screen: the avatar should sit ~60–68 % down (assert
@@ -91,9 +100,30 @@ is ~243 m away by default.
 ## iPhone-first / narrow-viewport testing
 Chrome refuses to make a real window narrower than **500 px** CSS, so resizing with `wmctrl` cannot reach
 iPhone width. Use `Emulation.setDeviceMetricsOverride` (`width:390, height:844, deviceScaleFactor:3,
-mobile:true`) plus `Emulation.setTouchEmulationEnabled`, and clear it afterwards. Things that only show up at
-390 px: the expanded Nearby tray consuming ~52 % of the map, species names truncating, the ETA line wrapping,
-the attribution wrapping under the Capture FAB, and **0 of ~535 bird markers being visible** in first-person.
+mobile:true`) plus `Emulation.setTouchEmulationEnabled`, and clear it afterwards. Test **both** 390×844 and
+**375×667** — the tighter height is where panels start clipping, and several defects appear at 375 but not 390.
+
+Many layout bugs exist *only* below ~400 px, so always re-probe every state after switching metrics:
+idle first-person, Nearby expanded, tracking with directions collapsed **and** expanded, popup open, and a
+top message showing. Things found this way: the expanded tray showing only ~2.3 of 14 rows
+(`#nearby-list` scrollHeight 1016 vs clientHeight 166) with the next row cut mid-text, species names
+truncating, the track card squeezing its name/distance into a **67 px** flex column inside a 298 px card
+(name ellipsized, distance wrapped to 3 lines), and only 1–2 of ~536 markers visible in first-person.
+
+**Cross-document occlusion is the top recurring bug class at mobile width, and it is invisible to an
+iframe-only overlap check.** Parent React overlays and the iframe's own HUD can occupy the same band: the
+parent rare banner was measured covering **87 %** of the in-iframe `#snap-toast`, making its "Go" dead, and
+the parent Capture FAB blocked the left 40 % of the popup's Directions button. Always (a) convert iframe
+rects to page coords via the iframe's own rect and intersect them against parent overlays, and (b) hit-test
+**several points across** a wide control, not just its centre — centre-only checks passed while the left edge
+was dead. A useful confirmation: if a real click at a covered control dismisses/activates the *overlay*
+instead, the overlay is on top.
+
+`env(safe-area-inset-*)` is **0** under Chrome device emulation, so notch/home-indicator behaviour cannot be
+tested natively. Simulate it (and label it as a simulation) by setting the iframe's CSS vars directly:
+`iframe.contentDocument.documentElement.style.setProperty('--safe-top','47px')` and `--safe-bottom:34px`
+(true iPhone 14 values), then assert the HUD shifted by exactly those amounts and remove the properties
+afterwards. Correct plumbing moved the tray up 34 px and the zoom control down 47 px.
 
 ## Capture flow notes
 - The keyless heuristic **no longer invents a species** (it used to confidently label a leopard "Anna's
@@ -112,23 +142,46 @@ the attribution wrapping under the Capture FAB, and **0 of ~535 bird markers bei
   the current coordinates instead of dropped (verify by checking whether listed species actually appear in the
   current `/api/birds/recent` response for that location).
 
-## Known issues to re-check (as of commit 38121fb)
+## Known issues to re-check (as of commit be1e947)
 These may already be fixed; treat as "look here first" rather than fact.
-- Passive camera follow can drift the avatar out of the 55–75 % band while walking (seen at y 20–41 %, and
-  clipped off-screen after a manual zoom). Opening frame and the ◎ recenter button are fine — it is the
-  per-fix `easeTo` in `mapLibreHtml.ts` that drifts.
-- A late permission grant recovers the *data* without a reload but may leave the avatar off-screen, because
-  `applyFix()` only re-frames on the **first** fix and a fallback location already counted as first.
-- Tapping a `.bird-marker` may not open its popup at all (the 🐦 nearest-bird control does). Verify with a
-  capture-phase click listener before assuming an overlay is at fault.
-- MapLibre's own `+/−` control can be overlapped by the parent "🗺 Overhead" toggle and the full-width rare
-  banner, so tapping `+` changes the view mode instead of zooming.
-- Only ~2 of ~535 markers are visible in the first-person pose (zoom 17 / pitch 60) — building occlusion is
+
+Verified **fixed** at `be1e947` (don't re-report without fresh evidence, but they have regressed before, so
+spot-check): camera follow keeping the avatar at y68 % for a whole walk; `.bird-marker` taps opening popups;
+44 px zoom controls that no longer toggle the view mode; seen placeholders stamped with the *fetched* area
+(`loadedArea`) so out-of-area species are dropped rather than re-stamped; late permission grant reframing
+without a reload; Overhead being genuinely top-down (`pitch: 0`).
+
+Still open at `be1e947`:
+- **Mobile-only occlusion (worst class):** the parent rare banner covers ~87 % of the in-iframe `#snap-toast`
+  so its "Go" is unclickable, and the parent Capture FAB blocks the left ~40 % of the popup's Directions
+  button. Both are cross-document — see the occlusion recipe above.
+- Track card crushes name/distance into a ~67 px flex column (name ellipsized, distance wrapped to 3 lines)
+  and overlaps the route panel by ~5 px at 375–390 px.
+- The three `.bird-edge` awareness arrows collide with the round controls and the Nearby/route panels, stack
+  on top of each other (~37 px overlap at 390 px), and still render when zoomed out where they're redundant.
+- After a **manual zoom**, follow is disabled by the `userGesture` gate, so continued walking pushes the
+  avatar off-screen (measured x99.8 %, clipped) with no cue; `◎` recovers and re-arms follow. The zoom level
+  itself *is* correctly preserved.
+- Popup "Directions" calls `Linking.openURL` to Google Maps instead of starting the in-app route
+  (`MapScreen.tsx` `onDirections`); only the tray/toast "Go" starts in-app navigation.
+- Switching Adventure ↔ Classic silently discards the active Track/route with no warning.
+- Popup close `×` is 20×17 px and the toast dismiss `×` is 22×44 px — both under the 44 px floor everything
+  else now meets. Toast "Go" is inline text in `#snap-toast-copy`, not a discrete button.
+- CaptureScreen body copy is `rgb(85,85,85)` on near-black (~2.3:1, fails WCAG AA); the heading above it was
+  fixed to `rgb(215,232,218)`.
+- Only ~1–2 of ~536 markers are visible in the first-person pose (zoom 17 / pitch 60) — building occlusion is
   fixed, but bird visibility is still poor, worse on mobile.
 - **Android emulator:** Adventure mode has been observed rendering the 3D map, roads, buildings, user dot,
   bird markers, rare banner and Nearby tray correctly. A prior blank-tile observation was a stale/paused
   emulator artifact, not a confirmed app defect. Real GPS, compass heading and camera capture have
   **never** been verified on real hardware.
+
+## Deployment / bundle-provenance trap
+Production (`birdgo.vercel.app`) is frequently an **older export** than local dev, so never validate a fresh
+fix against it. Fingerprint both before concluding anything: grep the served bundle for strings unique to the
+revision under test (e.g. `recoveringFromFallback`, `loadedArea`, `bird-awareness`, `firstPersonPadding`) and
+for strings the revision *deleted*. A prod bundle that has some new strings but zero occurrences of the
+newest one predates that commit — test locally and say so explicitly in the report.
 
 ## Devin Secrets Needed
 - eBird API token (`EBIRD_API_TOKEN`) — provided by the user for the app; no OpenAI key needed while `BIRD_ID_PROVIDER=heuristic`.

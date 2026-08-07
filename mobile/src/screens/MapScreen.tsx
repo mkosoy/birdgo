@@ -22,8 +22,11 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const [recenterRequest, setRecenterRequest] = useState(0);
   const [overviewRequest, setOverviewRequest] = useState(0);
   const [nearestRequest, setNearestRequest] = useState(0);
+  const [trackRequest, setTrackRequest] = useState<(Coordinates & { name: string }) | undefined>();
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
   const [popupOpen, setPopupOpen] = useState(false);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [followPaused, setFollowPaused] = useState(false);
   const [locationRetry, setLocationRetry] = useState(0);
   const hasRealLocation = useRef(false);
   const fallbackActive = useRef(true);
@@ -34,9 +37,11 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
     ? { text: locationNotice, onPress: () => setLocationRetry((request) => request + 1) }
     : error
       ? { text: "Couldn’t load birds. Tap to retry.", onPress: () => void refresh() }
-      : notable.length > 0 && !rareDismissed
-        ? { text: `Rare bird nearby: ${notable[0].comName ?? "Unknown"}!`, onPress: () => setRareDismissed(true) }
-        : null;
+      : followPaused
+        ? { text: "Camera follow paused — tap ◎ to resume.", onPress: () => setRecenterRequest((request) => request + 1) }
+        : notable.length > 0 && !rareDismissed && !toastOpen
+          ? { text: `Rare bird nearby: ${notable[0].comName ?? "Unknown"}!`, onPress: () => setRareDismissed(true) }
+          : null;
 
   useEffect(() => {
     let mounted = true;
@@ -169,6 +174,8 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   }, [notable]);
 
   const toggleMode = () => {
+    setFollowPaused(false);
+    setToastOpen(false);
     if (mode === "adventure") {
       setFirstPerson(false);
       setMode("classic");
@@ -191,13 +198,12 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         recenterRequest={recenterRequest}
         overviewRequest={overviewRequest}
         nearestRequest={nearestRequest}
+        trackRequest={trackRequest}
         onCapture={(bird) => {
           onCapture?.({ speciesCode: bird.speciesCode, comName: bird.comName ?? "Unknown bird" });
           navigation.navigate("Capture" as never);
         }}
-        onDirections={({ latitude, longitude }) => {
-          void Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`);
-        }}
+        onDirections={(target) => setTrackRequest(target)}
         onAbout={({ speciesCode, comName }) => {
           const url = speciesCode.startsWith("inat-")
             ? `https://www.inaturalist.org/taxa/${speciesCode.slice(5)}`
@@ -207,6 +213,8 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
           void Linking.openURL(url);
         }}
         onPopupChange={setPopupOpen}
+        onToastChange={setToastOpen}
+        onFollowChange={setFollowPaused}
         onRegionChange={setCenter}
       />
       <View pointerEvents="box-none" style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}>
@@ -234,7 +242,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         </>
       )}
       <Pressable accessibilityLabel="Back to me" style={[styles.recenterButton, { bottom: insets.bottom + 190 }]} onPress={() => setRecenterRequest((request) => request + 1)}><Text style={styles.recenterText}>◎</Text></Pressable>
-      <Pressable style={[styles.captureButton, { bottom: insets.bottom + 12 }]} onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}><Text style={styles.captureText}>📷</Text><Text style={styles.captureLabel}>Capture</Text></Pressable>
+      {!popupOpen && <Pressable style={[styles.captureButton, { bottom: insets.bottom + 12 }]} onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}><Text style={styles.captureText}>📷</Text><Text style={styles.captureLabel}>Capture</Text></Pressable>}
     </View>
   );
 }

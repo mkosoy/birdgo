@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
   shutterText: { color: "#2f7d5b", fontSize: 50, lineHeight: 50 },
   center: { flex: 1, padding: 28, justifyContent: "center", alignItems: "center", gap: 14 },
   title: { fontSize: 24, fontWeight: "700", color: "#d7e8da" },
-  copy: { textAlign: "center", color: "#555", lineHeight: 22 },
+  copy: { textAlign: "center", color: "#c9ddce", lineHeight: 22 },
   button: { minHeight: 44, backgroundColor: "#2f7d5b", paddingHorizontal: 18, paddingVertical: 12, borderRadius: 10, justifyContent: "center" },
   buttonText: { color: "#fff", fontWeight: "700" },
   secondary: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, backgroundColor: "#e2eee5", justifyContent: "center" },

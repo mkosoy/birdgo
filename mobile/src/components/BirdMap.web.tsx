@@ -5,8 +5,9 @@ import { buildMapLibreHtml } from "./mapLibreHtml";
 import type { BirdMapProps } from "./BirdMap";
 
 interface LeafletMessage {
-  type: "capture" | "directions" | "about" | "regionChange" | "popup";
+  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "follow";
   open?: boolean;
+  paused?: boolean;
   id?: string;
   speciesCode?: string;
   comName?: string;
@@ -25,7 +26,7 @@ function relativeTime(date?: string): string {
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
-export function BirdMap({ center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, safeArea, onCapture, onDirections, onAbout, onPopupChange, onRegionChange }: BirdMapProps) {
+export function BirdMap({ center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onFollowChange, onRegionChange }: BirdMapProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
@@ -74,6 +75,10 @@ export function BirdMap({ center, userLocation, birds, mode, firstPerson, headin
         onAbout({ speciesCode: message.speciesCode, comName: message.comName });
       } else if (message.type === "popup") {
         onPopupChange?.(Boolean(message.open));
+      } else if (message.type === "toast") {
+        onToastChange?.(Boolean(message.open));
+      } else if (message.type === "follow") {
+        onFollowChange?.(Boolean(message.paused));
       } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
         onRegionChange({ latitude: message.latitude, longitude: message.longitude });
       }
@@ -109,6 +114,15 @@ export function BirdMap({ center, userLocation, birds, mode, firstPerson, headin
     const latestData = dataRef.current;
     if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "nearest" }), "*");
   }, [nearestRequest]);
+  useEffect(() => {
+    if (!trackRequest) return;
+    const latestData = dataRef.current;
+    if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({
+      ...latestData,
+      command: "track",
+      trackTarget: trackRequest,
+    }), "*");
+  }, [trackRequest]);
 
   const html = mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml();
   const blobUrl = useMemo(() => URL.createObjectURL(new Blob([html], { type: "text/html" })), [html]);
