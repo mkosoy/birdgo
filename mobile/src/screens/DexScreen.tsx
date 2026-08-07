@@ -1,7 +1,8 @@
 import { useCallback } from "react";
-import { FlatList, Image, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCollection } from "../hooks/useCollection";
+import { releaseSpecies } from "../store/collection";
 
 export function DexScreen() {
   const { captures, seenSpecies, loading, refresh } = useCollection();
@@ -12,8 +13,28 @@ export function DexScreen() {
   const capturedCodes = new Set(captures.map((capture) => capture.speciesCode).filter(Boolean));
   const capturedNames = new Set(captures.map((capture) => capture.commonName.trim().toLowerCase()));
   const locked = seenSpecies.filter((species) => !capturedCodes.has(species.speciesCode) && !capturedNames.has(species.comName.trim().toLowerCase()));
+  const release = (commonName: string, speciesCode?: string) => {
+    const photoCount = captures.filter((capture) => speciesCode
+      ? capture.speciesCode === speciesCode
+      : capture.commonName.trim().toLowerCase() === commonName.trim().toLowerCase()).length;
+    const photoLabel = `${photoCount} photo${photoCount === 1 ? "" : "s"}`;
+    Alert.alert(
+      "Release this bird?",
+      `${commonName} will remove ${photoLabel} from your captured collection and return to its seen state if it is still in this area.`,
+      [
+        { text: "Keep", style: "cancel" },
+        {
+          text: "Release",
+          style: "destructive",
+          onPress: () => {
+            void releaseSpecies(speciesCode, commonName).then(refresh);
+          },
+        },
+      ],
+    );
+  };
   if (!captures.length && !locked.length) return <View style={styles.center}><Text style={styles.title}>Your Bird-dex is empty</Text><Text style={styles.copy}>Explore the map and capture your first bird.</Text></View>;
-  return <FlatList contentContainerStyle={styles.list} data={[...captures.map((capture) => ({ kind: "capture" as const, capture })), ...locked.map((species) => ({ kind: "locked" as const, species }))]} keyExtractor={(item, index) => item.kind === "capture" ? item.capture.id : `${item.species.speciesCode}-${index}`} numColumns={2} renderItem={({ item }) => item.kind === "capture" ? <View style={styles.card}><Image source={{ uri: item.capture.photoUri }} style={styles.photo} /><Text style={styles.name}>{item.capture.commonName}</Text><Text style={styles.scientific}>{item.capture.sciName ?? "Scientific name unknown"}</Text><Text style={styles.meta}>{new Date(item.capture.timestamp).toLocaleDateString()} · {item.capture.location.latitude.toFixed(2)}, {item.capture.location.longitude.toFixed(2)}</Text><Text style={styles.badge}>CAPTURED</Text></View> : <View style={[styles.card, styles.locked]}><Text style={styles.question}>?</Text><Text style={styles.name}>{item.species.comName}</Text><Text style={styles.meta}>{item.species.speciesCode}</Text><Text style={styles.badgeLocked}>SEEN</Text></View>} />;
+  return <FlatList contentContainerStyle={styles.list} data={[...captures.map((capture) => ({ kind: "capture" as const, capture })), ...locked.map((species) => ({ kind: "locked" as const, species }))]} keyExtractor={(item, index) => item.kind === "capture" ? item.capture.id : `${item.species.speciesCode}-${index}`} numColumns={2} renderItem={({ item }) => item.kind === "capture" ? <View style={styles.card}><Image source={{ uri: item.capture.photoUri }} style={styles.photo} /><Text style={styles.name}>{item.capture.commonName}</Text><Text style={styles.scientific}>{item.capture.sciName ?? "Scientific name unknown"}</Text><Text style={styles.meta}>{new Date(item.capture.timestamp).toLocaleDateString()} · {item.capture.location.latitude.toFixed(2)}, {item.capture.location.longitude.toFixed(2)}</Text><Text style={styles.badge}>CAPTURED</Text><Pressable accessibilityRole="button" accessibilityLabel={`Release ${item.capture.commonName}`} style={styles.releaseButton} onPress={() => release(item.capture.commonName, item.capture.speciesCode)}><Text style={styles.releaseText}>Release</Text></Pressable></View> : <View style={[styles.card, styles.locked]}><Text style={styles.question}>?</Text><Text style={styles.name}>{item.species.comName}</Text><Text style={styles.meta}>{item.species.speciesCode}</Text><Text style={styles.badgeLocked}>SEEN</Text></View>} />;
 }
 
 const styles = StyleSheet.create({
@@ -27,6 +48,8 @@ const styles = StyleSheet.create({
   locked: { backgroundColor: "#e2e5e3", alignItems: "center", justifyContent: "center" },
   question: { fontSize: 72, color: "#8b9490", fontWeight: "800" },
   badgeLocked: { color: "#727b76", fontWeight: "700", fontSize: 10, marginTop: 7 },
+  releaseButton: { minHeight: 44, marginTop: 8, borderRadius: 8, backgroundColor: "#8f3d3d", justifyContent: "center", alignItems: "center" },
+  releaseText: { color: "#fff", fontWeight: "700" },
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 25 },
   title: { fontSize: 22, fontWeight: "700", color: "#173c2b" },
   copy: { color: "#67786d", marginTop: 8 },

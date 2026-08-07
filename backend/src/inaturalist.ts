@@ -10,6 +10,7 @@ interface InatTaxon {
   id?: number;
   name?: string;
   preferred_common_name?: string;
+  rank?: string;
 }
 
 interface InatObservation {
@@ -62,6 +63,8 @@ export async function fetchInatBirds(
     geo: "true",
     geoprivacy: "open",
   });
+  params.append("rank", "species");
+  params.append("rank", "subspecies");
   try {
     const response = await fetch(`${INATURALIST_BASE_URL}?${params.toString()}`, {
       headers: { Accept: "application/json" },
@@ -74,7 +77,14 @@ export async function fetchInatBirds(
     return payload.results.flatMap((observation) => {
       const coordinates = coordinatesFor(observation);
       const taxon = observation.taxon;
-      if (!coordinates || !taxon || typeof taxon.id !== "number" || !Number.isFinite(taxon.id) || !taxon.name) {
+      if (
+        !coordinates
+        || !taxon
+        || typeof taxon.id !== "number"
+        || !Number.isFinite(taxon.id)
+        || !taxon.name
+        || (taxon.rank !== "species" && taxon.rank !== "subspecies")
+      ) {
         return [];
       }
       const rawImageUrl = observation.photos?.[0]?.url;

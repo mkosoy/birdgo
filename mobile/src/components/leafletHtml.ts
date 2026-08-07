@@ -15,8 +15,9 @@ export function buildLeafletHtml(): string {
     .encounter { min-width: 220px; line-height: 1.35; }
     .encounter h3 { margin: 0 0 2px; font-size: 16px; }
     .encounter .scientific { font-style: italic; color: #4c5c54; }
-    .encounter .meta, .encounter .distance, .encounter .info { margin-top: 6px; }
-    .encounter .info { color: #4c5c54; }
+    .encounter .meta, .encounter .distance, .encounter .info, .encounter .field-notes { margin-top: 6px; }
+    .encounter .stale { color: #7b5d27; font-weight: 700; margin-top: 6px; }
+    .encounter .where, .encounter .field-notes, .encounter .info { color: #4c5c54; }
     .encounter .actions { display: flex; gap: 5px; margin-top: 9px; }
     .leaflet-popup-close-button { width: 44px !important; height: 44px !important; padding: 0; font-size: 24px; line-height: 40px !important; text-align: center; }
     .encounter button { min-height: 44px; border: 0; border-radius: 5px; padding: 8px 10px; color: white; background: #2f7d5b; font-weight: 700; cursor: pointer; }
@@ -79,9 +80,10 @@ export function buildLeafletHtml(): string {
         return '<div class="encounter">' +
           '<h3>' + escapeHtml(bird.comName || 'Bird') + '</h3>' +
           '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div>' +
-          '<div class="meta">' + escapeHtml(bird.locName || 'Unknown hotspot') + ' • ' + escapeHtml(bird.relativeTime || 'recently') + count + '</div>' +
+          '<div class="stale">Sighting recorded ' + escapeHtml(bird.relativeTime || 'recently') + ' — this is a past observation, not a live location.</div>' +
+          '<div class="where">Where to look: ' + escapeHtml(bird.locName || 'No hotspot recorded') + count + '</div>' +
           (distance == null ? '' : '<div class="distance">' + distance.toFixed(1) + ' km away</div>') +
-          '<div class="info" data-info>About ' + escapeHtml(bird.sciName || bird.comName || 'this species') + '</div>' +
+          '<div class="field-notes" data-info>How to spot it: Field notes loading…</div>' +
           '<div class="actions"><button data-action="capture">Capture</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
           '</div>';
       }
@@ -102,9 +104,17 @@ export function buildLeafletHtml(): string {
           .then(function (response) { if (!response.ok) throw new Error('Wikipedia unavailable'); return response.json(); })
           .then(function (summary) {
             var info = element.querySelector('[data-info]');
-            if (info && summary.extract) info.textContent = String(summary.extract).slice(0, 180) + (String(summary.extract).length > 180 ? '…' : '');
+            if (info) {
+              var extract = typeof summary.extract === 'string' ? summary.extract.trim() : '';
+              info.textContent = extract
+                ? 'How to spot it: ' + extract.slice(0, 240) + (extract.length > 240 ? '…' : '')
+                : 'How to spot it: No field notes available.';
+            }
           })
-          .catch(function () {});
+          .catch(function () {
+            var info = element.querySelector('[data-info]');
+            if (info) info.textContent = 'How to spot it: No field notes available.';
+          });
       }
 
       function render(data) {

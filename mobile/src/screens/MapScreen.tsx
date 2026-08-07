@@ -192,6 +192,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         userLocation={location}
         safeArea={insets}
         birds={birds}
+        loading={loading}
         mode={mode}
         firstPerson={firstPerson}
         heading={heading}
@@ -218,14 +219,16 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         onRegionChange={setCenter}
       />
       <View pointerEvents="box-none" style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}>
-        <Pressable style={styles.modeButton} onPress={toggleMode}>
-          <Text style={styles.modeButtonText}>{mode === "classic" ? "🌿 Adventure" : "🗺 Classic"}</Text>
+        <View style={styles.controlRail}>
+        <Pressable accessibilityLabel={`Current map mode: ${mode === "classic" ? "Classic" : "Adventure"}. Tap to switch.`} style={[styles.modeButton, styles.modeButtonActive]} onPress={toggleMode}>
+          <Text style={styles.modeButtonText}>{mode === "classic" ? "CLS" : "ADV"}</Text>
         </Pressable>
         {mode === "adventure" && (
-          <Pressable style={styles.modeButton} onPress={() => setFirstPerson((current) => !current)}>
-            <Text style={styles.modeButtonText}>{firstPerson ? "🗺 Overhead" : "👣 First-person"}</Text>
+          <Pressable accessibilityLabel={`Current view: ${firstPerson ? "First-person" : "Overhead"}. Tap to switch.`} style={[styles.modeButton, styles.modeButtonActive]} onPress={() => setFirstPerson((current) => !current)}>
+            <Text style={styles.modeButtonText}>{firstPerson ? "1P" : "TOP"}</Text>
           </Pressable>
         )}
+        </View>
         {topMessage && !popupOpen && (
           <Pressable style={styles.topMessage} onPress={topMessage.onPress}>
             <Text style={styles.topMessageText}>{topMessage.text}</Text>
@@ -237,11 +240,13 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
       {!loading && !error && birds.length === 0 && <View style={styles.empty}><Text style={styles.emptyText}>No birds spotted nearby — try moving the map.</Text></View>}
       {mode === "adventure" && (
         <>
-          <Pressable accessibilityLabel="Find closest bird" style={[styles.nearestButton, { bottom: insets.bottom + 310 }]} onPress={() => setNearestRequest((request) => request + 1)}><Text style={styles.recenterText}>🐦</Text></Pressable>
-          <Pressable accessibilityLabel="See all birds" style={[styles.overviewButton, { bottom: insets.bottom + 250 }]} onPress={() => setOverviewRequest((request) => request + 1)}><Text style={styles.recenterText}>🗺</Text></Pressable>
+          <View pointerEvents="box-none" style={[styles.actionRail, { top: insets.top + 112 }]}>
+            <Pressable accessibilityLabel="Find closest bird" style={styles.actionButton} onPress={() => setNearestRequest((request) => request + 1)}><Text style={styles.recenterText}>🐦</Text></Pressable>
+            <Pressable accessibilityLabel="See all birds" style={styles.actionButton} onPress={() => setOverviewRequest((request) => request + 1)}><Text style={styles.recenterText}>🗺</Text></Pressable>
+            <Pressable accessibilityLabel="Back to me" style={styles.actionButton} onPress={() => setRecenterRequest((request) => request + 1)}><Text style={styles.recenterText}>◎</Text></Pressable>
+          </View>
         </>
       )}
-      <Pressable accessibilityLabel="Back to me" style={[styles.recenterButton, { bottom: insets.bottom + 190 }]} onPress={() => setRecenterRequest((request) => request + 1)}><Text style={styles.recenterText}>◎</Text></Pressable>
       <Pressable
         disabled={popupOpen}
         pointerEvents={popupOpen ? "none" : "auto"}
@@ -258,16 +263,17 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
 const styles = StyleSheet.create({
   container: { flex: 1 },
   topOverlay: { position: "absolute", top: 0, left: 16, right: 16, paddingTop: 8, gap: 8 },
-  modeButton: { minHeight: 44, alignSelf: "flex-end", backgroundColor: "#ffffffee", paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, elevation: 3, justifyContent: "center" },
+  controlRail: { alignSelf: "flex-end", flexDirection: "row", gap: 6 },
+  modeButton: { minWidth: 52, height: 44, paddingHorizontal: 6, backgroundColor: "#ffffffee", borderRadius: 14, elevation: 3, alignItems: "center", justifyContent: "center" },
+  modeButtonActive: { backgroundColor: "#d9efe1", borderWidth: 2, borderColor: "#2f7d5b" },
   modeButtonText: { color: "#173c2b", fontWeight: "700" },
   topMessage: { minHeight: 44, maxWidth: 360, alignSelf: "flex-start", backgroundColor: "#ffffffee", paddingHorizontal: 12, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 8 },
   topMessageText: { flex: 1, color: "#173c2b", fontWeight: "700", fontSize: 13 },
   topMessageDismiss: { color: "#173c2b", fontSize: 22, lineHeight: 24 },
   empty: { position: "absolute", top: "42%", left: 35, right: 35, backgroundColor: "#ffffffe8", padding: 16, borderRadius: 12 },
   emptyText: { textAlign: "center", color: "#555" },
-  recenterButton: { position: "absolute", right: 16, width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
-  overviewButton: { position: "absolute", right: 16, width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
-  nearestButton: { position: "absolute", right: 16, width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
+  actionRail: { position: "absolute", right: 16, gap: 8, alignItems: "center" },
+  actionButton: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
   recenterText: { color: "#2878d1", fontSize: 30, lineHeight: 32 },
   captureButton: { position: "absolute", alignSelf: "center", width: 82, height: 82, borderRadius: 41, backgroundColor: "#2f7d5b", alignItems: "center", justifyContent: "center", borderWidth: 5, borderColor: "#fff", elevation: 5 },
   captureButtonDimmed: { opacity: 0.35 },

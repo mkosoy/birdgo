@@ -26,7 +26,7 @@ function relativeTime(date?: string): string {
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
-export function BirdMap({ center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onFollowChange, onRegionChange }: BirdMapProps) {
+export function BirdMap({ center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onFollowChange, onRegionChange }: BirdMapProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
@@ -35,6 +35,7 @@ export function BirdMap({ center, userLocation, birds, mode, firstPerson, headin
   const markerLookup = useMemo(() => new Map(birds.map((bird) => [markerId(bird), bird])), [birds]);
   const data = useMemo(() => ({
     center,
+    loading,
     userLocation,
     heading,
     firstPerson,

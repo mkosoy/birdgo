@@ -24,6 +24,7 @@ export interface BirdMapProps {
   overviewRequest?: number;
   nearestRequest?: number;
   trackRequest?: Coordinates & { name: string };
+  loading?: boolean;
   safeArea?: SafeAreaInsets;
   onCapture: (bird: EbirdObservation) => void;
   onDirections: (coordinates: Coordinates & { name: string }) => void;
@@ -51,6 +52,7 @@ interface LeafletMarker {
 interface LeafletData {
   center: Coordinates;
   userLocation?: Coordinates;
+  loading?: boolean;
   heading?: number;
   markers: LeafletMarker[];
   command?: "recenter" | "setView" | "overview" | "nearest" | "track";
@@ -82,7 +84,7 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onFollowChange, onRegionChange },
+  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onFollowChange, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
@@ -99,6 +101,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     heading,
     firstPerson,
     safeArea,
+    loading,
     markers: birds.map((bird) => ({
       id: markerId(bird),
       latitude: bird.latitude,

@@ -18,24 +18,31 @@ export function buildMapLibreHtml(): string {
     .encounter { min-width: 220px; line-height: 1.35; color: #26342d; }
     .encounter h3 { margin: 0 0 2px; font-size: 16px; }
     .encounter .scientific { font-style: italic; color: #4c5c54; }
-    .encounter .meta, .encounter .distance, .encounter .info { margin-top: 6px; }
-    .encounter .info { color: #4c5c54; }
+    .encounter .meta, .encounter .distance, .encounter .info, .encounter .field-notes { margin-top: 6px; }
+    .encounter .stale { color: #7b5d27; font-weight: 700; margin-top: 6px; }
+    .encounter .where, .encounter .field-notes, .encounter .info { color: #4c5c54; }
     .encounter .actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
     .encounter button { flex: 1 1 30%; min-height: 44px; border: 0; border-radius: 5px; padding: 6px 8px; color: white; background: #2f7d5b; font-weight: 700; cursor: pointer; }
     .encounter button:nth-child(2) { background: #2878d1; }
     .encounter button:nth-child(3) { background: #6f5aa8; }
     .maplibregl-popup { z-index: 9 !important; }
     .maplibregl-popup-close-button { width: 44px; height: 44px; font-size: 24px; line-height: 40px; }
-    .maplibregl-ctrl-top-right { top: calc(var(--safe-top) + 156px); right: 8px; }
+    .maplibregl-ctrl-top-right { top: calc(var(--safe-top) + 156px); right: 84px; }
     .maplibregl-ctrl-group button { width: 44px; height: 44px; }
-    #nearby-panel { position: absolute; left: 8px; right: 84px; bottom: var(--bottom-hud); z-index: 6; background: rgba(255,255,255,.96); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.25); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; max-height: 36%; display: flex; flex-direction: column; }
+    #nearby-panel { position: absolute; left: 8px; right: 8px; bottom: var(--bottom-hud); z-index: 6; background: rgba(255,255,255,.96); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.25); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; height: 58px; display: flex; flex-direction: column; transition: height .2s ease; }
+    #nearby-panel.peek { height: 58px; }
+    #nearby-panel.half { height: 44vh; }
+    #nearby-panel.full { height: calc(100% - var(--safe-top) - 20px); }
     #nearby-header { display: flex; align-items: center; gap: 8px; min-height: 44px; box-sizing: border-box; padding: 6px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
     #nearby-title { font-weight: 800; color: #173c2b; font-size: 14px; flex: 1; }
     #rare-toggle { min-height: 44px; border: 1px solid #d99d21; color: #b6810f; background: #fff; border-radius: 14px; padding: 4px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
     #rare-toggle.on { background: #d99d21; color: #fff; }
+    #sort-toggle { min-height: 44px; min-width: 48px; border: 1px solid #2f7d5b; color: #2f7d5b; background: #fff; border-radius: 14px; padding: 4px 7px; font-size: 11px; font-weight: 800; cursor: pointer; }
+    #sort-toggle.on { background: #2f7d5b; color: #fff; }
     #nearby-caret { color: #888; font-size: 13px; width: 14px; text-align: center; }
-    #nearby-list { overflow-y: auto; padding: 4px; -webkit-overflow-scrolling: touch; }
+    #nearby-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px; -webkit-overflow-scrolling: touch; }
     #nearby-panel.collapsed #nearby-list { display: none; }
+    #nearby-handle { width: 36px; height: 5px; border-radius: 4px; background: #b8c1bb; margin: 5px auto 0; flex: none; touch-action: none; }
     #nearby-panel.tracking { display: none; }
     .nb-row { display: flex; align-items: center; gap: 8px; min-height: 60px; padding: 6px 8px; border-radius: 12px; cursor: pointer; }
     .nb-row:active { background: #f0f5f1; }
@@ -86,9 +93,9 @@ export function buildMapLibreHtml(): string {
     #snap-toast-copy { display: inline-block; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
     #snap-toast-go { min-width: 44px; min-height: 44px; flex: 0 0 44px; border: 0; border-radius: 18px; padding: 8px 10px; background: rgba(255,255,255,.22); color: #fff; font-weight: 800; cursor: pointer; }
     #snap-toast-dismiss { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: 0 0 44px; margin: -8px -10px -8px 0; border: 0; background: transparent; color: #fff; border-radius: 50%; font-size: 20px; cursor: pointer; }
-    #compass-button { position: absolute; z-index: 7; left: 50%; top: calc(var(--safe-top) + 108px); transform: translateX(-50%); min-height: 44px; border: 0; border-radius: 18px; padding: 9px 14px; color: white; background: rgba(35, 73, 53, .92); font-weight: 700; display: none; cursor: pointer; }
+    #compass-button { position: absolute; z-index: 7; right: 140px; top: calc(var(--safe-top) + 214px); width: 44px; height: 44px; border: 0; border-radius: 22px; padding: 0; color: white; background: rgba(35, 73, 53, .92); font-size: 20px; display: none; cursor: pointer; }
     @media (max-width: 600px) {
-      #nearby-panel { max-height: 42%; }
+      #nearby-panel.half { height: 46vh; }
       .nb-thumb { width: 38px; height: 38px; font-size: 18px; }
       .nb-row { min-height: 56px; gap: 5px; padding: 5px 6px; }
       .nb-go { min-width: 44px; padding: 8px; }
@@ -103,10 +110,12 @@ export function buildMapLibreHtml(): string {
 <body>
   <div id="map"></div>
   <div id="track-hud"><div id="track-arrow">⬆</div></div>
-  <div id="nearby-panel" class="collapsed">
+  <div id="nearby-panel" class="collapsed peek">
+    <div id="nearby-handle" aria-hidden="true"></div>
     <div id="nearby-header">
       <span id="nearby-title">Birds nearby</span>
-      <button id="rare-toggle" type="button">★ Rare</button>
+      <button id="rare-toggle" type="button">★ Only</button>
+      <button id="sort-toggle" type="button" aria-label="Change Nearby sort">↕ Near</button>
       <span id="nearby-caret">▸</span>
     </div>
     <div id="nearby-list"></div>
@@ -127,7 +136,7 @@ export function buildMapLibreHtml(): string {
     <div id="route-steps"></div>
   </div>
   <div id="snap-toast" role="status"><span id="snap-toast-copy"></span><button id="snap-toast-go" type="button">Go</button><button id="snap-toast-dismiss" type="button" aria-label="Dismiss">×</button></div>
-  <button id="compass-button" type="button">🧭 Enable compass</button>
+  <button id="compass-button" type="button" aria-label="Enable compass">🧭</button>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script>
     (function () {
@@ -175,14 +184,18 @@ export function buildMapLibreHtml(): string {
       var lastRouteOrigin = null;
       var lastRouteTargetKey = null;
       var rareOnly = false;
-      var panelCollapsed = true;
+      var sortMode = 'nearest';
+      var birdsLoading = true;
+      var panelState = 'peek';
       var SNAP_M = 60;
       var ARRIVE_M = 30;
       var compassButton = document.getElementById('compass-button');
       var nearbyPanel = document.getElementById('nearby-panel');
+      var nearbyHandle = document.getElementById('nearby-handle');
       var nearbyHeader = document.getElementById('nearby-header');
       var nearbyTitle = document.getElementById('nearby-title');
       var rareToggle = document.getElementById('rare-toggle');
+      var sortToggle = document.getElementById('sort-toggle');
       var nearbyCaret = document.getElementById('nearby-caret');
       var nearbyList = document.getElementById('nearby-list');
       var trackHud = document.getElementById('track-hud');
@@ -488,6 +501,22 @@ export function buildMapLibreHtml(): string {
         });
       }
 
+      function sortEntries(entries) {
+        return entries.sort(function (left, right) {
+          if (sortMode === 'recent') {
+            return new Date(right.bird.obsDt || 0).getTime() - new Date(left.bird.obsDt || 0).getTime();
+          }
+          if (sortMode === 'rarity') {
+            return Number(Boolean(right.bird.isNotable)) - Number(Boolean(left.bird.isNotable)) || left.distance - right.distance;
+          }
+          return left.distance - right.distance;
+        });
+      }
+
+      function sortLabel() {
+        return sortMode === 'recent' ? '↕ New' : sortMode === 'rarity' ? '↕ Rare' : '↕ Near';
+      }
+
       function setRouteGeometry(coordinates, bird) {
         var source = map.getSource('track-route');
         if (!source || !Array.isArray(coordinates) || coordinates.length < 2 || coordinates.some(function (coordinate) {
@@ -789,9 +818,19 @@ export function buildMapLibreHtml(): string {
           snapToastAction = null;
           return;
         }
+        if (birdsLoading) {
+          nearbyTitle.textContent = 'Birds nearby';
+          nearbyList.innerHTML = '<div class="nb-empty">Looking for birds nearby…</div>';
+          setToast(false);
+          snapToastAction = null;
+          return;
+        }
         var nearest = computeNearest();
-        var filtered = rareOnly ? nearest.filter(function (entry) { return entry.bird.isNotable; }) : nearest;
+        var displayEntries = sortEntries(nearest.slice());
+        var filtered = rareOnly ? displayEntries.filter(function (entry) { return entry.bird.isNotable; }) : displayEntries;
         nearbyTitle.textContent = 'Birds nearby (' + filtered.length + ')';
+        sortToggle.textContent = sortLabel();
+        sortToggle.classList.toggle('on', sortMode !== 'nearest');
         if (!filtered.length) {
           nearbyList.innerHTML = '<div class="nb-empty">' + (rareOnly ? 'No rare birds nearby right now.' : 'No birds nearby right now.') + '</div>';
         } else {
@@ -802,7 +841,7 @@ export function buildMapLibreHtml(): string {
             return '<div class="nb-row' + rareClass + '" data-bird-id="' + escapeHtml(bird.id) + '">' +
               '<div class="nb-thumb">' + thumbInnerHtml(bird) + '</div>' +
               '<div class="nb-info"><div class="nb-name">' + escapeHtml(name) + (bird.isNotable ? ' <span class="star">★</span>' : '') + '</div>' +
-              '<div class="nb-sub">Direct · ' + fmtDist(entry.distance) + ' · Walk est. ' + etaMin(entry.distance) + ' min · ' + escapeHtml(bird.relativeTime || 'recently') + '</div></div>' +
+              '<div class="nb-sub">' + fmtDist(entry.distance) + ' away · ' + etaMin(entry.distance) + ' min walk · seen ' + escapeHtml(bird.relativeTime || 'recently') + '</div></div>' +
               '<button class="nb-go' + rareClass + '" type="button" data-go-id="' + escapeHtml(bird.id) + '">Go</button>' +
               '</div>';
           }).join('');
@@ -883,7 +922,7 @@ export function buildMapLibreHtml(): string {
         nearbyPanel.classList.add('collapsed');
         nearbyPanel.classList.add('tracking');
         nearbyCaret.textContent = '▸';
-        panelCollapsed = true;
+        setNearbyState('peek');
         if (lastUserLocation && !headingFollow) {
           programmatic = true;
           map.easeTo({
@@ -940,15 +979,43 @@ export function buildMapLibreHtml(): string {
         map.once('moveend', function () { openBirdPopup(bird); });
       });
       nearbyHeader.addEventListener('click', function (event) {
-        if (event.target === rareToggle || (event.target.closest && event.target.closest('#rare-toggle'))) return;
-        panelCollapsed = !panelCollapsed;
-        nearbyPanel.classList.toggle('collapsed', panelCollapsed);
-        nearbyCaret.textContent = panelCollapsed ? '▸' : '▾';
+        if (event.target === rareToggle || (event.target.closest && event.target.closest('#rare-toggle'))
+          || event.target === sortToggle || (event.target.closest && event.target.closest('#sort-toggle'))) return;
+        setNearbyState(panelState === 'peek' ? 'half' : panelState === 'half' ? 'full' : 'peek');
+      });
+      function setNearbyState(state) {
+        panelState = state;
+        nearbyPanel.classList.remove('peek', 'half', 'full', 'collapsed');
+        nearbyPanel.classList.add(state);
+        if (state === 'peek') nearbyPanel.classList.add('collapsed');
+        nearbyCaret.textContent = state === 'peek' ? '▸' : state === 'full' ? '⌃' : '⌄';
+      }
+      var dragStartY = null;
+      nearbyHandle.addEventListener('pointerdown', function (event) {
+        dragStartY = event.clientY;
+        nearbyHandle.setPointerCapture(event.pointerId);
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      nearbyHandle.addEventListener('pointerup', function (event) {
+        if (dragStartY == null) return;
+        var delta = event.clientY - dragStartY;
+        dragStartY = null;
+        if (delta < -35) setNearbyState(panelState === 'peek' ? 'half' : 'full');
+        else if (delta > 35) setNearbyState(panelState === 'full' ? 'half' : 'peek');
+        else setNearbyState(panelState === 'peek' ? 'half' : panelState === 'half' ? 'full' : 'peek');
+        event.preventDefault();
+        event.stopPropagation();
       });
       rareToggle.addEventListener('click', function (event) {
         event.stopPropagation();
         rareOnly = !rareOnly;
         rareToggle.classList.toggle('on', rareOnly);
+        refreshNearby();
+      });
+      sortToggle.addEventListener('click', function (event) {
+        event.stopPropagation();
+        sortMode = sortMode === 'nearest' ? 'recent' : sortMode === 'recent' ? 'rarity' : 'nearest';
         refreshNearby();
       });
       trackSnap.addEventListener('click', function () {
@@ -978,10 +1045,11 @@ export function buildMapLibreHtml(): string {
         return '<div class="encounter">' +
           '<h3>' + escapeHtml(bird.comName || 'Bird') + '</h3>' +
           '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div>' +
-          '<div class="meta">' + escapeHtml(bird.locName || 'Unknown hotspot') + ' • ' + escapeHtml(bird.relativeTime || 'recently') + count + '</div>' +
+          '<div class="stale">Sighting recorded ' + escapeHtml(bird.relativeTime || 'recently') + ' — this is a past observation, not a live location.</div>' +
+          '<div class="where">Where to look: ' + escapeHtml(bird.locName || 'No hotspot recorded') + count + '</div>' +
           (distance == null ? '' : '<div class="distance">Direct · ' + fmtDist(distance) + '</div>') +
           (distance == null ? '' : '<div class="distance">Walk est. · ' + etaMin(distance) + ' min</div>') +
-          '<div class="info" data-info>About ' + escapeHtml(bird.sciName || bird.comName || 'this species') + '</div>' +
+          '<div class="field-notes" data-info>How to spot it: Field notes loading…</div>' +
           '<div class="actions"><button data-action="capture">Capture</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
           '</div>';
       }
@@ -1002,9 +1070,17 @@ export function buildMapLibreHtml(): string {
           .then(function (response) { if (!response.ok) throw new Error('Wikipedia unavailable'); return response.json(); })
           .then(function (summary) {
             var info = element.querySelector('[data-info]');
-            if (info && summary.extract) info.textContent = String(summary.extract).slice(0, 180) + (String(summary.extract).length > 180 ? '…' : '');
+            if (info) {
+              var extract = typeof summary.extract === 'string' ? summary.extract.trim() : '';
+              info.textContent = extract
+                ? 'How to spot it: ' + extract.slice(0, 240) + (extract.length > 240 ? '…' : '')
+                : 'How to spot it: No field notes available.';
+            }
           })
-          .catch(function () {});
+          .catch(function () {
+            var info = element.querySelector('[data-info]');
+            if (info) info.textContent = 'How to spot it: No field notes available.';
+          });
       }
 
       function styleAdventureMap() {
@@ -1119,6 +1195,8 @@ export function buildMapLibreHtml(): string {
           if (data.heading != null) updateBearing(data.heading);
         }
         latestMarkers = data.markers || [];
+        birdsLoading = Boolean(data.loading);
+        refreshNearby();
         if (firstData) {
           var initialTarget = data.userLocation || data.center;
           map.setCenter([initialTarget.longitude, initialTarget.latitude]);

@@ -6,6 +6,7 @@ import {
   deduplicateObservations,
   ebirdGet,
   EbirdError,
+  isSpeciesObservation,
   type EbirdObservation,
 } from "./ebird.js";
 import { fetchInatBirds } from "./inaturalist.js";
@@ -67,7 +68,7 @@ app.get("/api/birds/recent", async (request, response) => {
     if (ebirdResult.status === "rejected") console.warn("eBird recent observations unavailable", ebirdResult.reason);
     if (inatResult.status === "rejected") console.warn("iNaturalist observations unavailable", inatResult.reason);
     const ebirdObservations = ebirdResult.status === "fulfilled"
-      ? ebirdResult.value.map((observation) => ({ ...observation, source: observation.source ?? "ebird" }))
+      ? ebirdResult.value.filter(isSpeciesObservation).map((observation) => ({ ...observation, source: observation.source ?? "ebird" }))
       : [];
     const inatObservations = inatResult.status === "fulfilled" ? inatResult.value : [];
     response.json([...deduplicateObservations(ebirdObservations), ...inatObservations]);
@@ -86,7 +87,7 @@ app.get("/api/birds/notable", async (request, response) => {
       `/data/obs/geo/recent/notable?lat=${lat}&lng=${lng}&dist=${dist}&detail=${encodeURIComponent(detail)}`,
       token,
     );
-    response.json(observations);
+    response.json(observations.filter(isSpeciesObservation));
   } catch (error) {
     handleEbirdError(error, response);
   }
