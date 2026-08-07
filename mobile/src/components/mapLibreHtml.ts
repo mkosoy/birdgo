@@ -5,6 +5,7 @@ export function buildMapLibreHtml(): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
   <style>
+    :root { --safe-top: 0px; --safe-right: 0px; --safe-bottom: 0px; --safe-left: 0px; --bottom-hud: calc(98px + var(--safe-bottom)); --track-stack: 78px; }
     html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }
     body { position: relative; overflow: hidden; }
     .bird-marker, .user-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 18px; font-weight: bold; }
@@ -19,14 +20,15 @@ export function buildMapLibreHtml(): string {
     .encounter .scientific { font-style: italic; color: #4c5c54; }
     .encounter .meta, .encounter .distance, .encounter .info { margin-top: 6px; }
     .encounter .info { color: #4c5c54; }
-    .encounter .actions { display: flex; gap: 5px; margin-top: 9px; }
-    .encounter button { border: 0; border-radius: 5px; padding: 6px 8px; color: white; background: #2f7d5b; font-weight: 700; cursor: pointer; }
+    .encounter .actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+    .encounter button { flex: 1 1 30%; min-height: 44px; border: 0; border-radius: 5px; padding: 6px 8px; color: white; background: #2f7d5b; font-weight: 700; cursor: pointer; }
     .encounter button:nth-child(2) { background: #2878d1; }
     .encounter button:nth-child(3) { background: #6f5aa8; }
     .maplibregl-popup { z-index: 9 !important; }
-    .maplibregl-ctrl-top-right { top: 100px; right: 8px; }
-    #nearby-panel { position: absolute; left: 8px; right: 84px; bottom: 98px; z-index: 6; background: rgba(255,255,255,.96); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.25); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; max-height: 52%; display: flex; flex-direction: column; }
-    #nearby-header { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
+    .maplibregl-ctrl-top-right { top: calc(var(--safe-top) + 104px); right: 8px; }
+    .maplibregl-ctrl-group button { width: 44px; height: 44px; }
+    #nearby-panel { position: absolute; left: 8px; right: 84px; bottom: var(--bottom-hud); z-index: 6; background: rgba(255,255,255,.96); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.25); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; max-height: 36%; display: flex; flex-direction: column; }
+    #nearby-header { display: flex; align-items: center; gap: 8px; min-height: 44px; box-sizing: border-box; padding: 6px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
     #nearby-title { font-weight: 800; color: #173c2b; font-size: 14px; flex: 1; }
     #rare-toggle { min-height: 44px; border: 1px solid #d99d21; color: #b6810f; background: #fff; border-radius: 14px; padding: 4px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
     #rare-toggle.on { background: #d99d21; color: #fff; }
@@ -34,35 +36,35 @@ export function buildMapLibreHtml(): string {
     #nearby-list { overflow-y: auto; padding: 4px; -webkit-overflow-scrolling: touch; }
     #nearby-panel.collapsed #nearby-list { display: none; }
     #nearby-panel.tracking { display: none; }
-    .nb-row { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 12px; cursor: pointer; }
+    .nb-row { display: flex; align-items: center; gap: 8px; min-height: 60px; padding: 6px 8px; border-radius: 12px; cursor: pointer; }
     .nb-row:active { background: #f0f5f1; }
     .nb-thumb { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; flex: none; background: #dbe7df; display: flex; align-items: center; justify-content: center; font-size: 22px; }
     .nb-thumb img { width: 100%; height: 100%; object-fit: cover; }
     .nb-info { flex: 1; min-width: 0; }
     .nb-name { font-weight: 700; color: #21362c; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .nb-name .star { color: #d99d21; }
-    .nb-sub { color: #5c6f65; font-size: 12px; margin-top: 1px; }
-    .nb-go { min-width: 52px; min-height: 44px; border: 0; border-radius: 22px; padding: 9px 15px; background: #2f7d5b; color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; flex: none; }
+    .nb-sub { color: #5c6f65; font-size: 12px; line-height: 16px; margin-top: 1px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .nb-go { min-width: 52px; min-height: 44px; box-sizing: border-box; border: 0; border-radius: 22px; padding: 9px 12px; background: #2f7d5b; color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; flex: none; }
     .nb-row.rare .nb-go { background: #d99d21; }
     .nb-empty { padding: 16px; text-align: center; color: #6b7d72; font-size: 13px; }
     #track-hud { position: absolute; inset: 0; z-index: 5; pointer-events: none; display: none; }
     #track-hud.on { display: block; }
     #track-arrow { position: absolute; top: 40%; left: 50%; margin: -70px 0 0 -46px; font-size: 104px; line-height: 92px; color: rgba(47,125,91,.92); text-shadow: 0 3px 10px rgba(0,0,0,.4); transition: transform .18s ease-out; }
     #track-arrow.rare { color: rgba(217,157,33,.96); }
-    #track-card { position: absolute; left: 8px; right: 84px; bottom: 98px; z-index: 8; background: rgba(255,255,255,.97); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.28); padding: 12px; display: none; align-items: center; gap: 12px; pointer-events: auto; font-family: -apple-system, system-ui, sans-serif; }
+    #track-card { position: absolute; left: 8px; right: 84px; bottom: var(--bottom-hud); z-index: 8; background: rgba(255,255,255,.97); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.28); padding: 12px; display: none; align-items: center; gap: 8px; pointer-events: auto; font-family: -apple-system, system-ui, sans-serif; }
     #track-card.on { display: flex; }
     #track-thumb { width: 54px; height: 54px; border-radius: 50%; overflow: hidden; flex: none; background: #dbe7df; display: flex; align-items: center; justify-content: center; font-size: 26px; }
     #track-thumb img { width: 100%; height: 100%; object-fit: cover; }
     #track-meta { flex: 1; min-width: 0; }
     #track-name { font-weight: 800; color: #173c2b; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    #track-dist { color: #2f7d5b; font-weight: 700; font-size: 13px; margin-top: 2px; }
+    #track-dist { color: #2f7d5b; font-weight: 700; font-size: 13px; line-height: 17px; margin-top: 2px; }
     #track-actions { display: flex; gap: 8px; flex: none; }
     #track-snap { min-height: 44px; border: 0; border-radius: 22px; padding: 10px 16px; background: #2f7d5b; color: #fff; font-weight: 800; cursor: pointer; }
     #track-snap.ready { background: #d99d21; animation: snappulse 1s infinite; }
     #track-stop { border: 0; border-radius: 22px; min-width: 44px; min-height: 44px; padding: 10px; background: #eceff0; color: #445; font-weight: 700; cursor: pointer; }
-    #route-panel { position: absolute; left: 8px; right: 84px; bottom: 188px; z-index: 8; max-height: 38%; display: none; background: rgba(255,255,255,.97); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.28); overflow: hidden; font-family: -apple-system, system-ui, sans-serif; pointer-events: auto; }
+    #route-panel { position: absolute; left: 8px; right: 84px; bottom: calc(var(--bottom-hud) + var(--track-stack) + 12px); z-index: 8; max-height: 32%; display: none; background: rgba(255,255,255,.97); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.28); overflow: hidden; font-family: -apple-system, system-ui, sans-serif; pointer-events: auto; }
     #route-panel.on { display: block; }
-    #route-header { display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer; border-bottom: 1px solid #eee; color: #173c2b; font-size: 13px; }
+    #route-header { display: flex; align-items: center; gap: 10px; min-height: 52px; box-sizing: border-box; padding: 7px 12px; cursor: pointer; border-bottom: 1px solid #eee; color: #173c2b; font-size: 13px; }
     #route-header-copy { flex: 1; min-width: 0; }
     #route-current { display: flex; align-items: baseline; gap: 6px; font-weight: 800; white-space: nowrap; overflow: hidden; }
     #route-current-icon { flex: none; color: #2878d1; font-size: 18px; line-height: 18px; }
@@ -72,16 +74,24 @@ export function buildMapLibreHtml(): string {
     #route-caret { color: #888; }
     #route-steps { overflow-y: auto; max-height: 220px; padding: 4px; }
     #route-panel.collapsed #route-steps { display: none; }
-    .route-step { display: flex; gap: 9px; align-items: flex-start; padding: 8px; border-radius: 10px; color: #5c6f65; font-size: 12px; }
+    .route-step { display: flex; gap: 8px; align-items: center; min-height: 44px; box-sizing: border-box; padding: 8px; border-radius: 10px; color: #5c6f65; font-size: 12px; }
     .route-step.current { background: #eaf3ff; color: #173c2b; font-weight: 700; }
     .route-step-icon { width: 26px; text-align: center; color: #2878d1; font-size: 22px; line-height: 22px; font-weight: 900; }
     .route-step-distance { margin-left: auto; white-space: nowrap; color: #6b7d72; font-weight: 600; }
     @keyframes snappulse { 0%,100%{ transform: scale(1);} 50%{ transform: scale(1.07);} }
-    #snap-toast { position: absolute; left: 50%; top: 76px; transform: translateX(-50%); z-index: 8; max-width: 88%; display: none; align-items: center; gap: 10px; background: rgba(217,157,33,.97); color: #fff; border: 0; border-radius: 22px; padding: 8px 10px 8px 16px; font-weight: 800; font-size: 13px; font-family: -apple-system, system-ui, sans-serif; box-shadow: 0 3px 12px rgba(0,0,0,.3); cursor: pointer; pointer-events: auto; }
+    #snap-toast { position: absolute; left: 50%; top: calc(var(--safe-top) + 108px); transform: translateX(-50%); z-index: 8; max-width: 88%; display: none; align-items: center; gap: 8px; background: rgba(217,157,33,.97); color: #fff; border: 0; border-radius: 22px; padding: 4px 10px 4px 14px; font-weight: 800; font-size: 12px; font-family: -apple-system, system-ui, sans-serif; box-shadow: 0 3px 12px rgba(0,0,0,.3); cursor: pointer; pointer-events: auto; }
     #snap-toast.on { display: flex; }
     #snap-toast-copy { display: inline-block; }
     #snap-toast-dismiss { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: -8px -10px -8px 0; border-radius: 50%; font-size: 20px; }
-    #compass-button { position: absolute; z-index: 7; left: 50%; top: 120px; transform: translateX(-50%); border: 0; border-radius: 18px; padding: 9px 14px; color: white; background: rgba(35, 73, 53, .92); font-weight: 700; display: none; cursor: pointer; }
+    #compass-button { position: absolute; z-index: 7; left: 50%; top: calc(var(--safe-top) + 108px); transform: translateX(-50%); min-height: 44px; border: 0; border-radius: 18px; padding: 9px 14px; color: white; background: rgba(35, 73, 53, .92); font-weight: 700; display: none; cursor: pointer; }
+    @media (max-width: 600px) {
+      #nearby-panel { max-height: 34%; }
+      #route-panel { max-height: 30%; }
+      #track-arrow { font-size: 86px; line-height: 78px; margin: -58px 0 0 -38px; }
+      .encounter { min-width: 0; }
+      .encounter .actions { gap: 6px; }
+      .encounter button { flex-basis: 30%; }
+    }
   </style>
 </head>
 <body>
@@ -199,6 +209,15 @@ export function buildMapLibreHtml(): string {
         return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) {
           return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[character];
         });
+      }
+
+      function applySafeArea(insets) {
+        var safeArea = insets || {};
+        var root = document.documentElement;
+        root.style.setProperty('--safe-top', Math.max(0, Number(safeArea.top) || 0) + 'px');
+        root.style.setProperty('--safe-right', Math.max(0, Number(safeArea.right) || 0) + 'px');
+        root.style.setProperty('--safe-bottom', Math.max(0, Number(safeArea.bottom) || 0) + 'px');
+        root.style.setProperty('--safe-left', Math.max(0, Number(safeArea.left) || 0) + 'px');
       }
 
       function haversineKm(a, b) {
@@ -531,7 +550,7 @@ export function buildMapLibreHtml(): string {
         });
         routeSummary.textContent = routeDistanceM == null
           ? 'Walking route'
-          : 'Walking route: ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
+          : 'Walk · ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
       }
 
       function renderRouteSteps(steps) {
@@ -559,7 +578,7 @@ export function buildMapLibreHtml(): string {
             '<span class="route-step-distance">' + escapeHtml(distance) + '</span>' +
             '</div>';
         }).join('');
-        routeSummary.textContent = routeDistanceM == null ? 'Walking route' : 'Walking route: ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
+        routeSummary.textContent = routeDistanceM == null ? 'Walk route' : 'Walk · ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
         routePanel.classList.add('on');
         routePanel.classList.toggle('collapsed', routePanelCollapsed);
         routeCaret.textContent = routePanelCollapsed ? '▸' : '▾';
@@ -737,7 +756,7 @@ export function buildMapLibreHtml(): string {
             return '<div class="nb-row' + rareClass + '" data-bird-id="' + escapeHtml(bird.id) + '">' +
               '<div class="nb-thumb">' + thumbInnerHtml(bird) + '</div>' +
               '<div class="nb-info"><div class="nb-name">' + escapeHtml(name) + (bird.isNotable ? ' <span class="star">★</span>' : '') + '</div>' +
-              '<div class="nb-sub">Direct ' + fmtDist(entry.distance) + ' · ' + etaMin(entry.distance) + ' min walk estimate · ' + escapeHtml(bird.relativeTime || 'recently') + '</div></div>' +
+              '<div class="nb-sub">Direct · ' + fmtDist(entry.distance) + ' · Walk est. ' + etaMin(entry.distance) + ' min · ' + escapeHtml(bird.relativeTime || 'recently') + '</div></div>' +
               '<button class="nb-go' + rareClass + '" type="button" data-go-id="' + escapeHtml(bird.id) + '">Go</button>' +
               '</div>';
           }).join('');
@@ -785,11 +804,11 @@ export function buildMapLibreHtml(): string {
         } else if (distance != null && routeDistanceM != null && lastRouteTargetKey && lastRouteTargetKey.indexOf(trackId + ':') === 0) {
           trackSnap.classList.remove('ready');
           trackSnap.textContent = '📸 Snap';
-          trackDist.textContent = 'Walking route: ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
+          trackDist.textContent = 'Walk · ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
         } else if (distance != null) {
           trackSnap.classList.remove('ready');
           trackSnap.textContent = '📸 Snap';
-          trackDist.textContent = 'Direct: ' + fmtDist(distance) + ' · ' + etaMin(distance) + ' min walk estimate';
+          trackDist.textContent = 'Direct · ' + fmtDist(distance) + ' · Walk est. ' + etaMin(distance) + ' min';
         } else {
           trackSnap.classList.remove('ready');
           trackSnap.textContent = '📸 Snap';
@@ -910,8 +929,8 @@ export function buildMapLibreHtml(): string {
           '<h3>' + escapeHtml(bird.comName || 'Bird') + '</h3>' +
           '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div>' +
           '<div class="meta">' + escapeHtml(bird.locName || 'Unknown hotspot') + ' • ' + escapeHtml(bird.relativeTime || 'recently') + count + '</div>' +
-          (distance == null ? '' : '<div class="distance">Direct distance: ' + fmtDist(distance) + '</div>') +
-          (distance == null ? '' : '<div class="distance">Walking estimate: ' + etaMin(distance) + ' min</div>') +
+          (distance == null ? '' : '<div class="distance">Direct · ' + fmtDist(distance) + '</div>') +
+          (distance == null ? '' : '<div class="distance">Walk est. · ' + etaMin(distance) + ' min</div>') +
           '<div class="info" data-info>About ' + escapeHtml(bird.sciName || bird.comName || 'this species') + '</div>' +
           '<div class="actions"><button data-action="capture">Capture</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
           '</div>';
@@ -1027,12 +1046,16 @@ export function buildMapLibreHtml(): string {
         new ResizeObserver(function () { map.resize(); }).observe(document.getElementById('map'));
       }
       map.on('dragstart', function () { follow = false; });
+      map.on('zoomstart', function () { if (!programmatic) follow = false; });
+      map.on('rotatestart', function () { if (!programmatic) follow = false; });
+      map.on('pitchstart', function () { if (!programmatic) follow = false; });
       map.on('move', scheduleArrow);
       map.on('rotate', scheduleArrow);
       map.on('pitch', scheduleArrow);
 
       function render(data) {
         if (!data || !data.center) return;
+        applySafeArea(data.safeArea);
         var previousLocation = lastUserLocation;
         if (data.userLocation) {
           lastUserLocation = data.userLocation;
