@@ -9,6 +9,7 @@ interface LeafletMessage {
   open?: boolean;
   paused?: boolean;
   state?: "peek" | "half";
+  height?: number;
   id?: string;
   speciesCode?: string;
   comName?: string;
@@ -80,7 +81,7 @@ export function BirdMap({ center, userLocation, birds, mode, firstPerson, headin
       } else if (message.type === "toast") {
         onToastChange?.(Boolean(message.open));
       } else if (message.type === "nearbyState" && (message.state === "peek" || message.state === "half")) {
-        onNearbyStateChange?.(message.state);
+        onNearbyStateChange?.(message.state, message.height);
       } else if (message.type === "follow") {
         onFollowChange?.(Boolean(message.paused));
       } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {

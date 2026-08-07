@@ -27,6 +27,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const [popupOpen, setPopupOpen] = useState(false);
   const [toastOpen, setToastOpen] = useState(false);
   const [nearbyState, setNearbyState] = useState<"peek" | "half">("peek");
+  const [nearbyHeight, setNearbyHeight] = useState(58);
   const [followPaused, setFollowPaused] = useState(false);
   const [locationRetry, setLocationRetry] = useState(0);
   const hasRealLocation = useRef(false);
@@ -217,7 +218,10 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         }}
         onPopupChange={setPopupOpen}
         onToastChange={setToastOpen}
-        onNearbyStateChange={setNearbyState}
+        onNearbyStateChange={(state, height) => {
+          setNearbyState(state);
+          if (typeof height === "number" && Number.isFinite(height)) setNearbyHeight(height);
+        }}
         onFollowChange={setFollowPaused}
         onRegionChange={setCenter}
       />
@@ -256,7 +260,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
       <Pressable
         disabled={popupOpen}
         pointerEvents={popupOpen ? "none" : "auto"}
-        style={[styles.captureButton, { bottom: insets.bottom + (nearbyState === "peek" ? 154 : 76) }, popupOpen && styles.captureButtonDimmed]}
+        style={[styles.captureButton, { bottom: insets.bottom + 164 + Math.max(0, nearbyHeight - 58) }, popupOpen && styles.captureButtonDimmed]}
         onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}
       >
         <Text style={styles.captureText}>📷</Text>

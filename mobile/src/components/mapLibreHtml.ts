@@ -221,6 +221,17 @@ export function buildMapLibreHtml(): string {
       var routeSummary = document.getElementById('route-summary');
       var routeCaret = document.getElementById('route-caret');
       var routeStepsElement = document.getElementById('route-steps');
+      function updateControlStack() {
+        var zoomGroup = document.querySelector('.maplibregl-ctrl-top-right');
+        if (!zoomGroup) return;
+        var rootStyle = getComputedStyle(document.documentElement);
+        var safeTop = parseFloat(rootStyle.getPropertyValue('--safe-top')) || 0;
+        var panelTop = nearbyPanel.getBoundingClientRect().top;
+        var zoomHeight = zoomGroup.getBoundingClientRect().height || 142;
+        var compassHeight = compassButton.getBoundingClientRect().height || 44;
+        zoomGroup.style.top = Math.max(safeTop + 8, Math.min(safeTop + 156, panelTop - zoomHeight - 8)) + 'px';
+        compassButton.style.top = Math.max(safeTop + 8, Math.min(safeTop + 214, panelTop - compassHeight - 8)) + 'px';
+      }
       attributionToggle.addEventListener('click', function () {
         var open = attribution.classList.toggle('open');
         attributionToggle.setAttribute('aria-label', open ? 'Hide map credits' : 'Show map credits');
@@ -1001,7 +1012,8 @@ export function buildMapLibreHtml(): string {
         nearbyPanel.classList.add(state);
         if (state === 'peek') nearbyPanel.classList.add('collapsed');
         nearbyCaret.textContent = state === 'peek' ? '▸' : '⌄';
-        postOutward({ type: 'nearbyState', state: state });
+        updateControlStack();
+        postOutward({ type: 'nearbyState', state: state, height: nearbyPanel.getBoundingClientRect().height });
       }
       var dragStartY = null;
       nearbyHandle.addEventListener('pointerdown', function (event) {
@@ -1194,6 +1206,8 @@ export function buildMapLibreHtml(): string {
 
       map.on('load', function () {
         styleAdventureMap();
+        updateControlStack();
+        postOutward({ type: 'nearbyState', state: panelState, height: nearbyPanel.getBoundingClientRect().height });
         if (headingFollow && lastUserLocation) {
           programmatic = true;
           frameUser(lastUserLocation, 350);

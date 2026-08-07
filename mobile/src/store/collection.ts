@@ -33,12 +33,11 @@ export function captureMatchesSpecies(
   commonName?: string,
 ): boolean {
   const normalizedName = commonName?.trim().toLowerCase();
-  const matchesCode = Boolean(speciesCode && capture.speciesCode === speciesCode);
-  const matchesName = Boolean(
+  if (capture.speciesCode && speciesCode) return capture.speciesCode === speciesCode;
+  return Boolean(
     normalizedName
     && capture.commonName.trim().toLowerCase() === normalizedName,
   );
-  return matchesCode || matchesName;
 }
 
 export async function releaseSpecies(speciesCode?: string, commonName?: string): Promise<void> {

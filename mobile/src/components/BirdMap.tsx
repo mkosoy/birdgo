@@ -31,7 +31,7 @@ export interface BirdMapProps {
   onAbout: (bird: { speciesCode: string; comName: string }) => void;
   onPopupChange?: (open: boolean) => void;
   onToastChange?: (open: boolean) => void;
-  onNearbyStateChange?: (state: "peek" | "half") => void;
+  onNearbyStateChange?: (state: "peek" | "half", height?: number) => void;
   onFollowChange?: (paused: boolean) => void;
   onRegionChange: (coordinates: Coordinates) => void;
 }
@@ -67,6 +67,7 @@ interface LeafletMessage {
   open?: boolean;
   paused?: boolean;
   state?: "peek" | "half";
+  height?: number;
   id?: string;
   speciesCode?: string;
   comName?: string;
@@ -185,7 +186,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     } else if (message.type === "toast") {
       onToastChange?.(Boolean(message.open));
     } else if (message.type === "nearbyState" && (message.state === "peek" || message.state === "half")) {
-      onNearbyStateChange?.(message.state);
+      onNearbyStateChange?.(message.state, message.height);
     } else if (message.type === "follow") {
       onFollowChange?.(Boolean(message.paused));
     } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
