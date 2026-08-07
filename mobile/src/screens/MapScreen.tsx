@@ -27,6 +27,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const [popupOpen, setPopupOpen] = useState(false);
   const [toastOpen, setToastOpen] = useState(false);
   const [nearbyState, setNearbyState] = useState<"peek" | "half">("peek");
+  const [tracking, setTracking] = useState(false);
   const [followPaused, setFollowPaused] = useState(false);
   const [locationRetry, setLocationRetry] = useState(0);
   const hasRealLocation = useRef(false);
@@ -219,6 +220,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         onToastChange={setToastOpen}
         onNearbyStateChange={setNearbyState}
         onFollowChange={setFollowPaused}
+        onTrackingChange={setTracking}
         onRegionChange={setCenter}
       />
       <View pointerEvents="box-none" style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}>
@@ -253,7 +255,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
       {mode === "classic" && (
         <Pressable accessibilityLabel="Back to me" style={[styles.actionButton, styles.classicRecenter, { top: insets.top + 112 }]} onPress={() => setRecenterRequest((request) => request + 1)}><Text style={styles.recenterText}>◎</Text></Pressable>
       )}
-      {nearbyState !== "half" && (
+      {nearbyState !== "half" && !tracking && (
         <Pressable
           disabled={popupOpen}
           pointerEvents={popupOpen ? "none" : "auto"}

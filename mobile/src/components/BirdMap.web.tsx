@@ -5,7 +5,7 @@ import { buildMapLibreHtml } from "./mapLibreHtml";
 import type { BirdMapProps } from "./BirdMap";
 
 interface LeafletMessage {
-  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow";
+  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow" | "tracking";
   open?: boolean;
   paused?: boolean;
   state?: "peek" | "half";
@@ -28,7 +28,7 @@ function relativeTime(date?: string): string {
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
-export function BirdMap({ center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onRegionChange }: BirdMapProps) {
+export function BirdMap({ center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange }: BirdMapProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
@@ -84,13 +84,15 @@ export function BirdMap({ center, userLocation, birds, mode, firstPerson, headin
         onNearbyStateChange?.(message.state, message.height);
       } else if (message.type === "follow") {
         onFollowChange?.(Boolean(message.paused));
+      } else if (message.type === "tracking") {
+        onTrackingChange?.(Boolean(message.open));
       } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
         onRegionChange({ latitude: message.latitude, longitude: message.longitude });
       }
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [markerLookup, onAbout, onCapture, onDirections, onNearbyStateChange, onPopupChange, onRegionChange, onToastChange, onFollowChange]);
+  }, [markerLookup, onAbout, onCapture, onDirections, onNearbyStateChange, onPopupChange, onRegionChange, onToastChange, onFollowChange, onTrackingChange]);
 
   useEffect(() => {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify(data), "*");

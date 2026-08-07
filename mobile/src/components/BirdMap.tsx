@@ -33,6 +33,7 @@ export interface BirdMapProps {
   onToastChange?: (open: boolean) => void;
   onNearbyStateChange?: (state: "peek" | "half", height?: number) => void;
   onFollowChange?: (paused: boolean) => void;
+  onTrackingChange?: (active: boolean) => void;
   onRegionChange: (coordinates: Coordinates) => void;
 }
 
@@ -63,7 +64,7 @@ interface LeafletData {
 }
 
 interface LeafletMessage {
-  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow";
+  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow" | "tracking";
   open?: boolean;
   paused?: boolean;
   state?: "peek" | "half";
@@ -87,7 +88,7 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onRegionChange },
+  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
@@ -189,6 +190,8 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       onNearbyStateChange?.(message.state, message.height);
     } else if (message.type === "follow") {
       onFollowChange?.(Boolean(message.paused));
+    } else if (message.type === "tracking") {
+      onTrackingChange?.(Boolean(message.open));
     } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
       onRegionChange({ latitude: message.latitude, longitude: message.longitude });
     }

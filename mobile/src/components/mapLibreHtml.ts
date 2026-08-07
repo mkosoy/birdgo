@@ -285,6 +285,7 @@ export function buildMapLibreHtml(): string {
       var snapToastAction = null;
       var toastReported = false;
       var followPauseReported = false;
+      var preserveToastUntil = 0;
 
       function postOutward(payload) {
         var serialized = JSON.stringify(payload);
@@ -301,7 +302,6 @@ export function buildMapLibreHtml(): string {
 
       function setToast(open) {
         snapToast.classList.toggle('on', open);
-        if (open) attribution.classList.remove('open');
         reportToast(open);
         scheduleNearbyGeometry();
       }
@@ -670,18 +670,29 @@ export function buildMapLibreHtml(): string {
 
       function updateRouteProgress() {
         if (!routeSteps.length || !lastUserLocation) return;
-        var bestIndex = 0;
-        for (var index = 1; index < routeSteps.length; index += 1) {
-          if (typeof routeSteps[index]._alongM !== 'number' || routeSteps[index]._alongM - routeAlongM > 80) break;
-          bestIndex = index;
+        var bestIndex = routeSteps.length - 1;
+        for (var index = 0; index < routeSteps.length; index += 1) {
+          if (
+            typeof routeSteps[index]._alongM === 'number' &&
+            routeSteps[index]._alongM >= routeAlongM - 12
+          ) {
+            bestIndex = index;
+            break;
+          }
         }
         routeStepIndex = Math.max(0, bestIndex);
         var currentStep = routeSteps[routeStepIndex];
         if (currentStep) {
           var approachM = Math.max(0, (currentStep._alongM || 0) - routeAlongM);
-          var approachText = approachM <= 12 ? 'Now · ' : approachM < 80 ? 'In ' + Math.round(approachM) + ' m · ' : '';
+          var approachText = approachM <= 12
+            ? 'Now · '
+            : approachM < 80
+              ? 'In ' + Math.round(approachM) + ' m · '
+              : 'Continue on ' + (currentStep.name || 'the current road') + ' · ';
           routeCurrentIcon.textContent = maneuverIcon(currentStep.maneuver);
-          routeCurrentText.textContent = approachText + maneuverText(currentStep);
+          routeCurrentText.textContent = approachM >= 80
+            ? approachText
+            : approachText + maneuverText(currentStep);
           routeCurrentDistance.textContent = fmtDist(approachM / 1000);
         }
         routeStepsElement.querySelectorAll('.route-step').forEach(function (element, index) {
@@ -912,7 +923,9 @@ export function buildMapLibreHtml(): string {
               '</div>';
           }).join('');
         }
-        if (trackId) {
+        if (Date.now() < preserveToastUntil) {
+          return;
+        } else if (trackId) {
           setToast(false);
           snapToastAction = null;
         } else {
@@ -980,6 +993,7 @@ export function buildMapLibreHtml(): string {
 
       function startTrack(bird) {
         trackId = bird.id;
+        postOutward({ type: 'tracking', open: true });
         follow = true;
         clearRoute();
         setToast(false);
@@ -1006,6 +1020,7 @@ export function buildMapLibreHtml(): string {
 
       function stopTrack() {
         trackId = null;
+        postOutward({ type: 'tracking', open: false });
         clearRoute();
         trackHud.classList.remove('on');
         trackCard.classList.remove('on');
@@ -1261,6 +1276,17 @@ export function buildMapLibreHtml(): string {
           }
           scheduleNearbyGeometry();
         }, 250);
+        document.addEventListener('click', function (event) {
+          var target = event.target;
+          if (
+            snapToast.classList.contains('on') &&
+            target &&
+            target.closest &&
+            target.closest('.maplibregl-ctrl-zoom-in, .maplibregl-ctrl-zoom-out')
+          ) {
+            preserveToastUntil = Date.now() + 5000;
+          }
+        }, true);
         if (headingFollow && lastUserLocation) {
           programmatic = true;
           frameUser(lastUserLocation, 350);
