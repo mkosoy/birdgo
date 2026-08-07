@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, AppState, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import { useNavigation } from "@react-navigation/native";
@@ -21,6 +21,8 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const [overviewRequest, setOverviewRequest] = useState(0);
   const [nearestRequest, setNearestRequest] = useState(0);
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
+  const [locationRetry, setLocationRetry] = useState(0);
+  const hasRealLocation = useRef(false);
   const [rareDismissed, setRareDismissed] = useState(false);
   const { birds, notable, loading, error, refresh } = useBirds(center.latitude, center.longitude);
   const { saveSeen } = useCollection();
@@ -28,41 +30,82 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   useEffect(() => {
     let mounted = true;
     let subscription: Location.LocationSubscription | undefined;
-    void (async () => {
+    let webWatchId: number | undefined;
+    let permissionStatus: PermissionStatus | undefined;
+    const applyFix = (latitude: number, longitude: number) => {
+      if (!mounted || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+      const next = { latitude, longitude };
+      const firstFix = !hasRealLocation.current;
+      hasRealLocation.current = true;
+      setLocation(next);
+      setLocationNotice(null);
+      if (firstFix) {
+        setCenter(next);
+        setFirstPerson(true);
+        setRecenterRequest((request) => request + 1);
+      }
+    };
+    const handleFailure = () => {
+      if (mounted && !hasRealLocation.current) setLocationNotice("Location unavailable — tap to request access.");
+    };
+    const startWebWatch = () => {
+      if (!mounted || !navigator.geolocation) {
+        handleFailure();
+        return;
+      }
+      if (webWatchId !== undefined) navigator.geolocation.clearWatch(webWatchId);
+      webWatchId = navigator.geolocation.watchPosition(
+        (position) => applyFix(position.coords.latitude, position.coords.longitude),
+        handleFailure,
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
+      );
+      navigator.geolocation.getCurrentPosition(
+        (position) => applyFix(position.coords.latitude, position.coords.longitude),
+        handleFailure,
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
+      );
+    };
+    const startNativeWatch = async () => {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== "granted") {
-        if (mounted) setLocationNotice("Location unavailable — showing San Francisco.");
+        handleFailure();
         return;
       }
       try {
-        const current = await Location.getCurrentPositionAsync({});
-        if (mounted) {
-          const firstFix = { latitude: current.coords.latitude, longitude: current.coords.longitude };
-          setLocation(firstFix);
-          setCenter(firstFix);
-          setFirstPerson(true);
-          setRecenterRequest((request) => request + 1);
-        }
+        const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        applyFix(current.coords.latitude, current.coords.longitude);
+        subscription?.remove();
+        subscription = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.High, distanceInterval: 5 },
+          (update) => applyFix(update.coords.latitude, update.coords.longitude),
+        );
       } catch {
-        if (mounted) setLocationNotice("Location unavailable — showing San Francisco.");
+        handleFailure();
       }
-      if (!mounted) return;
-      const nextSubscription = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.Balanced, distanceInterval: 10 },
-        (update) => {
-          if (mounted) setLocation({ latitude: update.coords.latitude, longitude: update.coords.longitude });
-        },
-      );
-      if (mounted) subscription = nextSubscription;
-      else nextSubscription.remove();
-    })().catch(() => {
-      if (mounted) setLocationNotice("Location unavailable — showing San Francisco.");
+    };
+    if (Platform.OS === "web") {
+      startWebWatch();
+      void navigator.permissions?.query({ name: "geolocation" }).then((status) => {
+        permissionStatus = status;
+        status.onchange = () => {
+          if (status.state === "granted") startWebWatch();
+          else handleFailure();
+        };
+      }).catch(() => undefined);
+    } else {
+      void startNativeWatch();
+    }
+    const appStateSubscription = AppState.addEventListener("change", (state) => {
+      if (state === "active" && Platform.OS !== "web") void startNativeWatch();
     });
     return () => {
       mounted = false;
       subscription?.remove();
+      if (webWatchId !== undefined) navigator.geolocation?.clearWatch(webWatchId);
+      if (permissionStatus) permissionStatus.onchange = null;
+      appStateSubscription.remove();
     };
-  }, []);
+  }, [locationRetry]);
 
   useEffect(() => {
     if (Platform.OS === "web" || !firstPerson) {
@@ -105,6 +148,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
       setFirstPerson(false);
       setMode("classic");
     } else {
+      setFirstPerson(true);
       setMode("adventure");
     }
   };
@@ -138,7 +182,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         }}
         onRegionChange={setCenter}
       />
-      <View style={styles.topOverlay}>
+      <View pointerEvents="box-none" style={styles.topOverlay}>
         <Pressable style={styles.modeButton} onPress={toggleMode}>
           <Text style={styles.modeButtonText}>{mode === "classic" ? "🌿 Adventure" : "🗺 Classic"}</Text>
         </Pressable>
@@ -147,7 +191,11 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
             <Text style={styles.modeButtonText}>{firstPerson ? "🗺 Overhead" : "👣 First-person"}</Text>
           </Pressable>
         )}
-        {locationNotice && <Text style={styles.notice}>{locationNotice}</Text>}
+        {locationNotice && (
+          <Pressable style={styles.notice} onPress={() => setLocationRetry((request) => request + 1)}>
+            <Text style={styles.noticeText}>{locationNotice}</Text>
+          </Pressable>
+        )}
         {notable.length > 0 && !rareDismissed && (
           <Pressable style={styles.rareBanner} onPress={() => setRareDismissed(true)}>
             <Text style={styles.bannerText}>Rare bird nearby: {notable[0].comName ?? "Unknown"}!  ×</Text>
@@ -174,7 +222,8 @@ const styles = StyleSheet.create({
   topOverlay: { position: "absolute", top: 52, left: 16, right: 16, gap: 8 },
   modeButton: { alignSelf: "flex-end", backgroundColor: "#ffffffee", paddingHorizontal: 12, paddingVertical: 9, borderRadius: 12, elevation: 3 },
   modeButtonText: { color: "#173c2b", fontWeight: "700" },
-  notice: { backgroundColor: "#fff", padding: 8, borderRadius: 8, color: "#555" },
+  notice: { backgroundColor: "#fff", padding: 8, borderRadius: 8 },
+  noticeText: { color: "#555" },
   rareBanner: { backgroundColor: "#d99d21", padding: 14, borderRadius: 12 },
   bannerText: { color: "#fff", fontWeight: "700" },
   error: { backgroundColor: "#ffd9d9", padding: 12, borderRadius: 8 },

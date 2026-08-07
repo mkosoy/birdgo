@@ -138,6 +138,11 @@ export function buildMapLibreHtml(): string {
       var arrowFrame = null;
       var trackId = null;
       var routeDistanceM = null;
+      var routeGeometryCoordinates = [];
+      var routeAlongM = 0;
+      var routeOffRouteM = null;
+      var routeFallback = false;
+      var routeInFlight = false;
       var routeSteps = [];
       var routeStepIndex = 0;
       var routePanelCollapsed = true;
@@ -198,6 +203,61 @@ export function buildMapLibreHtml(): string {
         return 6371 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
       }
 
+      function haversineM(a, b) {
+        var distance = haversineKm(a, b);
+        return distance == null ? null : distance * 1000;
+      }
+
+      function projectPointOnRoute(point, coordinates) {
+        if (!point || !Array.isArray(coordinates) || coordinates.length < 2) return null;
+        var latRadians = point.latitude * Math.PI / 180;
+        var scale = Math.cos(latRadians);
+        var best = null;
+        var along = 0;
+        for (var index = 0; index < coordinates.length - 1; index += 1) {
+          var start = coordinates[index];
+          var end = coordinates[index + 1];
+          if (!Array.isArray(start) || !Array.isArray(end)) continue;
+          var ax = start[0] * scale;
+          var ay = start[1];
+          var bx = end[0] * scale;
+          var by = end[1];
+          var px = point.longitude * scale;
+          var py = point.latitude;
+          var dx = bx - ax;
+          var dy = by - ay;
+          var lengthSquared = dx * dx + dy * dy;
+          var fraction = lengthSquared ? ((px - ax) * dx + (py - ay) * dy) / lengthSquared : 0;
+          fraction = Math.max(0, Math.min(1, fraction));
+          var projected = { longitude: (ax + dx * fraction) / scale, latitude: ay + dy * fraction };
+          var distance = haversineM(point, projected);
+          var segmentDistance = haversineM(
+            { latitude: start[1], longitude: start[0] },
+            { latitude: end[1], longitude: end[0] },
+          ) || 0;
+          if (!best || distance < best.distanceM) {
+            best = {
+              point: projected,
+              distanceM: distance,
+              alongM: along + segmentDistance * fraction,
+              segmentIndex: index,
+              fraction: fraction,
+            };
+          }
+          along += segmentDistance;
+        }
+        return best;
+      }
+
+      function routeRemainingCoordinates(projection) {
+        if (!projection || !routeGeometryCoordinates.length) return [];
+        var coordinates = [[projection.point.longitude, projection.point.latitude]];
+        for (var index = projection.segmentIndex + 1; index < routeGeometryCoordinates.length; index += 1) {
+          coordinates.push(routeGeometryCoordinates[index]);
+        }
+        return coordinates;
+      }
+
       var birdImageCache = {};
       function thumbInnerHtml(bird, emojiFallback) {
         var image = getBirdImage(bird);
@@ -252,7 +312,12 @@ export function buildMapLibreHtml(): string {
 
       function updateBearing(heading) {
         if (typeof heading !== 'number' || !headingFollow) return;
-        currentHeading = (heading + 360) % 360;
+        var target = (heading + 360) % 360;
+        if (typeof currentHeading !== 'number') currentHeading = target;
+        else {
+          var delta = ((target - currentHeading + 540) % 360) - 180;
+          currentHeading = (currentHeading + delta * 0.28 + 360) % 360;
+        }
         if (bearingFrame != null) return;
         bearingFrame = requestAnimationFrame(function () {
           bearingFrame = null;
@@ -286,16 +351,18 @@ export function buildMapLibreHtml(): string {
         startOrientation();
       }
 
-      var firstPersonPadding = { top: 28, right: 0, bottom: 220, left: 0 };
-      var firstPersonOffset = [0, -120];
+      function firstPersonOffset() {
+        var height = map.getContainer().clientHeight || 600;
+        return [0, Math.round(height * 0.18)];
+      }
       function frameUser(target, duration) {
         if (!target || typeof target.latitude !== 'number' || typeof target.longitude !== 'number') return;
         map.easeTo({
           center: [target.longitude, target.latitude],
-          padding: firstPersonPadding,
-          offset: firstPersonOffset,
-          pitch: 72,
-          zoom: Math.max(map.getZoom(), 18),
+          offset: firstPersonOffset(),
+          pitch: 55,
+          zoom: 15.8,
+          bearing: typeof currentHeading === 'number' ? currentHeading : map.getBearing(),
           duration: duration
         });
       }
@@ -373,6 +440,11 @@ export function buildMapLibreHtml(): string {
       function clearRoute() {
         routeSeq += 1;
         routeDistanceM = null;
+        routeGeometryCoordinates = [];
+        routeAlongM = 0;
+        routeOffRouteM = null;
+        routeFallback = false;
+        routeInFlight = false;
         clearDirections();
         lastRouteOrigin = null;
         lastRouteTargetKey = null;
@@ -422,35 +494,40 @@ export function buildMapLibreHtml(): string {
 
       function updateRouteProgress() {
         if (!routeSteps.length || !lastUserLocation) return;
-        var bestIndex = routeStepIndex;
-        var bestDistance = Infinity;
-        for (var index = routeStepIndex; index < routeSteps.length; index += 1) {
-          var location = routeSteps[index].maneuver && routeSteps[index].maneuver.location;
-          if (!Array.isArray(location) || location.length < 2) continue;
-          var distance = haversineKm(lastUserLocation, { latitude: location[1], longitude: location[0] });
-          if (distance != null && distance < bestDistance) {
-            bestDistance = distance;
-            bestIndex = index;
-          }
+        var bestIndex = 0;
+        for (var index = 1; index < routeSteps.length; index += 1) {
+          if (typeof routeSteps[index]._alongM !== 'number' || routeSteps[index]._alongM - routeAlongM > 80) break;
+          bestIndex = index;
         }
-        routeStepIndex = bestIndex;
+        routeStepIndex = Math.max(0, bestIndex);
         var currentStep = routeSteps[routeStepIndex];
         if (currentStep) {
+          var approachM = Math.max(0, (currentStep._alongM || 0) - routeAlongM);
+          var approachText = approachM <= 12 ? 'Now · ' : approachM < 80 ? 'In ' + Math.round(approachM) + ' m · ' : '';
           routeCurrentIcon.textContent = maneuverIcon(currentStep.maneuver);
-          routeCurrentText.textContent = maneuverText(currentStep);
-          routeCurrentDistance.textContent = typeof currentStep.distance === 'number'
-            ? fmtDist(currentStep.distance / 1000)
-            : '';
+          routeCurrentText.textContent = approachText + maneuverText(currentStep);
+          routeCurrentDistance.textContent = fmtDist(approachM / 1000);
         }
         routeStepsElement.querySelectorAll('.route-step').forEach(function (element, index) {
           element.classList.toggle('current', index === routeStepIndex);
         });
+        routeSummary.textContent = routeDistanceM == null
+          ? 'Walking route'
+          : fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min walk';
       }
 
       function renderRouteSteps(steps) {
         routeSteps = Array.isArray(steps) ? steps.filter(function (step) {
           return step && step.maneuver && Array.isArray(step.maneuver.location);
         }) : [];
+        routeSteps.forEach(function (step) {
+          var location = step.maneuver.location;
+          var projection = projectPointOnRoute(
+            { latitude: location[1], longitude: location[0] },
+            routeGeometryCoordinates,
+          );
+          step._alongM = projection ? projection.alongM : 0;
+        });
         routeStepIndex = 0;
         if (!routeSteps.length) {
           clearDirections();
@@ -471,6 +548,36 @@ export function buildMapLibreHtml(): string {
         updateRouteProgress();
       }
 
+      function updateTrimmedRoute(bird) {
+        if (!lastUserLocation || !bird) return null;
+        if (routeGeometryCoordinates.length < 2) {
+          routeAlongM = 0;
+          routeOffRouteM = null;
+          setRouteGeometry([
+            [lastUserLocation.longitude, lastUserLocation.latitude],
+            [bird.longitude, bird.latitude]
+          ], bird);
+          routeDistanceM = null;
+          return null;
+        }
+        var projection = projectPointOnRoute(lastUserLocation, routeGeometryCoordinates);
+        if (!projection) return null;
+        routeAlongM = projection.alongM;
+        routeOffRouteM = projection.distanceM;
+        var remaining = routeRemainingCoordinates(projection);
+        setRouteGeometry(remaining, bird);
+        var remainingDistance = 0;
+        for (var index = 0; index < remaining.length - 1; index += 1) {
+          remainingDistance += haversineM(
+            { latitude: remaining[index][1], longitude: remaining[index][0] },
+            { latitude: remaining[index + 1][1], longitude: remaining[index + 1][0] },
+          ) || 0;
+        }
+        routeDistanceM = remainingDistance;
+        updateRouteProgress();
+        return projection;
+      }
+
       function updateRoute() {
         if (!trackId || !lastUserLocation) {
           clearRoute();
@@ -486,16 +593,35 @@ export function buildMapLibreHtml(): string {
           return;
         }
         var origin = { latitude: lastUserLocation.latitude, longitude: lastUserLocation.longitude };
-        var moved = !lastRouteOrigin || haversineKm(lastRouteOrigin, origin) > 0.02;
         var targetKey = trackId + ':' + bird.latitude + ':' + bird.longitude;
         var targetChanged = lastRouteTargetKey !== targetKey;
-        if (!moved && !targetChanged) return;
+        if (routeInFlight && !targetChanged) return;
+        if (targetChanged) {
+          routeGeometryCoordinates = [];
+          routeSteps = [];
+          routeStepIndex = 0;
+          routeDistanceM = null;
+          routeFallback = true;
+          clearDirections();
+          setRouteGeometry([
+            [origin.longitude, origin.latitude],
+            [bird.longitude, bird.latitude]
+          ], bird);
+        } else if (routeGeometryCoordinates.length >= 2) {
+          updateTrimmedRoute(bird);
+          if (routeOffRouteM != null && routeOffRouteM <= 35) return;
+          routeGeometryCoordinates = [];
+          routeFallback = true;
+          clearDirections();
+        }
+        if (!targetChanged && !routeFallback && routeGeometryCoordinates.length >= 2 && routeOffRouteM != null && routeOffRouteM <= 35) return;
+        routeFallback = true;
+        lastRouteTargetKey = targetKey;
+        routeInFlight = true;
         setRouteGeometry([
           [origin.longitude, origin.latitude],
           [bird.longitude, bird.latitude]
         ], bird);
-        lastRouteOrigin = origin;
-        lastRouteTargetKey = targetKey;
         routeDistanceM = null;
         var sequence = ++routeSeq;
         var url = 'https://router.project-osrm.org/route/v1/foot/' +
@@ -504,16 +630,40 @@ export function buildMapLibreHtml(): string {
         fetch(url)
           .then(function (response) { if (!response.ok) throw new Error('route request failed'); return response.json(); })
           .then(function (route) {
-            if (sequence !== routeSeq || !trackId || trackId !== bird.id || route.code !== 'Ok' || !route.routes || !route.routes[0]) return;
+            if (sequence !== routeSeq) return;
+            if (!trackId || trackId !== bird.id || route.code !== 'Ok' || !route.routes || !route.routes[0]) {
+              routeInFlight = false;
+              routeGeometryCoordinates = [];
+              routeDistanceM = null;
+              clearDirections();
+              return;
+            }
             var selected = route.routes[0];
-            if (!selected.geometry || !Array.isArray(selected.geometry.coordinates)) return;
-            routeDistanceM = typeof selected.distance === 'number' ? selected.distance : null;
-            setRouteGeometry(selected.geometry.coordinates, bird);
+            if (!selected.geometry || !Array.isArray(selected.geometry.coordinates)) {
+              routeInFlight = false;
+              routeGeometryCoordinates = [];
+              routeDistanceM = null;
+              clearDirections();
+              return;
+            }
+            routeGeometryCoordinates = selected.geometry.coordinates;
+            routeFallback = false;
+            routeInFlight = false;
+            lastRouteOrigin = origin;
+            lastRouteTargetKey = targetKey;
+            setRouteGeometry(routeGeometryCoordinates, bird);
             var legs = Array.isArray(selected.legs) ? selected.legs : [];
             renderRouteSteps(legs[0] && legs[0].steps);
+            updateTrimmedRoute(bird);
             updateTrackCard();
           })
-          .catch(function () {});
+          .catch(function () {
+            if (sequence !== routeSeq) return;
+            routeInFlight = false;
+            routeGeometryCoordinates = [];
+            routeDistanceM = null;
+            clearDirections();
+          });
       }
 
       function capture(id) {
@@ -580,6 +730,7 @@ export function buildMapLibreHtml(): string {
         trackArrow.classList.toggle('rare', Boolean(entry.isNotable));
         var distance = haversineKm(lastUserLocation, entry);
         if (distance != null && distance * 1000 <= ARRIVE_M) {
+          if (routeSteps.length || routeGeometryCoordinates.length) clearRoute();
           trackSnap.classList.add('ready');
           trackSnap.textContent = '📸 Snap!';
           trackDist.textContent = 'You’re here! Snap it 📸';
@@ -621,8 +772,8 @@ export function buildMapLibreHtml(): string {
         if (lastUserLocation && !headingFollow) {
           map.easeTo({
             center: [lastUserLocation.longitude, lastUserLocation.latitude],
-            pitch: 68,
-            zoom: Math.max(map.getZoom(), 18),
+            pitch: 55,
+            zoom: 15.8,
             duration: 600
           });
         }
@@ -766,7 +917,7 @@ export function buildMapLibreHtml(): string {
                 'fill-extrusion-color': '#eef3ea',
                 'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 10],
                 'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-                'fill-extrusion-opacity': 0.95
+                'fill-extrusion-opacity': 0.48
               }
             });
           } catch (_) {}
@@ -896,7 +1047,18 @@ export function buildMapLibreHtml(): string {
           }
         } else if (data.userLocation && follow && !programmatic && (!previousLocation || haversineKm(previousLocation, data.userLocation) > 0.003)) {
           programmatic = true;
-          map.easeTo({ center: [data.userLocation.longitude, data.userLocation.latitude], padding: headingFollow ? firstPersonPadding : { top: 0, right: 0, bottom: 0, left: 0 }, offset: headingFollow ? firstPersonOffset : [0, 0], duration: 800 });
+          var followCamera = {
+            center: [data.userLocation.longitude, data.userLocation.latitude],
+            padding: { top: 0, right: 0, bottom: 0, left: 0 },
+            duration: 800
+          };
+          if (headingFollow) {
+            followCamera.offset = firstPersonOffset();
+            followCamera.pitch = 55;
+            followCamera.zoom = 15.8;
+            if (typeof currentHeading === 'number') followCamera.bearing = currentHeading;
+          }
+          map.easeTo(followCamera);
           setTimeout(function () { programmatic = false; }, 950);
         }
         if (trackId) updateRoute();
