@@ -405,5 +405,12 @@ A quick production DOM smoke is often more convincing than bundle greps: check `
 `snap-toast-dismiss` resolve to `BUTTON`, `.maplibregl-popup-close-button` computes to `44px`, and
 `#nearby-panel` max-height is `42%`.
 
+## Runtime blueprint facts
+- Adventure is MapLibre GL 3D; Classic is Leaflet-only and flat.
+- Launch the test Chrome with `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader --ignore-gpu-blocklist`, or MapLibre may render a blank map.
+- Keep the CDP daemon in a long-lived shell. A one-shot `nohup` process dies with its parent shell and loses the test session.
+- Run exactly one Expo server. A second server on `:8083` can hijack the browser window and swallow clicks; reuse `:8081`.
+- `npx expo start` dirties `mobile/tsconfig.json` and removes `mobile/expo-env.d.ts`; restore both before committing.
+
 ## Devin Secrets Needed
 - eBird API token (`EBIRD_API_TOKEN`) — provided by the user for the app; no OpenAI key needed while `BIRD_ID_PROVIDER=heuristic`.
