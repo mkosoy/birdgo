@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { CaptureRecord, SeenSpecies } from "../types";
+import type { Coordinates, CaptureRecord, SeenSpecies } from "../types";
 import { addCapture, listCaptures, listSeenSpecies, markSeenSpecies } from "../store/collection";
 
 export function useCollection() {
@@ -23,8 +23,8 @@ export function useCollection() {
     await addCapture(capture);
     await refresh();
   }, [refresh]);
-  const saveSeen = useCallback(async (species: SeenSpecies[]) => {
-    await markSeenSpecies(species);
+  const saveSeen = useCallback(async (species: SeenSpecies[], area: Coordinates) => {
+    await markSeenSpecies(species, area);
     setSeenSpecies(await listSeenSpecies());
   }, []);
   return { captures, seenSpecies, loading, saveCapture, saveSeen, refresh };

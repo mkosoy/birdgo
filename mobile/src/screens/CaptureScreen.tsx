@@ -24,6 +24,7 @@ export function CaptureScreen({ hint }: Props) {
 
   const processPhoto = async (uri: string, base64?: string | null) => {
     setPhotoUri(uri);
+    setConfirmation(null);
     setBusy(true);
     try {
       const encoded = base64 ?? await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
@@ -48,7 +49,7 @@ export function CaptureScreen({ hint }: Props) {
   };
 
   const addToCollection = async () => {
-    if (!result?.isBird || !photoUri) return;
+    if (!result || !photoUri) return;
     let location: Coordinates = SF_COORDS;
     try {
       const current = await Location.getCurrentPositionAsync({});
@@ -57,13 +58,13 @@ export function CaptureScreen({ hint }: Props) {
     await saveCapture({
       id: `${Date.now()}`,
       speciesCode: hint?.speciesCode,
-      commonName: result.commonName ?? hint?.comName ?? "Unknown bird",
+      commonName: hint?.comName ?? result.commonName ?? "Unidentified bird",
       sciName: result.sciName,
       photoUri,
       timestamp: new Date().toISOString(),
       location,
     });
-    const message = `${result.commonName ?? hint?.comName ?? "Bird"} is now in your collection.`;
+    const message = `${hint?.comName ?? result.commonName ?? "Unidentified bird"} is now in your collection.`;
     setConfirmation(message);
     Alert.alert("Added to Bird-dex", message);
   };
@@ -81,10 +82,18 @@ export function CaptureScreen({ hint }: Props) {
       : <Image source={{ uri: photoUri }} style={styles.camera} />}
     <View style={styles.controls}>
       {!photoUri && permission?.granted && <Pressable style={styles.shutter} onPress={() => void takePhoto()}><Text style={styles.shutterText}>●</Text></Pressable>}
-      {photoUri && <Pressable style={styles.button} onPress={() => { setPhotoUri(null); setResult(null); }}><Text style={styles.buttonText}>Try another</Text></Pressable>}
+      {photoUri && <Pressable style={styles.button} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); }}><Text style={styles.buttonText}>Try another</Text></Pressable>}
       {photoUri && <Pressable style={styles.secondaryDark} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Pick from library</Text></Pressable>}
       {busy && <ActivityIndicator color="#fff" />}
-      {result && !busy && <View style={styles.result}><Text style={styles.resultTitle}>{result.isBird ? result.commonName : result.provider === "heuristic" ? "Unable to identify reliably" : "That doesn't look like a bird"}</Text>{result.isBird && <><Text style={styles.scientific}>{result.sciName ?? "Species unknown"}</Text><Text style={styles.confidence}>{result.provider === "heuristic" ? "Low-confidence fallback" : `${Math.round(result.confidence * 100)}% confidence`}</Text><Pressable style={styles.button} onPress={() => void addToCollection()}><Text style={styles.buttonText}>Add to collection</Text></Pressable></>}</View>}
+      {result && !busy && <View style={styles.result}>
+        <Text style={styles.resultTitle}>{hint?.comName ?? (result.isBird ? result.commonName : result.provider === "heuristic" ? "Unverified photo" : "Unable to identify as a bird")}</Text>
+        {hint?.comName
+          ? <Text style={styles.confidence}>Using nearby species hint — not model-verified</Text>
+          : result.isBird
+            ? <><Text style={styles.scientific}>{result.sciName ?? "Scientific name unknown"}</Text><Text style={styles.confidence}>{result.provider === "heuristic" ? "Unverified identification" : `${Math.round(result.confidence * 100)}% confidence`}</Text></>
+            : <Text style={styles.confidence}>No species identified. You can save this as an unidentified photo.</Text>}
+        <Pressable style={styles.button} onPress={() => void addToCollection()}><Text style={styles.buttonText}>{hint?.comName || result.isBird ? "Add to collection" : "Save unidentified photo"}</Text></Pressable>
+      </View>}
       {confirmation && <Text style={styles.confirmation}>✓ {confirmation}</Text>}
     </View>
   </View>;

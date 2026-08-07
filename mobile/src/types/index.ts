@@ -19,6 +19,7 @@ export interface EbirdObservation extends Coordinates {
 export interface SeenSpecies {
   speciesCode: string;
   comName: string;
+  location?: Coordinates;
 }
 
 export interface TaxonomyEntry {

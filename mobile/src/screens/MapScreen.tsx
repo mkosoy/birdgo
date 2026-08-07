@@ -135,8 +135,11 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
 
   useEffect(() => {
     if (!birds.length) return;
-    void saveSeen(birds.flatMap((bird) => bird.comName ? [{ speciesCode: bird.speciesCode, comName: bird.comName }] : []));
-  }, [birds, saveSeen]);
+    void saveSeen(
+      birds.flatMap((bird) => bird.comName ? [{ speciesCode: bird.speciesCode, comName: bird.comName }] : []),
+      location,
+    );
+  }, [birds, location, saveSeen]);
 
   useEffect(() => {
     if (!notable.length) return;
