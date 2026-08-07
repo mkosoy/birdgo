@@ -29,6 +29,10 @@ export function buildMapLibreHtml(): string {
     .maplibregl-popup-close-button { width: 44px; height: 44px; font-size: 24px; line-height: 40px; }
     .maplibregl-ctrl-top-right { top: calc(var(--safe-top) + 156px); right: 84px; }
     .maplibregl-ctrl-group button { width: 44px; height: 44px; }
+    #map-attribution { position: absolute; z-index: 10; top: calc(var(--safe-top) + 112px); left: 8px; font-family: -apple-system, system-ui, sans-serif; }
+    #map-attribution-toggle { width: 44px; height: 44px; border: 0; border-radius: 22px; background: rgba(255,255,255,.92); color: #34453c; box-shadow: 0 2px 8px rgba(0,0,0,.2); font-size: 20px; cursor: pointer; }
+    #map-attribution-copy { display: none; width: 220px; margin-top: 6px; padding: 9px 11px; border-radius: 10px; background: rgba(255,255,255,.96); color: #34453c; box-shadow: 0 2px 10px rgba(0,0,0,.22); font-size: 11px; line-height: 15px; }
+    #map-attribution.open #map-attribution-copy { display: block; }
     #nearby-panel { position: absolute; left: 8px; right: 8px; bottom: var(--bottom-hud); z-index: 6; background: rgba(255,255,255,.96); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.25); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; height: 58px; display: flex; flex-direction: column; transition: transform .15s ease; }
     #nearby-panel.peek { height: 58px; }
     #nearby-panel.half { height: 44vh; }
@@ -136,6 +140,7 @@ export function buildMapLibreHtml(): string {
   </div>
   <div id="snap-toast" role="status"><span id="snap-toast-copy"></span><button id="snap-toast-go" type="button">Go</button><button id="snap-toast-dismiss" type="button" aria-label="Dismiss">×</button></div>
   <button id="compass-button" type="button" aria-label="Enable compass">🧭</button>
+  <div id="map-attribution"><button id="map-attribution-toggle" type="button" aria-label="Show map credits">ⓘ</button><div id="map-attribution-copy">MapLibre © MapLibre · Map tiles © OpenFreeMap · © OpenStreetMap contributors · Walking routes © OSRM</div></div>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script>
     (function () {
@@ -145,7 +150,8 @@ export function buildMapLibreHtml(): string {
         center: [-122.4194, 37.7749],
         zoom: 13,
         pitch: 55,
-        bearing: 0
+        bearing: 0,
+        attributionControl: false
       });
       map.addControl(new maplibregl.NavigationControl(), 'top-right');
       var birdMarkers = [];
@@ -210,9 +216,15 @@ export function buildMapLibreHtml(): string {
       var routeCurrentIcon = document.getElementById('route-current-icon');
       var routeCurrentText = document.getElementById('route-current-text');
       var routeCurrentDistance = document.getElementById('route-current-distance');
+      var attribution = document.getElementById('map-attribution');
+      var attributionToggle = document.getElementById('map-attribution-toggle');
       var routeSummary = document.getElementById('route-summary');
       var routeCaret = document.getElementById('route-caret');
       var routeStepsElement = document.getElementById('route-steps');
+      attributionToggle.addEventListener('click', function () {
+        var open = attribution.classList.toggle('open');
+        attributionToggle.setAttribute('aria-label', open ? 'Hide map credits' : 'Show map credits');
+      });
       var snapToast = document.getElementById('snap-toast');
       var snapToastCopy = document.getElementById('snap-toast-copy');
       var snapToastGo = document.getElementById('snap-toast-go');

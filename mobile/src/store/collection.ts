@@ -27,14 +27,23 @@ export async function addCapture(capture: CaptureRecord): Promise<void> {
   await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify([capture, ...captures]));
 }
 
+export function captureMatchesSpecies(
+  capture: CaptureRecord,
+  speciesCode?: string,
+  commonName?: string,
+): boolean {
+  const normalizedName = commonName?.trim().toLowerCase();
+  const matchesCode = Boolean(speciesCode && capture.speciesCode === speciesCode);
+  const matchesName = Boolean(
+    normalizedName
+    && capture.commonName.trim().toLowerCase() === normalizedName,
+  );
+  return matchesCode || matchesName;
+}
+
 export async function releaseSpecies(speciesCode?: string, commonName?: string): Promise<void> {
   const captures = await listCaptures();
-  const normalizedName = commonName?.trim().toLowerCase();
-  const remaining = captures.filter((capture) => {
-    const matchesCode = Boolean(speciesCode && capture.speciesCode === speciesCode);
-    const matchesName = Boolean(!speciesCode && normalizedName && capture.commonName.trim().toLowerCase() === normalizedName);
-    return !matchesCode && !matchesName;
-  });
+  const remaining = captures.filter((capture) => !captureMatchesSpecies(capture, speciesCode, commonName));
   await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify(remaining));
 }
 

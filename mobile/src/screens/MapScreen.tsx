@@ -256,7 +256,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
       <Pressable
         disabled={popupOpen}
         pointerEvents={popupOpen ? "none" : "auto"}
-        style={[styles.captureButton, { bottom: insets.bottom + 12 }, popupOpen && styles.captureButtonDimmed]}
+        style={[styles.captureButton, { bottom: insets.bottom + (nearbyState === "peek" ? 154 : 76) }, popupOpen && styles.captureButtonDimmed]}
         onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}
       >
         <Text style={styles.captureText}>📷</Text>

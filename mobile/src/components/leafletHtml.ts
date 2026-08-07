@@ -23,14 +23,19 @@ export function buildLeafletHtml(): string {
     .encounter button { min-height: 44px; border: 0; border-radius: 5px; padding: 8px 10px; color: white; background: #2f7d5b; font-weight: 700; cursor: pointer; }
     .encounter button:nth-child(2) { background: #2878d1; }
     .encounter button:nth-child(3) { background: #6f5aa8; }
+    #map-attribution { position: absolute; z-index: 1000; top: 112px; left: 8px; font-family: -apple-system, system-ui, sans-serif; }
+    #map-attribution-toggle { width: 44px; height: 44px; border: 0; border-radius: 22px; background: rgba(255,255,255,.94); color: #34453c; box-shadow: 0 2px 8px rgba(0,0,0,.2); font-size: 20px; cursor: pointer; }
+    #map-attribution-copy { display: none; width: 220px; margin-top: 6px; padding: 9px 11px; border-radius: 10px; background: rgba(255,255,255,.96); color: #34453c; box-shadow: 0 2px 10px rgba(0,0,0,.22); font-size: 11px; line-height: 15px; }
+    #map-attribution.open #map-attribution-copy { display: block; }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <div id="map-attribution"><button id="map-attribution-toggle" type="button" aria-label="Show map credits">ⓘ</button><div id="map-attribution-copy">Map tiles © OpenStreetMap contributors · Walking routes © OSRM</div></div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     (function () {
-      var map = L.map('map', { zoomControl: true }).setView([37.7749, -122.4194], 13);
+      var map = L.map('map', { zoomControl: true, attributionControl: false }).setView([37.7749, -122.4194], 13);
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors'
@@ -42,6 +47,11 @@ export function buildLeafletHtml(): string {
       var lastUserLocation = null;
       var popupBirdId = null;
       var restoringPopup = false;
+      var attribution = document.getElementById('map-attribution');
+      document.getElementById('map-attribution-toggle').addEventListener('click', function () {
+        var open = attribution.classList.toggle('open');
+        this.setAttribute('aria-label', open ? 'Hide map credits' : 'Show map credits');
+      });
 
       function postOutward(payload) {
         var serialized = JSON.stringify(payload);

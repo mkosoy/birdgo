@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCollection } from "../hooks/useCollection";
-import { releaseSpecies } from "../store/collection";
+import { captureMatchesSpecies, releaseSpecies } from "../store/collection";
 
 export function DexScreen() {
   const { captures, seenSpecies, loading, refresh } = useCollection();
@@ -19,9 +19,7 @@ export function DexScreen() {
   const capturedNames = new Set(captures.map((capture) => capture.commonName.trim().toLowerCase()));
   const locked = seenSpecies.filter((species) => !capturedCodes.has(species.speciesCode) && !capturedNames.has(species.comName.trim().toLowerCase()));
   const release = (commonName: string, speciesCode?: string) => {
-    const photoCount = captures.filter((capture) => speciesCode
-      ? capture.speciesCode === speciesCode
-      : capture.commonName.trim().toLowerCase() === commonName.trim().toLowerCase()).length;
+    const photoCount = captures.filter((capture) => captureMatchesSpecies(capture, speciesCode, commonName)).length;
     const photoLabel = `${photoCount} photo${photoCount === 1 ? "" : "s"}`;
     setPendingRelease({ commonName, speciesCode, photoLabel });
   };
