@@ -25,6 +25,13 @@ cd mobile && npm install && npx expo start --web   # serves http://localhost:808
 ```
 Open `localhost:8081` in Chrome. Web dev uses `apiBaseUrl` from `app.json` (empty → falls back to `http://localhost:4000`). Green 🐦 = recent, gold ★ = notable pins; gold banner = rare bird; deny geolocation to stay centered on SF.
 
+When launching the Chrome test browser for Adventure, preserve WebGL support:
+```
+--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader --ignore-gpu-blocklist
+```
+Without these flags, MapLibre can fail to obtain a GL context and render a blank map with no
+`.user-marker`; treat that as a browser launch problem, not an app marker or camera failure.
+
 ## Android emulator
 ```
 # One-time toolchain lives under ~/Android/Sdk; AVD name is "birdgo" (Android 34 google_apis x86_64).
