@@ -301,6 +301,7 @@ export function buildMapLibreHtml(): string {
 
       function setToast(open) {
         snapToast.classList.toggle('on', open);
+        if (open) attribution.classList.remove('open');
         reportToast(open);
         scheduleNearbyGeometry();
       }
