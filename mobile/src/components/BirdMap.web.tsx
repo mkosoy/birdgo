@@ -5,7 +5,8 @@ import { buildMapLibreHtml } from "./mapLibreHtml";
 import type { BirdMapProps } from "./BirdMap";
 
 interface LeafletMessage {
-  type: "capture" | "directions" | "about" | "regionChange";
+  type: "capture" | "directions" | "about" | "regionChange" | "popup";
+  open?: boolean;
   id?: string;
   speciesCode?: string;
   comName?: string;
@@ -24,7 +25,7 @@ function relativeTime(date?: string): string {
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
-export function BirdMap({ center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, onCapture, onDirections, onAbout, onRegionChange }: BirdMapProps) {
+export function BirdMap({ center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, onCapture, onDirections, onAbout, onPopupChange, onRegionChange }: BirdMapProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
@@ -70,13 +71,15 @@ export function BirdMap({ center, userLocation, birds, mode, firstPerson, headin
         onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name });
       } else if (message.type === "about" && message.speciesCode && message.comName) {
         onAbout({ speciesCode: message.speciesCode, comName: message.comName });
+      } else if (message.type === "popup") {
+        onPopupChange?.(Boolean(message.open));
       } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
         onRegionChange({ latitude: message.latitude, longitude: message.longitude });
       }
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [markerLookup, onAbout, onCapture, onDirections, onRegionChange]);
+  }, [markerLookup, onAbout, onCapture, onDirections, onPopupChange, onRegionChange]);
 
   useEffect(() => {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify(data), "*");

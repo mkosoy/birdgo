@@ -20,6 +20,7 @@ export interface BirdMapProps {
   onCapture: (bird: EbirdObservation) => void;
   onDirections: (coordinates: Coordinates & { name: string }) => void;
   onAbout: (bird: { speciesCode: string; comName: string }) => void;
+  onPopupChange?: (open: boolean) => void;
   onRegionChange: (coordinates: Coordinates) => void;
 }
 
@@ -47,7 +48,8 @@ interface LeafletData {
 }
 
 interface LeafletMessage {
-  type: "capture" | "directions" | "about" | "regionChange";
+  type: "capture" | "directions" | "about" | "regionChange" | "popup";
+  open?: boolean;
   id?: string;
   speciesCode?: string;
   comName?: string;
@@ -67,7 +69,7 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, onCapture, onDirections, onAbout, onRegionChange },
+  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, onCapture, onDirections, onAbout, onPopupChange, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
@@ -152,6 +154,8 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name });
     } else if (message.type === "about" && message.speciesCode && message.comName) {
       onAbout({ speciesCode: message.speciesCode, comName: message.comName });
+    } else if (message.type === "popup") {
+      onPopupChange?.(Boolean(message.open));
     } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
       onRegionChange({ latitude: message.latitude, longitude: message.longitude });
     }

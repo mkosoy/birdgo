@@ -21,6 +21,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const [overviewRequest, setOverviewRequest] = useState(0);
   const [nearestRequest, setNearestRequest] = useState(0);
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
+  const [popupOpen, setPopupOpen] = useState(false);
   const [locationRetry, setLocationRetry] = useState(0);
   const hasRealLocation = useRef(false);
   const [rareDismissed, setRareDismissed] = useState(false);
@@ -30,6 +31,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   useEffect(() => {
     let mounted = true;
     let subscription: Location.LocationSubscription | undefined;
+    let nativeWatchStarting = false;
     let webWatchId: number | undefined;
     let permissionStatus: PermissionStatus | undefined;
     const applyFix = (latitude: number, longitude: number) => {
@@ -66,21 +68,25 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
       );
     };
     const startNativeWatch = async () => {
+      if (!mounted || subscription || nativeWatchStarting) return;
+      nativeWatchStarting = true;
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== "granted") {
+        nativeWatchStarting = false;
         handleFailure();
         return;
       }
       try {
         const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
         applyFix(current.coords.latitude, current.coords.longitude);
-        subscription?.remove();
         subscription = await Location.watchPositionAsync(
           { accuracy: Location.Accuracy.High, distanceInterval: 5 },
           (update) => applyFix(update.coords.latitude, update.coords.longitude),
         );
       } catch {
         handleFailure();
+      } finally {
+        nativeWatchStarting = false;
       }
     };
     if (Platform.OS === "web") {
@@ -128,6 +134,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   }, [firstPerson]);
 
   useEffect(() => {
+    if (!birds.length) return;
     void saveSeen(birds.flatMap((bird) => bird.comName ? [{ speciesCode: bird.speciesCode, comName: bird.comName }] : []));
   }, [birds, saveSeen]);
 
@@ -180,6 +187,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
             : `https://ebird.org/search?q=${encodeURIComponent(comName)}`;
           void Linking.openURL(url);
         }}
+        onPopupChange={setPopupOpen}
         onRegionChange={setCenter}
       />
       <View pointerEvents="box-none" style={styles.topOverlay}>
@@ -196,7 +204,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
             <Text style={styles.noticeText}>{locationNotice}</Text>
           </Pressable>
         )}
-        {notable.length > 0 && !rareDismissed && (
+        {notable.length > 0 && !rareDismissed && !popupOpen && (
           <Pressable style={styles.rareBanner} onPress={() => setRareDismissed(true)}>
             <Text style={styles.bannerText}>Rare bird nearby: {notable[0].comName ?? "Unknown"}!  ×</Text>
           </Pressable>

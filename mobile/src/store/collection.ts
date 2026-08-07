@@ -20,7 +20,6 @@ export async function listSeenSpecies(): Promise<SeenSpecies[]> {
 }
 
 export async function markSeenSpecies(species: SeenSpecies[]): Promise<void> {
-  const existing = new Map((await listSeenSpecies()).map((item) => [item.speciesCode, item]));
-  species.forEach((item) => existing.set(item.speciesCode, item));
-  await AsyncStorage.setItem(SEEN_KEY, JSON.stringify([...existing.values()]));
+  const current = new Map(species.map((item) => [item.speciesCode, item]));
+  await AsyncStorage.setItem(SEEN_KEY, JSON.stringify([...current.values()]));
 }

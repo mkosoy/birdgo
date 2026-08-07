@@ -11,8 +11,8 @@ export function buildMapLibreHtml(): string {
     .bird-marker { width: 32px; height: 32px; background: #2f7d5b; border: 2px solid white; cursor: pointer; }
     .bird-marker.in-range { box-shadow: 0 0 0 5px rgba(217,157,33,.38), 0 2px 8px rgba(0,0,0,.3); }
     .bird-marker.notable { background: #d99d21; }
-    .user-marker { position: relative; width: 22px; height: 22px; background: #2878d1; border: 3px solid white; box-shadow: 0 0 0 2px #2878d1; }
-    .user-marker::before { content: ''; position: absolute; top: 50%; left: 50%; width: 42px; height: 42px; border-radius: 50%; border: 2px solid rgba(40, 120, 209, 0.55); animation: pulse 1.8s ease-out infinite; }
+    .user-marker { position: relative; width: 28px; height: 28px; background: #2878d1; border: 3px solid white; box-shadow: 0 0 0 2px #2878d1, 0 3px 9px rgba(0,0,0,.35); }
+    .user-marker::before { content: ''; position: absolute; top: 50%; left: 50%; width: 48px; height: 48px; border-radius: 50%; border: 2px solid rgba(40, 120, 209, 0.55); animation: pulse 1.8s ease-out infinite; }
     @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(1.45); opacity: 0; } }
     .encounter { min-width: 220px; line-height: 1.35; color: #26342d; }
     .encounter h3 { margin: 0 0 2px; font-size: 16px; }
@@ -27,7 +27,7 @@ export function buildMapLibreHtml(): string {
     #nearby-panel { position: absolute; left: 8px; right: 84px; bottom: 98px; z-index: 6; background: rgba(255,255,255,.96); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.25); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; max-height: 52%; display: flex; flex-direction: column; }
     #nearby-header { display: flex; align-items: center; gap: 8px; padding: 9px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
     #nearby-title { font-weight: 800; color: #173c2b; font-size: 14px; flex: 1; }
-    #rare-toggle { border: 1px solid #d99d21; color: #b6810f; background: #fff; border-radius: 14px; padding: 4px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    #rare-toggle { min-height: 44px; border: 1px solid #d99d21; color: #b6810f; background: #fff; border-radius: 14px; padding: 4px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
     #rare-toggle.on { background: #d99d21; color: #fff; }
     #nearby-caret { color: #888; font-size: 13px; width: 14px; text-align: center; }
     #nearby-list { overflow-y: auto; padding: 4px; -webkit-overflow-scrolling: touch; }
@@ -41,7 +41,7 @@ export function buildMapLibreHtml(): string {
     .nb-name { font-weight: 700; color: #21362c; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .nb-name .star { color: #d99d21; }
     .nb-sub { color: #5c6f65; font-size: 12px; margin-top: 1px; }
-    .nb-go { border: 0; border-radius: 20px; padding: 9px 15px; background: #2f7d5b; color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; flex: none; }
+    .nb-go { min-width: 52px; min-height: 44px; border: 0; border-radius: 22px; padding: 9px 15px; background: #2f7d5b; color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; flex: none; }
     .nb-row.rare .nb-go { background: #d99d21; }
     .nb-empty { padding: 16px; text-align: center; color: #6b7d72; font-size: 13px; }
     #track-hud { position: absolute; inset: 0; z-index: 5; pointer-events: none; display: none; }
@@ -56,9 +56,9 @@ export function buildMapLibreHtml(): string {
     #track-name { font-weight: 800; color: #173c2b; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #track-dist { color: #2f7d5b; font-weight: 700; font-size: 13px; margin-top: 2px; }
     #track-actions { display: flex; gap: 8px; flex: none; }
-    #track-snap { border: 0; border-radius: 20px; padding: 10px 16px; background: #2f7d5b; color: #fff; font-weight: 800; cursor: pointer; }
+    #track-snap { min-height: 44px; border: 0; border-radius: 22px; padding: 10px 16px; background: #2f7d5b; color: #fff; font-weight: 800; cursor: pointer; }
     #track-snap.ready { background: #d99d21; animation: snappulse 1s infinite; }
-    #track-stop { border: 0; border-radius: 20px; padding: 10px 14px; background: #eceff0; color: #445; font-weight: 700; cursor: pointer; }
+    #track-stop { border: 0; border-radius: 22px; min-width: 44px; min-height: 44px; padding: 10px; background: #eceff0; color: #445; font-weight: 700; cursor: pointer; }
     #route-panel { position: absolute; left: 8px; right: 84px; bottom: 188px; z-index: 8; max-height: 38%; display: none; background: rgba(255,255,255,.97); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.28); overflow: hidden; font-family: -apple-system, system-ui, sans-serif; pointer-events: auto; }
     #route-panel.on { display: block; }
     #route-header { display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer; border-bottom: 1px solid #eee; color: #173c2b; font-size: 13px; }
@@ -73,11 +73,13 @@ export function buildMapLibreHtml(): string {
     #route-panel.collapsed #route-steps { display: none; }
     .route-step { display: flex; gap: 9px; align-items: flex-start; padding: 8px; border-radius: 10px; color: #5c6f65; font-size: 12px; }
     .route-step.current { background: #eaf3ff; color: #173c2b; font-weight: 700; }
-    .route-step-icon { width: 22px; text-align: center; color: #2878d1; font-size: 18px; line-height: 18px; }
+    .route-step-icon { width: 26px; text-align: center; color: #2878d1; font-size: 22px; line-height: 22px; font-weight: 900; }
     .route-step-distance { margin-left: auto; white-space: nowrap; color: #6b7d72; font-weight: 600; }
     @keyframes snappulse { 0%,100%{ transform: scale(1);} 50%{ transform: scale(1.07);} }
-    #snap-toast { position: absolute; left: 50%; top: 76px; transform: translateX(-50%); z-index: 8; max-width: 88%; background: rgba(217,157,33,.97); color: #fff; border: 0; border-radius: 22px; padding: 10px 16px; font-weight: 800; font-size: 13px; font-family: -apple-system, system-ui, sans-serif; box-shadow: 0 3px 12px rgba(0,0,0,.3); display: none; cursor: pointer; }
-    #snap-toast.on { display: block; }
+    #snap-toast { position: absolute; left: 50%; top: 76px; transform: translateX(-50%); z-index: 8; max-width: 88%; display: none; align-items: center; gap: 10px; background: rgba(217,157,33,.97); color: #fff; border: 0; border-radius: 22px; padding: 8px 10px 8px 16px; font-weight: 800; font-size: 13px; font-family: -apple-system, system-ui, sans-serif; box-shadow: 0 3px 12px rgba(0,0,0,.3); cursor: pointer; pointer-events: auto; }
+    #snap-toast.on { display: flex; }
+    #snap-toast-copy { display: inline-block; }
+    #snap-toast-dismiss { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: -8px -10px -8px 0; border-radius: 50%; font-size: 20px; }
     #compass-button { position: absolute; z-index: 7; left: 50%; top: 120px; transform: translateX(-50%); border: 0; border-radius: 18px; padding: 9px 14px; color: white; background: rgba(35, 73, 53, .92); font-weight: 700; display: none; cursor: pointer; }
   </style>
 </head>
@@ -107,7 +109,7 @@ export function buildMapLibreHtml(): string {
     </div>
     <div id="route-steps"></div>
   </div>
-  <button id="snap-toast" type="button"></button>
+  <button id="snap-toast" type="button"><span id="snap-toast-copy"></span><span id="snap-toast-dismiss" aria-label="Dismiss">×</span></button>
   <button id="compass-button" type="button">🧭 Enable compass</button>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script>
@@ -143,6 +145,10 @@ export function buildMapLibreHtml(): string {
       var routeOffRouteM = null;
       var routeFallback = false;
       var routeInFlight = false;
+      var routeFailureAt = 0;
+      var routeFailureOrigin = null;
+      var routeFailureTargetKey = null;
+      var routeRetryDelayMs = 15000;
       var routeSteps = [];
       var routeStepIndex = 0;
       var routePanelCollapsed = true;
@@ -177,6 +183,9 @@ export function buildMapLibreHtml(): string {
       var routeCaret = document.getElementById('route-caret');
       var routeStepsElement = document.getElementById('route-steps');
       var snapToast = document.getElementById('snap-toast');
+      var snapToastCopy = document.getElementById('snap-toast-copy');
+      var snapToastDismiss = document.getElementById('snap-toast-dismiss');
+      var snapToastAction = null;
 
       function postOutward(payload) {
         var serialized = JSON.stringify(payload);
@@ -360,8 +369,8 @@ export function buildMapLibreHtml(): string {
         map.easeTo({
           center: [target.longitude, target.latitude],
           offset: firstPersonOffset(),
-          pitch: 55,
-          zoom: 15.8,
+          pitch: 60,
+          zoom: 17,
           bearing: typeof currentHeading === 'number' ? currentHeading : map.getBearing(),
           duration: duration
         });
@@ -386,6 +395,13 @@ export function buildMapLibreHtml(): string {
           .setHTML(popupHtml(bird, lastUserLocation))
           .addTo(map);
         currentPopup = popup;
+        postOutward({ type: 'popup', open: true });
+        popup.on('close', function () {
+          if (currentPopup === popup) {
+            currentPopup = null;
+            postOutward({ type: 'popup', open: false });
+          }
+        });
         setTimeout(function () { attachPopupActions(popup, bird); }, 0);
       }
 
@@ -459,10 +475,10 @@ export function buildMapLibreHtml(): string {
         if (type === 'depart') return '➤';
         if (type === 'roundabout' || type === 'rotary') return '⟳';
         if (modifier === 'sharp right') return '⤳';
-        if (modifier === 'right') return '↱';
+        if (modifier === 'right') return '↷';
         if (modifier === 'slight right') return '↗';
         if (modifier === 'sharp left') return '⤲';
-        if (modifier === 'left') return '↰';
+        if (modifier === 'left') return '↶';
         if (modifier === 'slight left') return '↖';
         if (modifier === 'uturn') return '⤴';
         return '⬆';
@@ -510,10 +526,11 @@ export function buildMapLibreHtml(): string {
         }
         routeStepsElement.querySelectorAll('.route-step').forEach(function (element, index) {
           element.classList.toggle('current', index === routeStepIndex);
+          element.style.display = index === routeStepIndex ? 'none' : '';
         });
         routeSummary.textContent = routeDistanceM == null
           ? 'Walking route'
-          : fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min walk';
+          : 'Walking route: ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
       }
 
       function renderRouteSteps(steps) {
@@ -535,13 +552,13 @@ export function buildMapLibreHtml(): string {
         }
         routeStepsElement.innerHTML = routeSteps.map(function (step, index) {
           var distance = typeof step.distance === 'number' ? fmtDist(step.distance / 1000) : '';
-          return '<div class="route-step' + (index === 0 ? ' current' : '') + '">' +
+          return '<div class="route-step' + (index === 0 ? ' current' : '') + '" data-step-index="' + index + '">' +
             '<span class="route-step-icon">' + escapeHtml(maneuverIcon(step.maneuver)) + '</span>' +
             '<span>' + escapeHtml(maneuverText(step)) + '</span>' +
             '<span class="route-step-distance">' + escapeHtml(distance) + '</span>' +
             '</div>';
         }).join('');
-        routeSummary.textContent = routeDistanceM == null ? 'Walking route' : fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min walk';
+        routeSummary.textContent = routeDistanceM == null ? 'Walking route' : 'Walking route: ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
         routePanel.classList.add('on');
         routePanel.classList.toggle('collapsed', routePanelCollapsed);
         routeCaret.textContent = routePanelCollapsed ? '▸' : '▾';
@@ -593,6 +610,8 @@ export function buildMapLibreHtml(): string {
           return;
         }
         var origin = { latitude: lastUserLocation.latitude, longitude: lastUserLocation.longitude };
+        var directDistanceM = haversineM(origin, bird);
+        if (directDistanceM != null && directDistanceM <= ARRIVE_M) return;
         var targetKey = trackId + ':' + bird.latitude + ':' + bird.longitude;
         var targetChanged = lastRouteTargetKey !== targetKey;
         if (routeInFlight && !targetChanged) return;
@@ -602,6 +621,9 @@ export function buildMapLibreHtml(): string {
           routeStepIndex = 0;
           routeDistanceM = null;
           routeFallback = true;
+          routeFailureAt = 0;
+          routeFailureOrigin = null;
+          routeFailureTargetKey = null;
           clearDirections();
           setRouteGeometry([
             [origin.longitude, origin.latitude],
@@ -613,8 +635,19 @@ export function buildMapLibreHtml(): string {
           routeGeometryCoordinates = [];
           routeFallback = true;
           clearDirections();
+        } else if (
+          routeFailureAt &&
+          routeFailureTargetKey === targetKey &&
+          Date.now() - routeFailureAt < routeRetryDelayMs &&
+          routeFailureOrigin &&
+          haversineM(routeFailureOrigin, origin) < 100
+        ) {
+          setRouteGeometry([
+            [origin.longitude, origin.latitude],
+            [bird.longitude, bird.latitude]
+          ], bird);
+          return;
         }
-        if (!targetChanged && !routeFallback && routeGeometryCoordinates.length >= 2 && routeOffRouteM != null && routeOffRouteM <= 35) return;
         routeFallback = true;
         lastRouteTargetKey = targetKey;
         routeInFlight = true;
@@ -635,6 +668,9 @@ export function buildMapLibreHtml(): string {
               routeInFlight = false;
               routeGeometryCoordinates = [];
               routeDistanceM = null;
+              routeFailureAt = Date.now();
+              routeFailureOrigin = origin;
+              routeFailureTargetKey = targetKey;
               clearDirections();
               return;
             }
@@ -643,12 +679,18 @@ export function buildMapLibreHtml(): string {
               routeInFlight = false;
               routeGeometryCoordinates = [];
               routeDistanceM = null;
+              routeFailureAt = Date.now();
+              routeFailureOrigin = origin;
+              routeFailureTargetKey = targetKey;
               clearDirections();
               return;
             }
             routeGeometryCoordinates = selected.geometry.coordinates;
             routeFallback = false;
             routeInFlight = false;
+            routeFailureAt = 0;
+            routeFailureOrigin = null;
+            routeFailureTargetKey = null;
             lastRouteOrigin = origin;
             lastRouteTargetKey = targetKey;
             setRouteGeometry(routeGeometryCoordinates, bird);
@@ -662,6 +704,9 @@ export function buildMapLibreHtml(): string {
             routeInFlight = false;
             routeGeometryCoordinates = [];
             routeDistanceM = null;
+            routeFailureAt = Date.now();
+            routeFailureOrigin = origin;
+            routeFailureTargetKey = targetKey;
             clearDirections();
           });
       }
@@ -675,6 +720,7 @@ export function buildMapLibreHtml(): string {
           nearbyTitle.textContent = 'Birds nearby';
           nearbyList.innerHTML = '<div class="nb-empty">Finding your location…</div>';
           snapToast.classList.remove('on');
+          snapToastAction = null;
           return;
         }
         var nearest = computeNearest();
@@ -690,28 +736,29 @@ export function buildMapLibreHtml(): string {
             return '<div class="nb-row' + rareClass + '" data-bird-id="' + escapeHtml(bird.id) + '">' +
               '<div class="nb-thumb">' + thumbInnerHtml(bird) + '</div>' +
               '<div class="nb-info"><div class="nb-name">' + escapeHtml(name) + (bird.isNotable ? ' <span class="star">★</span>' : '') + '</div>' +
-              '<div class="nb-sub">' + fmtDist(entry.distance) + ' · ' + etaMin(entry.distance) + ' min walk · ' + escapeHtml(bird.relativeTime || 'recently') + '</div></div>' +
+              '<div class="nb-sub">Direct ' + fmtDist(entry.distance) + ' · ' + etaMin(entry.distance) + ' min walk estimate · ' + escapeHtml(bird.relativeTime || 'recently') + '</div></div>' +
               '<button class="nb-go' + rareClass + '" type="button" data-go-id="' + escapeHtml(bird.id) + '">Go</button>' +
               '</div>';
           }).join('');
         }
         if (trackId) {
           snapToast.classList.remove('on');
+          snapToastAction = null;
         } else {
           var closest = nearest[0];
           if (closest && closest.distance * 1000 <= SNAP_M) {
             var closestName = closest.bird.comName || closest.bird.sciName || 'Bird';
-            snapToast.textContent = '📸 Snap ' + closestName + ' · ' + Math.round(closest.distance * 1000) + ' m';
+            snapToastCopy.textContent = '📸 Snap ' + closestName + ' · Direct ' + fmtDist(closest.distance);
             snapToast.classList.add('on');
-            snapToast.onclick = function () { capture(closest.bird.id); };
+            snapToastAction = function () { capture(closest.bird.id); };
           } else if (closest && closest.distance * 1000 <= 180) {
             var nearbyName = closest.bird.comName || closest.bird.sciName || 'Bird';
-            snapToast.textContent = '🐦 Nearby ' + nearbyName + ' · ' + Math.round(closest.distance * 1000) + ' m · Go';
+            snapToastCopy.textContent = '🐦 Nearby ' + nearbyName + ' · Direct ' + fmtDist(closest.distance) + ' · Go';
             snapToast.classList.add('on');
-            snapToast.onclick = function () { startTrack(closest.bird); };
+            snapToastAction = function () { startTrack(closest.bird); };
           } else {
             snapToast.classList.remove('on');
-            snapToast.onclick = null;
+            snapToastAction = null;
           }
         }
       }
@@ -737,11 +784,11 @@ export function buildMapLibreHtml(): string {
         } else if (distance != null && routeDistanceM != null && lastRouteTargetKey && lastRouteTargetKey.indexOf(trackId + ':') === 0) {
           trackSnap.classList.remove('ready');
           trackSnap.textContent = '📸 Snap';
-          trackDist.textContent = fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min walk';
+          trackDist.textContent = 'Walking route: ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
         } else if (distance != null) {
           trackSnap.classList.remove('ready');
           trackSnap.textContent = '📸 Snap';
-          trackDist.textContent = fmtDist(distance) + ' · ' + etaMin(distance) + ' min walk';
+          trackDist.textContent = 'Direct: ' + fmtDist(distance) + ' · ' + etaMin(distance) + ' min walk estimate';
         } else {
           trackSnap.classList.remove('ready');
           trackSnap.textContent = '📸 Snap';
@@ -772,8 +819,8 @@ export function buildMapLibreHtml(): string {
         if (lastUserLocation && !headingFollow) {
           map.easeTo({
             center: [lastUserLocation.longitude, lastUserLocation.latitude],
-            pitch: 55,
-            zoom: 15.8,
+            pitch: 60,
+            zoom: 17,
             duration: 600
           });
         }
@@ -845,6 +892,15 @@ export function buildMapLibreHtml(): string {
         routePanel.classList.toggle('collapsed', routePanelCollapsed);
         routeCaret.textContent = routePanelCollapsed ? '▸' : '▾';
       });
+      snapToast.addEventListener('click', function (event) {
+        if (event.target === snapToastDismiss) {
+          event.stopPropagation();
+          snapToast.classList.remove('on');
+          snapToastAction = null;
+          return;
+        }
+        if (snapToastAction) snapToastAction();
+      });
 
       function popupHtml(bird, userLocation) {
         var distance = haversineKm(userLocation, bird);
@@ -853,8 +909,8 @@ export function buildMapLibreHtml(): string {
           '<h3>' + escapeHtml(bird.comName || 'Bird') + '</h3>' +
           '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div>' +
           '<div class="meta">' + escapeHtml(bird.locName || 'Unknown hotspot') + ' • ' + escapeHtml(bird.relativeTime || 'recently') + count + '</div>' +
-          (distance == null ? '' : '<div class="distance">' + distance.toFixed(1) + ' km away</div>') +
-          (distance == null ? '' : '<div class="distance">Walk estimate: ' + etaMin(distance) + ' min</div>') +
+          (distance == null ? '' : '<div class="distance">Direct distance: ' + fmtDist(distance) + '</div>') +
+          (distance == null ? '' : '<div class="distance">Walking estimate: ' + etaMin(distance) + ' min</div>') +
           '<div class="info" data-info>About ' + escapeHtml(bird.sciName || bird.comName || 'this species') + '</div>' +
           '<div class="actions"><button data-action="capture">Capture</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
           '</div>';
@@ -917,7 +973,7 @@ export function buildMapLibreHtml(): string {
                 'fill-extrusion-color': '#eef3ea',
                 'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 10],
                 'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-                'fill-extrusion-opacity': 0.48
+                'fill-extrusion-opacity': 0.88
               }
             });
           } catch (_) {}
@@ -963,6 +1019,7 @@ export function buildMapLibreHtml(): string {
 
       map.on('load', function () {
         styleAdventureMap();
+        if (headingFollow && lastUserLocation) frameUser(lastUserLocation, 350);
         updateRoute();
       });
       if (typeof ResizeObserver !== 'undefined') {
@@ -1050,16 +1107,14 @@ export function buildMapLibreHtml(): string {
           var followCamera = {
             center: [data.userLocation.longitude, data.userLocation.latitude],
             padding: { top: 0, right: 0, bottom: 0, left: 0 },
-            duration: 800
+            duration: 450
           };
           if (headingFollow) {
             followCamera.offset = firstPersonOffset();
-            followCamera.pitch = 55;
-            followCamera.zoom = 15.8;
             if (typeof currentHeading === 'number') followCamera.bearing = currentHeading;
           }
           map.easeTo(followCamera);
-          setTimeout(function () { programmatic = false; }, 950);
+          setTimeout(function () { programmatic = false; }, 550);
         }
         if (trackId) updateRoute();
         birdMarkers.forEach(function (marker) { marker.remove(); });
