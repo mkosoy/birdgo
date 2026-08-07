@@ -242,7 +242,15 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         </>
       )}
       <Pressable accessibilityLabel="Back to me" style={[styles.recenterButton, { bottom: insets.bottom + 190 }]} onPress={() => setRecenterRequest((request) => request + 1)}><Text style={styles.recenterText}>◎</Text></Pressable>
-      {!popupOpen && <Pressable style={[styles.captureButton, { bottom: insets.bottom + 12 }]} onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}><Text style={styles.captureText}>📷</Text><Text style={styles.captureLabel}>Capture</Text></Pressable>}
+      <Pressable
+        disabled={popupOpen}
+        pointerEvents={popupOpen ? "none" : "auto"}
+        style={[styles.captureButton, { bottom: insets.bottom + 12 }, popupOpen && styles.captureButtonDimmed]}
+        onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}
+      >
+        <Text style={styles.captureText}>📷</Text>
+        <Text style={styles.captureLabel}>Capture</Text>
+      </Pressable>
     </View>
   );
 }
@@ -262,6 +270,7 @@ const styles = StyleSheet.create({
   nearestButton: { position: "absolute", right: 16, width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
   recenterText: { color: "#2878d1", fontSize: 30, lineHeight: 32 },
   captureButton: { position: "absolute", alignSelf: "center", width: 82, height: 82, borderRadius: 41, backgroundColor: "#2f7d5b", alignItems: "center", justifyContent: "center", borderWidth: 5, borderColor: "#fff", elevation: 5 },
+  captureButtonDimmed: { opacity: 0.35 },
   captureText: { fontSize: 28 },
   captureLabel: { color: "#fff", fontWeight: "700", fontSize: 11 },
 });
