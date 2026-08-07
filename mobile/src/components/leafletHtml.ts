@@ -40,6 +40,8 @@ export function buildLeafletHtml(): string {
       var firstData = true;
       var moveTimer = null;
       var lastUserLocation = null;
+      var popupBirdId = null;
+      var restoringPopup = false;
 
       function postOutward(payload) {
         var serialized = JSON.stringify(payload);
@@ -82,7 +84,7 @@ export function buildLeafletHtml(): string {
           '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div>' +
           '<div class="stale">Sighting recorded ' + escapeHtml(bird.relativeTime || 'recently') + ' — this is a past observation, not a live location.</div>' +
           '<div class="where">Where to look: ' + escapeHtml(bird.locName || 'No hotspot recorded') + count + '</div>' +
-          (distance == null ? '' : '<div class="distance">' + distance.toFixed(1) + ' km away</div>') +
+          (distance == null ? '' : '<div class="distance">' + (distance < 1 ? Math.round(distance * 1000) + ' m' : distance.toFixed(1) + ' km') + ' away · ' + Math.max(1, Math.round(distance * 1000 / 81)) + ' min walk</div>') +
           '<div class="field-notes" data-info>How to spot it: Field notes loading…</div>' +
           '<div class="actions"><button data-action="capture">Capture</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
           '</div>';
@@ -119,6 +121,8 @@ export function buildLeafletHtml(): string {
 
       function render(data) {
         if (!data || !data.center) return;
+        var restorePopupId = popupBirdId;
+        var restoreMarker = null;
         if (data.userLocation) lastUserLocation = data.userLocation;
         if (data.command === 'recenter') {
           var target = data.userLocation || data.center;
@@ -129,9 +133,23 @@ export function buildLeafletHtml(): string {
           var marker = L.marker([bird.latitude, bird.longitude], { icon: markerIcon(bird.isNotable) });
           var popup = L.popup({ maxWidth: 300 }).setContent(popupHtml(bird, lastUserLocation));
           marker.bindPopup(popup);
-          marker.on('popupopen', function () { attachPopupActions(popup, bird); });
+          marker.on('popupopen', function () {
+            popupBirdId = bird.id;
+            postOutward({ type: 'popup', open: true });
+            attachPopupActions(popup, bird);
+          });
+          marker.on('popupclose', function () {
+            if (!restoringPopup) popupBirdId = null;
+            postOutward({ type: 'popup', open: false });
+          });
           marker.addTo(markers);
+          if (restorePopupId === bird.id) restoreMarker = marker;
         });
+        if (restoreMarker) {
+          restoringPopup = true;
+          restoreMarker.openPopup();
+          setTimeout(function () { restoringPopup = false; }, 0);
+        }
         if (data.userLocation) {
           var userPoint = [data.userLocation.latitude, data.userLocation.longitude];
           if (userMarker) userMarker.setLatLng(userPoint);
@@ -144,6 +162,7 @@ export function buildLeafletHtml(): string {
       }
 
       map.on('moveend', function () {
+        if (restoringPopup) return;
         clearTimeout(moveTimer);
         moveTimer = setTimeout(function () {
           var center = map.getCenter();

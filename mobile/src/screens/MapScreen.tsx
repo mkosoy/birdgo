@@ -26,6 +26,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
   const [popupOpen, setPopupOpen] = useState(false);
   const [toastOpen, setToastOpen] = useState(false);
+  const [nearbyState, setNearbyState] = useState<"peek" | "half">("peek");
   const [followPaused, setFollowPaused] = useState(false);
   const [locationRetry, setLocationRetry] = useState(0);
   const hasRealLocation = useRef(false);
@@ -176,6 +177,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const toggleMode = () => {
     setFollowPaused(false);
     setToastOpen(false);
+    setNearbyState("peek");
     if (mode === "adventure") {
       setFirstPerson(false);
       setMode("classic");
@@ -215,6 +217,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         }}
         onPopupChange={setPopupOpen}
         onToastChange={setToastOpen}
+        onNearbyStateChange={setNearbyState}
         onFollowChange={setFollowPaused}
         onRegionChange={setCenter}
       />
@@ -240,12 +243,15 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
       {!loading && !error && birds.length === 0 && <View style={styles.empty}><Text style={styles.emptyText}>No birds spotted nearby — try moving the map.</Text></View>}
       {mode === "adventure" && (
         <>
-          <View pointerEvents="box-none" style={[styles.actionRail, { top: insets.top + 112 }]}>
+          <View pointerEvents="box-none" style={[styles.actionRail, { top: insets.top + (nearbyState === "half" ? 56 : 112) }]}>
             <Pressable accessibilityLabel="Find closest bird" style={styles.actionButton} onPress={() => setNearestRequest((request) => request + 1)}><Text style={styles.recenterText}>🐦</Text></Pressable>
             <Pressable accessibilityLabel="See all birds" style={styles.actionButton} onPress={() => setOverviewRequest((request) => request + 1)}><Text style={styles.recenterText}>🗺</Text></Pressable>
             <Pressable accessibilityLabel="Back to me" style={styles.actionButton} onPress={() => setRecenterRequest((request) => request + 1)}><Text style={styles.recenterText}>◎</Text></Pressable>
           </View>
         </>
+      )}
+      {mode === "classic" && (
+        <Pressable accessibilityLabel="Back to me" style={[styles.actionButton, styles.classicRecenter, { top: insets.top + 112 }]} onPress={() => setRecenterRequest((request) => request + 1)}><Text style={styles.recenterText}>◎</Text></Pressable>
       )}
       <Pressable
         disabled={popupOpen}
@@ -274,6 +280,7 @@ const styles = StyleSheet.create({
   emptyText: { textAlign: "center", color: "#555" },
   actionRail: { position: "absolute", right: 16, gap: 8, alignItems: "center" },
   actionButton: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
+  classicRecenter: { position: "absolute", right: 16 },
   recenterText: { color: "#2878d1", fontSize: 30, lineHeight: 32 },
   captureButton: { position: "absolute", alignSelf: "center", width: 82, height: 82, borderRadius: 41, backgroundColor: "#2f7d5b", alignItems: "center", justifyContent: "center", borderWidth: 5, borderColor: "#fff", elevation: 5 },
   captureButtonDimmed: { opacity: 0.35 },

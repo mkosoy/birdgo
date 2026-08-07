@@ -182,44 +182,66 @@ wait for the `Page.fileChooserOpened` event, then `DOM.setFileInputFiles` with i
 the whole keyless-capture → Bird-dex flow testable without a camera. Generate a deterministic non-bird image
 with PIL rather than relying on a checked-in fixture.
 
-## Known issues to re-check (as of commit e86c12a)
+## `Alert.alert` is a no-op on web — check this before testing any confirm-dialog feature
+**`react-native-web@0.19.13` ships `class Alert { static alert() {} }`.** Any feature whose whole flow is
+gated behind `Alert.alert` (confirmation dialogs, destructive-action confirms) is **completely inert on Expo
+Web** — no dialog renders and the `onPress` callbacks in the button array never fire. This silently killed the
+Bird-dex **Release** feature at `4cfcbc5`.
+
+Before spending a round testing such a feature, grep for it:
+```bash
+grep -rn "Alert.alert" mobile/src
+cat mobile/node_modules/react-native-web/dist/exports/Alert/index.js   # confirm it is still a stub
+```
+If the feature is `Alert`-gated, say up front that **web cannot validate it** and either test on the Android
+emulator (where `Alert` is real) or ask for a cross-platform `Modal`. Do not report the downstream invariants
+as passing or failing — they are *untestable*, which is a distinct result. Prove inertness objectively by
+hashing the relevant `localStorage` key before and after the click rather than by eyeballing the grid.
+
+## Known issues to re-check (as of commit 4cfcbc5)
 These may already be fixed; treat as "look here first" rather than fact.
 
-Verified **fixed** at `e86c12a` (don't re-report without fresh evidence, but they have regressed before, so
-spot-check): camera follow keeping the avatar at x50 %/y68 % for a whole walk; `.bird-marker` taps opening
-popups; 44 px zoom controls that no longer toggle the view mode; seen placeholders stamped with the *fetched*
-area (`loadedArea`) so out-of-area species are dropped (106 east-coast species dropped on a NYC→SF jump);
-late permission grant reframing without a reload; Overhead genuinely top-down (`pitch: 0`);
-toast↔rare-banner arbitration via an outward `{type:'toast',open}` message (`0 px²` occlusion at both widths,
-and dismissing the toast makes the banner return); Capture FAB dimming to `opacity .35` +
-`pointer-events:none` while a popup is open (all 5 points across Directions reachable, real click on the
-dimmed FAB does nothing); popup "Directions" starting the **in-app** route (`maps/dir` gone from both
-bundles); follow-pause announcing "Camera follow paused — tap ◎ to resume." and ◎ genuinely re-arming follow;
-Nearby tray showing 3 full rows with 38 px thumbs; popup close `44×44`; CaptureScreen body copy `#c9ddce`
-(12.66:1).
+Verified **fixed** at `4cfcbc5` (don't re-report without fresh evidence, but they have regressed before, so
+spot-check): camera follow keeping the avatar framed for a whole walk (x50.1 %/y57.3 % at every sample);
+`.bird-marker` taps opening popups; 44 px zoom controls that no longer toggle the view mode; seen placeholders
+scoped to the fetched area; late permission grant reframing without a reload; Overhead genuinely top-down;
+toast↔rare-banner arbitration in Adventure; Capture FAB dimming while a popup is open; popup "Directions"
+starting the **in-app** route; follow-pause messaging and ◎ re-arming follow; **the avatar is no longer hidden
+behind `#route-panel` at 375×667** (`avatarInRoutePanel:false`, `trackCard ∩ routePanel = 0 px²`);
+**`#track-dist` no longer ellipsizes at 375** (scrollW 148 = clientW 148); **Classic finally got the 44 px
+pass** (popup buttons 70×44/85×44/59×44, close `×` exactly 44×44); `.bird-edge` awareness arrows are **gone**
+entirely (`#bird-awareness` absent), which resolves the overlap/inertness findings; Nearby row copy, 38 px
+thumbs and the `right:8px` gutter reclaim (**0** clipped `.nb-name`, **0** clipped `.nb-sub` at 375, was
+13/14).
 
-Still open at `e86c12a`:
-- **`.bird-edge` awareness arrows still overlap each other** at both widths. Suppression (Nearby/Track/route
-  panel/Overview) and collisions with controls **are** fixed, but `minGap` is 56 px while the rotated bboxes
-  are 49–62 px, so adjacent arrows still intersect (measured 1899 px² and 380 px²). The de-overlap also only
-  pushes `y` downward in a single pass, so a crowded column cannot separate.
-- **The arrows are inert and unlabelled**: `#bird-awareness` is `pointer-events:none`, each arrow is a `<span>`
-  with no click handler, and its only label is a `title` attribute — which never appears on touch. They convey
-  direction plus a rare/common colour and nothing else, while the Nearby tray gives species + distance + ETA +
-  a working Go. Recommend making them tappable-to-Track with a distance label, or removing them.
-- `startTrack()` does not call `refreshBirdAwareness()`, so arrows linger for one fix after Track starts and
-  only clear on the next map move/render.
-- At **375×667** `#track-dist` ellipsizes (`"Walk · 873 m · 11 …"`, scrollW 159 vs clientW 148) — the 3-line
-  wrap and the route-panel overlap are fixed, but the string is now clipped instead. The route-panel step and
-  the arrival copy clip the same way. 390×844 is clean.
-- **The avatar is hidden behind the HUD while navigating at 375×667**: follow frames it at y68 % (page y≈418)
-  but `#route-panel` occupies y 378–430, so the "you are here" dot is covered. Check
-  `avatarCentre ∈ panelRect`, not just `framedOk`.
-- Toast `Go` measures **43** px wide and `#snap-toast-dismiss` **24** px wide (CSS declares 44 px but the flex
-  row compresses it) — both under the 44 px floor, though both are real `BUTTON`s now.
-- **Classic mode never received the 44 px pass**: its popup buttons are 27 px tall and its close `×` is 24×24.
+Still open at `4cfcbc5`:
+- **Bird-dex `Release` does nothing on web** — see the `Alert.alert` section above. `birdgo.captures` hash
+  identical before/after (`1980961569` → `1980961569`).
+- **The Nearby sheet's `full` snap state is broken at 375×667** and is reachable by two header taps:
+  - the panel is laid out at `top:-78` so its **own header (`-68`) and drag handle (`-73`) are off-screen** —
+    `headerVisibleInViewport:false`, so the user cannot collapse it again; the only escape is tapping a row.
+    The `calc(100% - safe-top - 20px)` height assumes bottom-anchoring, but the panel sits above the bottom HUD.
+  - **parent controls render on top of the list**: 5 of 8 visible rows covered and **3 `Go` buttons dead**
+    (`elementFromPoint` → parent DIV). Use the `full` state as the first place to look for iframe/parent
+    z-order bugs.
+- **New cross-document occlusion at 375: the parent ◎ "Back to me" covers 39 % of the iframe `#sort-toggle`**
+  (`[285,252,48,44] ∩ [307,232,52,52] = 830 px²`). Hit points at 0.7/0.9 across the toggle resolve to the
+  parent; a real click on the right edge is swallowed while the left third cycles the sort. **390×844 is
+  clean** — this class of bug is 375-only, so always measure at 375.
+- **Classic (Leaflet) popups self-destruct after ~730 ms.** `render()` calls `markers.clearLayers()` on every
+  data update, and the popup's own auto-pan fires `moveend` → `regionChange` → refetch → re-render. A
+  `MutationObserver` on `.leaflet-popup-pane` shows add at t+41 ms, remove at t+774 ms. Workaround for testing:
+  CDP-block `*/api/birds*` to freeze the feed, then the card renders and persists.
+- **The parent rare banner overlaps the Classic popup by 11 372 px²**, covering 44 % of the card title — the
+  toast↔banner arbitration was only wired into the Adventure renderer.
+- **Classic has no ◎ "Back to me"**: `MapScreen.tsx` moved it inside the `mode === "adventure"` block.
+- `#route-current-text` still clips at 375 (scrollW 313 vs clientW 191).
+- Encounter cards still use the **old** copy (`Direct · 100 m`, `Walk est. · 1 min`) while Nearby rows use the
+  new `"100 m away · 1 min walk · seen 1d ago"` — the two now disagree.
+- The sheet handle is a **real directional drag** (up peek→half, down half→peek, which a click-cycle could not
+  do) but it **does not follow the pointer**; it only snaps on release, so it feels unphysical.
+- A blocked bird feed degrades to `Couldn't load birds. Tap to retry.` but the map behind renders **blank white**.
 - Bottom-nav inactive label is `rgb(142,142,143)` on white = 3.27:1, fails AA.
-- Toast copy wraps to 3 lines at 375 px inside a 188 px bubble.
 - Switching Adventure ↔ Classic silently discards the active Track/route — **known and accepted**, do not
   re-report as new.
 - Only ~1–2 of ~536 markers are visible in the first-person pose (zoom 17 / pitch 60) — building occlusion is
@@ -231,6 +253,24 @@ Still open at `e86c12a`:
   bird markers, rare banner and Nearby tray correctly. A prior blank-tile observation was a stale/paused
   emulator artifact, not a confirmed app defect. Real GPS, compass heading and camera capture have
   **never** been verified on real hardware.
+
+## Verifying "display sort must not change the geometric closest" invariants
+`mapLibreHtml.ts` keeps `computeNearest()` (always distance-sorted) separate from
+`sortEntries(nearest.slice())` (display order). To test the invariant **non-vacuously**, place the mock so the
+displayed first row and the true nearest genuinely differ — under `↕ Rare` with a common bird at ~100 m, the
+list tops out at a 938 m rare bird while the toast must still name the 100 m one. If the two agree, the test
+proves nothing: re-place the mock until they diverge, and say so. Recompute distances yourself with haversine
+from `latestMarkers` + the mocked position rather than trusting the rendered strings, then check **all** of the
+toast subject, the 🐦 closest-bird button, and the snap gate.
+
+## Synthetic drags: what works and what silently doesn't
+With touch emulation on, synthetic mouse drags **do** drive custom pointer-event handlers (the sheet's
+`#nearby-handle` drag works and is directional), but they **did not** drive MapLibre's canvas pan or a native
+`overflow-y` scroll — both produced zero movement from the same input path. Don't conclude "pan is broken"
+from this; it is most likely a touch-emulation artifact. Use the **scroll wheel** to prove a list is scrollable
+and isolated, and note map-pan-by-drag as inconclusive rather than failed. Also hit-test your drag start *and
+end* points first — a drag that begins on the canvas but ends inside a toast or the sheet header explains a
+surprising no-op.
 
 ## Deployment / bundle-provenance trap
 Production (`birdgo.vercel.app`) has often been an **older export** than local dev, so fingerprint both before

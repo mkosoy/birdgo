@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions, type CameraType } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
@@ -22,17 +22,19 @@ export function CaptureScreen({ hint }: Props) {
   const [result, setResult] = useState<Awaited<ReturnType<typeof identifyBird>> | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmation, setConfirmation] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const { saveCapture } = useCollection();
 
   const processPhoto = async (uri: string, base64?: string | null) => {
     setPhotoUri(uri);
     setConfirmation(null);
+    setNotice(null);
     setBusy(true);
     try {
       const encoded = base64 ?? await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
       setResult(await identifyBird(encoded, hint?.comName ? [hint.comName] : []));
     } catch {
-      Alert.alert("Identification unavailable", "Check your connection and try again.");
+      setNotice("Identification unavailable. Check your connection and try again.");
     } finally {
       setBusy(false);
     }
@@ -45,7 +47,10 @@ export function CaptureScreen({ hint }: Props) {
 
   const pickPhoto = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) return Alert.alert("Photo permission needed", "Allow library access or use the camera.");
+    if (!permissionResult.granted) {
+      setNotice("Photo permission needed. Allow library access or use the camera.");
+      return;
+    }
     const selected = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, base64: true, quality: 0.7 });
     if (!selected.canceled && selected.assets[0]) await processPhoto(selected.assets[0].uri, selected.assets[0].base64);
   };
@@ -68,7 +73,6 @@ export function CaptureScreen({ hint }: Props) {
     });
     const message = `${hint?.comName ?? result.commonName ?? "Unidentified bird"} is now in your collection.`;
     setConfirmation(message);
-    Alert.alert("Added to Bird-dex", message);
   };
 
   return <View style={styles.container}>
@@ -97,6 +101,7 @@ export function CaptureScreen({ hint }: Props) {
         <Pressable style={styles.button} onPress={() => void addToCollection()}><Text style={styles.buttonText}>{hint?.comName || result.isBird ? "Add to collection" : "Save unidentified photo"}</Text></Pressable>
       </View>}
       {confirmation && <Text style={styles.confirmation}>✓ {confirmation}</Text>}
+      {notice && <Text style={styles.notice}>{notice}</Text>}
     </View>
   </View>;
 }
@@ -122,4 +127,5 @@ const styles = StyleSheet.create({
   scientific: { color: "#c9ddce", fontStyle: "italic" },
   confidence: { color: "#d7e8da" },
   confirmation: { color: "#bde8c9", fontWeight: "700", textAlign: "center" },
+  notice: { color: "#ffd0a8", fontWeight: "700", textAlign: "center" },
 });

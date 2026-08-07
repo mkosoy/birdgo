@@ -29,10 +29,9 @@ export function buildMapLibreHtml(): string {
     .maplibregl-popup-close-button { width: 44px; height: 44px; font-size: 24px; line-height: 40px; }
     .maplibregl-ctrl-top-right { top: calc(var(--safe-top) + 156px); right: 84px; }
     .maplibregl-ctrl-group button { width: 44px; height: 44px; }
-    #nearby-panel { position: absolute; left: 8px; right: 8px; bottom: var(--bottom-hud); z-index: 6; background: rgba(255,255,255,.96); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.25); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; height: 58px; display: flex; flex-direction: column; transition: height .2s ease; }
+    #nearby-panel { position: absolute; left: 8px; right: 8px; bottom: var(--bottom-hud); z-index: 6; background: rgba(255,255,255,.96); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.25); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; height: 58px; display: flex; flex-direction: column; transition: transform .15s ease; }
     #nearby-panel.peek { height: 58px; }
     #nearby-panel.half { height: 44vh; }
-    #nearby-panel.full { height: calc(100% - var(--safe-top) - 20px); }
     #nearby-header { display: flex; align-items: center; gap: 8px; min-height: 44px; box-sizing: border-box; padding: 6px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
     #nearby-title { font-weight: 800; color: #173c2b; font-size: 14px; flex: 1; }
     #rare-toggle { min-height: 44px; border: 1px solid #d99d21; color: #b6810f; background: #fff; border-radius: 14px; padding: 4px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
@@ -74,9 +73,9 @@ export function buildMapLibreHtml(): string {
     #route-panel.on { display: block; }
     #route-header { display: flex; align-items: center; gap: 10px; min-height: 52px; box-sizing: border-box; padding: 7px 12px; cursor: pointer; border-bottom: 1px solid #eee; color: #173c2b; font-size: 13px; }
     #route-header-copy { flex: 1; min-width: 0; }
-    #route-current { display: flex; align-items: baseline; gap: 6px; font-weight: 800; white-space: nowrap; overflow: hidden; }
+    #route-current { display: flex; align-items: baseline; gap: 6px; font-weight: 800; white-space: normal; overflow: hidden; }
     #route-current-icon { flex: none; color: #2878d1; font-size: 18px; line-height: 18px; }
-    #route-current-text { overflow: hidden; text-overflow: ellipsis; }
+    #route-current-text { min-width: 0; overflow-wrap: anywhere; }
     #route-current-distance { flex: none; color: #6b7d72; font-size: 12px; }
     #route-summary { margin-top: 2px; color: #6b7d72; font-size: 11px; font-weight: 600; }
     #route-caret { color: #888; }
@@ -981,19 +980,29 @@ export function buildMapLibreHtml(): string {
       nearbyHeader.addEventListener('click', function (event) {
         if (event.target === rareToggle || (event.target.closest && event.target.closest('#rare-toggle'))
           || event.target === sortToggle || (event.target.closest && event.target.closest('#sort-toggle'))) return;
-        setNearbyState(panelState === 'peek' ? 'half' : panelState === 'half' ? 'full' : 'peek');
+        setNearbyState(panelState === 'peek' ? 'half' : 'peek');
       });
       function setNearbyState(state) {
+        state = state === 'half' ? 'half' : 'peek';
         panelState = state;
-        nearbyPanel.classList.remove('peek', 'half', 'full', 'collapsed');
+        nearbyPanel.classList.remove('peek', 'half', 'collapsed');
         nearbyPanel.classList.add(state);
         if (state === 'peek') nearbyPanel.classList.add('collapsed');
-        nearbyCaret.textContent = state === 'peek' ? '▸' : state === 'full' ? '⌃' : '⌄';
+        nearbyCaret.textContent = state === 'peek' ? '▸' : '⌄';
+        postOutward({ type: 'nearbyState', state: state });
       }
       var dragStartY = null;
       nearbyHandle.addEventListener('pointerdown', function (event) {
         dragStartY = event.clientY;
         nearbyHandle.setPointerCapture(event.pointerId);
+        nearbyPanel.style.transition = 'none';
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      nearbyHandle.addEventListener('pointermove', function (event) {
+        if (dragStartY == null) return;
+        var delta = Math.max(-180, Math.min(180, event.clientY - dragStartY));
+        nearbyPanel.style.transform = 'translateY(' + delta + 'px)';
         event.preventDefault();
         event.stopPropagation();
       });
@@ -1001,9 +1010,18 @@ export function buildMapLibreHtml(): string {
         if (dragStartY == null) return;
         var delta = event.clientY - dragStartY;
         dragStartY = null;
-        if (delta < -35) setNearbyState(panelState === 'peek' ? 'half' : 'full');
-        else if (delta > 35) setNearbyState(panelState === 'full' ? 'half' : 'peek');
-        else setNearbyState(panelState === 'peek' ? 'half' : panelState === 'half' ? 'full' : 'peek');
+        nearbyPanel.style.transition = '';
+        nearbyPanel.style.transform = '';
+        if (delta < -35) setNearbyState('half');
+        else if (delta > 35) setNearbyState('peek');
+        else setNearbyState(panelState === 'peek' ? 'half' : 'peek');
+        event.preventDefault();
+        event.stopPropagation();
+      });
+      nearbyHandle.addEventListener('pointercancel', function (event) {
+        dragStartY = null;
+        nearbyPanel.style.transition = '';
+        nearbyPanel.style.transform = '';
         event.preventDefault();
         event.stopPropagation();
       });
@@ -1047,8 +1065,7 @@ export function buildMapLibreHtml(): string {
           '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div>' +
           '<div class="stale">Sighting recorded ' + escapeHtml(bird.relativeTime || 'recently') + ' — this is a past observation, not a live location.</div>' +
           '<div class="where">Where to look: ' + escapeHtml(bird.locName || 'No hotspot recorded') + count + '</div>' +
-          (distance == null ? '' : '<div class="distance">Direct · ' + fmtDist(distance) + '</div>') +
-          (distance == null ? '' : '<div class="distance">Walk est. · ' + etaMin(distance) + ' min</div>') +
+          (distance == null ? '' : '<div class="distance">' + fmtDist(distance) + ' away · ' + etaMin(distance) + ' min walk</div>') +
           '<div class="field-notes" data-info>How to spot it: Field notes loading…</div>' +
           '<div class="actions"><button data-action="capture">Capture</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
           '</div>';

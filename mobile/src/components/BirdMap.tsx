@@ -31,6 +31,7 @@ export interface BirdMapProps {
   onAbout: (bird: { speciesCode: string; comName: string }) => void;
   onPopupChange?: (open: boolean) => void;
   onToastChange?: (open: boolean) => void;
+  onNearbyStateChange?: (state: "peek" | "half") => void;
   onFollowChange?: (paused: boolean) => void;
   onRegionChange: (coordinates: Coordinates) => void;
 }
@@ -62,9 +63,10 @@ interface LeafletData {
 }
 
 interface LeafletMessage {
-  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "follow";
+  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow";
   open?: boolean;
   paused?: boolean;
+  state?: "peek" | "half";
   id?: string;
   speciesCode?: string;
   comName?: string;
@@ -84,7 +86,7 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onFollowChange, onRegionChange },
+  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
@@ -182,6 +184,8 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       onPopupChange?.(Boolean(message.open));
     } else if (message.type === "toast") {
       onToastChange?.(Boolean(message.open));
+    } else if (message.type === "nearbyState" && (message.state === "peek" || message.state === "half")) {
+      onNearbyStateChange?.(message.state);
     } else if (message.type === "follow") {
       onFollowChange?.(Boolean(message.paused));
     } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
