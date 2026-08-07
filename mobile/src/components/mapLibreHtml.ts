@@ -1241,9 +1241,24 @@ export function buildMapLibreHtml(): string {
         if (data.userLocation) {
           var userElement = document.createElement('div');
           userElement.className = 'user-marker';
-          if (userMarker) userMarker.setLngLat([data.userLocation.longitude, data.userLocation.latitude]);
-          else userMarker = new maplibregl.Marker({ element: userElement }).setLngLat([data.userLocation.longitude, data.userLocation.latitude]).addTo(map);
-          if (headingFollow && follow) stabilizeUserFrame(data.userLocation);
+          if (headingFollow) {
+            if (userMarker) userMarker.remove();
+            userMarker = null;
+            userElement.style.position = 'absolute';
+            userElement.style.zIndex = '8';
+            userElement.style.left = '50%';
+            userElement.style.top = '68%';
+            userElement.style.transform = 'translate(-50%, -50%)';
+            userElement.style.display = 'flex';
+            if (userElement.parentElement !== map.getContainer()) map.getContainer().appendChild(userElement);
+          } else {
+            userElement.style.position = 'relative';
+            userElement.style.left = '';
+            userElement.style.top = '';
+            userElement.style.transform = '';
+            if (!userMarker) userMarker = new maplibregl.Marker({ element: userElement }).setLngLat([data.userLocation.longitude, data.userLocation.latitude]).addTo(map);
+            else userMarker.setLngLat([data.userLocation.longitude, data.userLocation.latitude]);
+          }
         }
         refreshUi();
         refreshBirdAwareness();
