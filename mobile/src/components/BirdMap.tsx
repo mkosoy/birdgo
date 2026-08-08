@@ -44,6 +44,7 @@ interface LeafletMarker {
   comName: string;
   sciName?: string;
   locName?: string;
+  obsDt?: string;
   relativeTime: string;
   howMany?: number;
   speciesCode: string;
@@ -113,6 +114,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       comName: bird.comName ?? "Bird",
       sciName: bird.sciName,
       locName: bird.locName,
+      obsDt: bird.obsDt,
       relativeTime: relativeTime(bird.obsDt),
       howMany: bird.howMany,
       speciesCode: bird.speciesCode,

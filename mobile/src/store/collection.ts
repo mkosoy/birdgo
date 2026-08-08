@@ -36,6 +36,7 @@ export function captureMatchesSpecies(
   if (capture.speciesCode && speciesCode) return capture.speciesCode === speciesCode;
   return Boolean(
     normalizedName
+    && typeof capture.commonName === "string"
     && capture.commonName.trim().toLowerCase() === normalizedName,
   );
 }

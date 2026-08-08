@@ -150,7 +150,7 @@ export function buildLeafletHtml(): string {
           var popup = L.popup({
             maxWidth: 300,
             maxHeight: Math.max(180, window.innerHeight - 120),
-            autoPanPaddingTopLeft: [10, 60],
+            autoPanPaddingTopLeft: [10, 112],
             autoPanPaddingBottomRight: [10, 60]
           }).setContent(popupHtml(bird, lastUserLocation));
           marker.bindPopup(popup);

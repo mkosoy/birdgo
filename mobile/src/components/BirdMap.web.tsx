@@ -49,6 +49,7 @@ export function BirdMap({ center, userLocation, birds, mode, firstPerson, headin
       comName: bird.comName ?? "Bird",
       sciName: bird.sciName,
       locName: bird.locName,
+      obsDt: bird.obsDt,
       relativeTime: relativeTime(bird.obsDt),
       howMany: bird.howMany,
       speciesCode: bird.speciesCode,
