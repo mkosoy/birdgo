@@ -44,6 +44,14 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         : notable.length > 0 && !rareDismissed && !toastOpen
           ? { text: `Rare bird nearby: ${notable[0].comName ?? "Unknown"}!`, onPress: () => setRareDismissed(true) }
           : null;
+  const handleRegionChange = (next: Coordinates) => {
+    if (
+      hasRealLocation.current
+      && Math.abs(next.latitude - SF_COORDS.latitude) < 0.0001
+      && Math.abs(next.longitude - SF_COORDS.longitude) < 0.0001
+    ) return;
+    setCenter(next);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -221,7 +229,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         onNearbyStateChange={setNearbyState}
         onFollowChange={setFollowPaused}
         onTrackingChange={setTracking}
-        onRegionChange={setCenter}
+        onRegionChange={handleRegionChange}
       />
       <View pointerEvents="box-none" style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}>
         <View style={styles.controlRail}>

@@ -286,6 +286,7 @@ export function buildMapLibreHtml(): string {
       var toastReported = false;
       var followPauseReported = false;
       var programmaticCameraMove = false;
+      function markProgrammaticCameraMove() { programmaticCameraMove = true; }
 
       function postOutward(payload) {
         var serialized = JSON.stringify(payload);
@@ -459,6 +460,7 @@ export function buildMapLibreHtml(): string {
           bearingFrame = null;
           if (headingFollow && typeof currentHeading === 'number') {
             programmatic = true;
+            markProgrammaticCameraMove();
             map.setBearing(currentHeading);
             programmatic = false;
           }
@@ -507,6 +509,7 @@ export function buildMapLibreHtml(): string {
       }
       function frameUser(target, duration) {
         if (!target || typeof target.latitude !== 'number' || typeof target.longitude !== 'number') return;
+        markProgrammaticCameraMove();
         map.setPadding(firstPersonPadding());
         map.easeTo({
           center: [target.longitude, target.latitude],
@@ -1007,6 +1010,7 @@ export function buildMapLibreHtml(): string {
         setNearbyState('peek');
         if (lastUserLocation && !headingFollow) {
           programmatic = true;
+          markProgrammaticCameraMove();
           map.easeTo({
             center: [lastUserLocation.longitude, lastUserLocation.latitude],
             pitch: 60,
@@ -1058,6 +1062,7 @@ export function buildMapLibreHtml(): string {
           return;
         }
         follow = false;
+        markProgrammaticCameraMove();
         map.flyTo({ center: [bird.longitude, bird.latitude], zoom: Math.max(map.getZoom(), 17), duration: 900 });
         map.once('moveend', function () { openBirdPopup(bird); });
       });
@@ -1324,6 +1329,7 @@ export function buildMapLibreHtml(): string {
         refreshNearby();
         if (firstData) {
           var initialTarget = data.userLocation || data.center;
+          markProgrammaticCameraMove();
           map.setCenter([initialTarget.longitude, initialTarget.latitude]);
           if (data.firstPerson) {
             headingFollow = true;
@@ -1332,6 +1338,7 @@ export function buildMapLibreHtml(): string {
             setTimeout(function () { programmatic = false; }, 800);
             enableOrientation();
           } else {
+            markProgrammaticCameraMove();
             map.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, pitch: 0, zoom: 15.5, bearing: 0, duration: 500 });
           }
           firstData = false;
@@ -1341,6 +1348,7 @@ export function buildMapLibreHtml(): string {
           userGesture = false;
           reportFollowPaused(false);
           programmatic = true;
+          markProgrammaticCameraMove();
           var target = data.userLocation || data.center;
           if (data.firstPerson || headingFollow) {
             headingFollow = true;
@@ -1363,6 +1371,7 @@ export function buildMapLibreHtml(): string {
             enableOrientation();
           } else {
             compassButton.style.display = 'none';
+            markProgrammaticCameraMove();
             map.easeTo({ padding: { top: 0, right: 0, bottom: 0, left: 0 }, pitch: 0, zoom: 15.5, bearing: 0, duration: 700 });
           }
           setTimeout(function () { programmatic = false; }, 800);
@@ -1378,6 +1387,7 @@ export function buildMapLibreHtml(): string {
             overviewBirds.forEach(function (entry) {
               bounds.extend([entry.bird.longitude, entry.bird.latitude]);
             });
+            markProgrammaticCameraMove();
             map.fitBounds(bounds, {
               padding: { top: 90, bottom: 200, left: 40, right: 40 },
               pitch: 0,
@@ -1386,6 +1396,7 @@ export function buildMapLibreHtml(): string {
               duration: 700
             });
           } else if (overviewTarget) {
+            markProgrammaticCameraMove();
             map.easeTo({ center: [overviewTarget.longitude, overviewTarget.latitude], padding: { top: 0, right: 0, bottom: 0, left: 0 }, pitch: 0, zoom: 14, bearing: 0, duration: 700 });
           }
         } else if (data.command === 'nearest') {
@@ -1412,8 +1423,10 @@ export function buildMapLibreHtml(): string {
           if (headingFollow) {
             map.setPadding(firstPersonPadding());
             if (typeof currentHeading === 'number') followCamera.bearing = currentHeading;
+            markProgrammaticCameraMove();
             map.jumpTo(followCamera);
           } else {
+            markProgrammaticCameraMove();
             map.easeTo(followCamera);
           }
         }
@@ -1451,8 +1464,10 @@ export function buildMapLibreHtml(): string {
       }
 
       map.on('moveend', function () {
-        if (programmaticCameraMove) {
+        if (programmaticCameraMove || programmatic) {
           programmaticCameraMove = false;
+          programmatic = false;
+          clearTimeout(moveTimer);
           return;
         }
         clearTimeout(moveTimer);

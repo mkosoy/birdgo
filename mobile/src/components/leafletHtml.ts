@@ -49,6 +49,8 @@ export function buildLeafletHtml(): string {
       var lastUserLocation = null;
       var popupBirdId = null;
       var restoringPopup = false;
+      var programmaticCameraMove = false;
+      function markProgrammaticCameraMove() { programmaticCameraMove = true; }
       var attribution = document.getElementById('map-attribution');
       document.getElementById('map-attribution-toggle').addEventListener('click', function () {
         var open = attribution.classList.toggle('open');
@@ -138,6 +140,7 @@ export function buildLeafletHtml(): string {
         if (data.userLocation) lastUserLocation = data.userLocation;
         if (data.command === 'recenter') {
           var target = data.userLocation || data.center;
+          markProgrammaticCameraMove();
           map.setView([target.latitude, target.longitude], map.getZoom() < 13 ? 13 : map.getZoom());
         }
         markers.clearLayers();
@@ -151,6 +154,7 @@ export function buildLeafletHtml(): string {
           }).setContent(popupHtml(bird, lastUserLocation));
           marker.bindPopup(popup);
           marker.on('popupopen', function () {
+            markProgrammaticCameraMove();
             popupBirdId = bird.id;
             postOutward({ type: 'popup', open: true });
             attachPopupActions(popup, bird);
@@ -173,13 +177,18 @@ export function buildLeafletHtml(): string {
           else userMarker = L.marker(userPoint, { icon: L.divIcon({ className: '', html: '<div class="user-marker"></div>', iconSize: [22, 22], iconAnchor: [11, 11] }), interactive: false }).addTo(map);
         }
         if (firstData) {
+          markProgrammaticCameraMove();
           map.setView([data.center.latitude, data.center.longitude], 13);
           firstData = false;
         }
       }
 
       map.on('moveend', function () {
-        if (restoringPopup) return;
+        if (restoringPopup || programmaticCameraMove) {
+          programmaticCameraMove = false;
+          clearTimeout(moveTimer);
+          return;
+        }
         clearTimeout(moveTimer);
         moveTimer = setTimeout(function () {
           var center = map.getCenter();
