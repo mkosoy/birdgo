@@ -223,12 +223,11 @@ export function buildMapLibreHtml(): string {
       var routeStepsElement = document.getElementById('route-steps');
       var nearbyGeometryFrame = null;
       var compassDisplayBeforeToast = null;
-      function updateControlStack(panelRect) {
+      function updateControlStack() {
         var zoomGroup = document.querySelector('.maplibregl-ctrl-top-right');
         if (!zoomGroup) return;
         var rootStyle = getComputedStyle(document.documentElement);
         var safeTop = parseFloat(rootStyle.getPropertyValue('--safe-top')) || 0;
-        var settledPanelRect = panelRect || nearbyPanel.getBoundingClientRect();
         var panelStyle = getComputedStyle(nearbyPanel);
         var panelBottom = parseFloat(panelStyle.bottom) || 0;
         var panelTop = window.innerHeight - panelBottom - nearbyPanel.offsetHeight;
@@ -268,7 +267,7 @@ export function buildMapLibreHtml(): string {
           nearbyGeometryFrame = null;
           if (nearbyPanel.style.transform) return;
           var settledPanelRect = nearbyPanel.getBoundingClientRect();
-          updateControlStack(settledPanelRect);
+          updateControlStack();
           postOutward({
             type: 'nearbyState',
             state: panelState,
