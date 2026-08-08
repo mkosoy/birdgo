@@ -229,7 +229,9 @@ export function buildMapLibreHtml(): string {
         var rootStyle = getComputedStyle(document.documentElement);
         var safeTop = parseFloat(rootStyle.getPropertyValue('--safe-top')) || 0;
         var settledPanelRect = panelRect || nearbyPanel.getBoundingClientRect();
-        var panelTop = settledPanelRect.top;
+        var panelStyle = getComputedStyle(nearbyPanel);
+        var panelBottom = parseFloat(panelStyle.bottom) || 0;
+        var panelTop = window.innerHeight - panelBottom - nearbyPanel.offsetHeight;
         var toastOpen = snapToast.classList.contains('on');
         var builtInCompass = document.querySelector('.maplibregl-ctrl-compass');
         if (toastOpen) {
