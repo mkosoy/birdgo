@@ -1466,7 +1466,6 @@ export function buildMapLibreHtml(): string {
       map.on('moveend', function () {
         if (!userGesture || programmaticCameraMove || programmatic) {
           programmaticCameraMove = false;
-          programmatic = false;
           clearTimeout(moveTimer);
           return;
         }
@@ -1474,6 +1473,7 @@ export function buildMapLibreHtml(): string {
         moveTimer = setTimeout(function () {
           var center = map.getCenter();
           postOutward({ type: 'regionChange', latitude: center.lat, longitude: center.lng });
+          userGesture = false;
         }, 250);
       });
       window.addEventListener('message', function (event) {

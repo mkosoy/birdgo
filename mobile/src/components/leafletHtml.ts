@@ -194,10 +194,11 @@ export function buildLeafletHtml(): string {
         moveTimer = setTimeout(function () {
           var center = map.getCenter();
           postOutward({ type: 'regionChange', latitude: center.lat, longitude: center.lng });
+          userGesture = false;
         }, 250);
       });
       map.on('dragstart zoomstart', function (event) {
-        if (event && event.originalEvent) userGesture = true;
+        userGesture = true;
       });
       window.addEventListener('message', function (event) {
         var data = event.data;
