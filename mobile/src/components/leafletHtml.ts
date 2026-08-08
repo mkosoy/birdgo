@@ -50,6 +50,7 @@ export function buildLeafletHtml(): string {
       var popupBirdId = null;
       var restoringPopup = false;
       var programmaticCameraMove = false;
+      var userGesture = false;
       function markProgrammaticCameraMove() { programmaticCameraMove = true; }
       var attribution = document.getElementById('map-attribution');
       document.getElementById('map-attribution-toggle').addEventListener('click', function () {
@@ -184,7 +185,7 @@ export function buildLeafletHtml(): string {
       }
 
       map.on('moveend', function () {
-        if (restoringPopup || programmaticCameraMove) {
+        if (restoringPopup || programmaticCameraMove || !userGesture) {
           programmaticCameraMove = false;
           clearTimeout(moveTimer);
           return;
@@ -194,6 +195,9 @@ export function buildLeafletHtml(): string {
           var center = map.getCenter();
           postOutward({ type: 'regionChange', latitude: center.lat, longitude: center.lng });
         }, 250);
+      });
+      map.on('dragstart zoomstart', function (event) {
+        if (event && event.originalEvent) userGesture = true;
       });
       window.addEventListener('message', function (event) {
         var data = event.data;

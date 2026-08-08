@@ -1377,7 +1377,7 @@ export function buildMapLibreHtml(): string {
           setTimeout(function () { programmatic = false; }, 800);
         } else if (data.command === 'overview') {
           follow = false;
-          userGesture = true;
+          userGesture = false;
           headingFollow = false;
           var overviewTarget = data.userLocation || data.center;
           var overviewBirds = computeNearest().slice(0, 25);
@@ -1464,7 +1464,7 @@ export function buildMapLibreHtml(): string {
       }
 
       map.on('moveend', function () {
-        if (programmaticCameraMove || programmatic) {
+        if (!userGesture || programmaticCameraMove || programmatic) {
           programmaticCameraMove = false;
           programmatic = false;
           clearTimeout(moveTimer);
