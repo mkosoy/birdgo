@@ -47,8 +47,8 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const handleRegionChange = (next: Coordinates) => {
     if (
       hasRealLocation.current
-      && Math.abs(next.latitude - SF_COORDS.latitude) < 0.0001
-      && Math.abs(next.longitude - SF_COORDS.longitude) < 0.0001
+      && Math.abs(next.latitude - SF_COORDS.latitude) < 0.01
+      && Math.abs(next.longitude - SF_COORDS.longitude) < 0.01
     ) return;
     setCenter(next);
   };
