@@ -550,7 +550,7 @@ export function buildMapLibreHtml(): string {
         return km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(1) + ' km';
       }
       function compactToast() {
-        return window.innerWidth <= 380;
+        return window.innerWidth <= 400;
       }
 
       function etaMin(km) {

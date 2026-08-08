@@ -392,6 +392,53 @@ showed `FAB [147,138,82,82] × toast Go [186,112,44,44] = 774 px²`. A "0 overla
 the run also lists every expected source. Print the enumerated source list every time, assert the FAB/rail/tab
 bar are present in it, and cross-check any headline zero with a direct two-rect measurement.
 
+## Animations in this Chrome/SwiftShader VM are pathologically slow — re-sample, don't conclude
+A React-Native-Web animated overlay (the Dex Release confirmation modal) was present in the DOM,
+`visibility: visible` and hit-testable while its container sat at `opacity: 0.0207` **for tens of seconds**
+before reaching `1`. The first screenshot therefore showed "no modal" when the modal was there. Before calling
+an animated element missing: read `getComputedStyle(el).opacity` up the ancestor chain, `elementFromPoint` the
+centre, and re-sample after 10–30 s. Check `requestAnimationFrame` is ticking (53–59 fps here) so you don't
+misdiagnose it as a stalled page. The same slowness is why MapLibre zoom presses so often look like no-ops:
+an "unmoved camera" is usually a **non-test**, not a failure.
+
+## The map's `regionChange` channel is noisy — you cannot count one message per gesture
+Instrumenting the parent with `window.addEventListener('message', …)` shows the iframe posting `regionChange`
+**continuously** while follow mode is on (23 messages in an 8 s window with *no* interaction, because each
+watchPosition tick eases the camera and fires `moveend`). So "did this click report a region change?" cannot be
+answered by counting messages, and "no quiet window" makes before/after comparisons invalid. Assert the weaker
+but sound form instead: after the suspect action, a **genuine** gesture still produces `regionChange` (proves no
+suppression-flag leak). To attribute a toast dismissal to a specific gesture you need the camera-moved proxy plus
+a no-click control of the same duration — and even then say "correlated", not "caused".
+
+## WebGL contexts die after long sessions — relaunch Chrome, don't debug the app
+After ~100 minutes of heavy churn (many reloads, viewport changes, tracking runs), MapLibre stopped rendering:
+`markers: 0`, no `.maplibregl-ctrl-zoom-*`, blank canvas, and **page reloads did not recover it**. Kill Chrome,
+relaunch with the SwiftShader flags, reinstall the geolocation stub and reattach the CDP daemon. Budget for this
+once per long round rather than treating it as a product defect.
+
+## Leaflet (Classic) popups can autopan themselves off the top of a narrow viewport
+At 375×667 an open Classic popup measured `[23,-83,347,333]`, putting `.leaflet-popup-close-button` at
+`y ≈ -61` — off-screen and untappable even though its computed size is the required 44×44. Tapping the map
+elsewhere still dismisses it. Always measure popup rects for **negative `y`**, not just sizes, and remember
+Leaflet's own zoom controls are ~30 px (they are not styled up like Adventure's 44 px MapLibre ones).
+
+## Known issues to re-check (as of commit 1c14462)
+- **Proximity toast still blanks ~1 s when a zoom press genuinely moves the camera** (`on` → `""` → `on`).
+  Only reproducible in trials where a marker actually moved; two 45 s no-click controls never blanked. Not
+  isolated (see the noisy-`regionChange` note), so treat as "correlated, unresolved".
+- **Classic popup close button renders off-screen at 375** (`popup [23,-83,347,333]`); Leaflet zoom is 30 px.
+- **390 snap toast wraps to ~4 lines** — label box 77 px inside a 195 px toast; not clipped, cosmetic.
+- Verified good at `1c14462`: FAB unmounted for the whole tracking run (count 0 at every route vertex and at
+  arrival) and in `half`; turn banner correct at 14 real polyline vertices (no stale `Now`, no dangling `·`,
+  `Continue on <road you are on>`); OSRM budget 1/0/0/1/0; `ResizeObserver` re-places the control stack after a
+  viewport change **and** after drag-release (no stale `top:8`); `programmaticCameraMove` does not swallow the
+  next genuine gesture; Classic popup survives 12 s + a live refetch with rare-banner arbitration; identify
+  failure + keyless capture; whole Release matrix; malformed Dex; non-vacuous rare sort; 0 filter offenders in
+  213 unique live names; rendered inactive tab contrast 10.18:1 / 4.99:1; prod serves the same revision.
+- Still unclosable on this VM: late-permission reframing and permission-denial (CDP geolocation returns
+  `code 3` even on a brand-new profile, and the stub bypasses permissions), and the **mid-drag** overlay matrix
+  (synthetic drags did not apply `translateY` in this round, so "while held" measures a settled sheet).
+
 ## Known issues to re-check (as of commit 6c65a16)
 - **Capture FAB covers the live `#route-panel` in `peek`+tracking, at 375 *and* 390** (4838 / 4756 px²;
   `#route-current-text` 1767 px²). Occlusion confirmed by hit-test; truncates the street name. The

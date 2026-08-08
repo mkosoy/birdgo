@@ -20,6 +20,8 @@ export function buildLeafletHtml(): string {
     .encounter .where, .encounter .field-notes, .encounter .info { color: #4c5c54; }
     .encounter .actions { display: flex; gap: 5px; margin-top: 9px; }
     .leaflet-popup-close-button { width: 44px !important; height: 44px !important; padding: 0; font-size: 24px; line-height: 40px !important; text-align: center; }
+    .leaflet-popup-content { max-height: 220px; overflow-y: auto; }
+    .leaflet-control-zoom a { width: 44px !important; height: 44px !important; line-height: 42px !important; font-size: 22px; }
     .encounter button { min-height: 44px; border: 0; border-radius: 5px; padding: 8px 10px; color: white; background: #2f7d5b; font-weight: 700; cursor: pointer; }
     .encounter button:nth-child(2) { background: #2878d1; }
     .encounter button:nth-child(3) { background: #6f5aa8; }
@@ -141,7 +143,12 @@ export function buildLeafletHtml(): string {
         markers.clearLayers();
         (data.markers || []).forEach(function (bird) {
           var marker = L.marker([bird.latitude, bird.longitude], { icon: markerIcon(bird.isNotable) });
-          var popup = L.popup({ maxWidth: 300 }).setContent(popupHtml(bird, lastUserLocation));
+          var popup = L.popup({
+            maxWidth: 300,
+            maxHeight: Math.max(180, window.innerHeight - 120),
+            autoPanPaddingTopLeft: [10, 60],
+            autoPanPaddingBottomRight: [10, 60]
+          }).setContent(popupHtml(bird, lastUserLocation));
           marker.bindPopup(popup);
           marker.on('popupopen', function () {
             popupBirdId = bird.id;
