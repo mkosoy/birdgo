@@ -11,6 +11,8 @@ interface RawEbirdObservation {
   locName?: string;
   obsDt?: string;
   howMany?: number;
+  imageUrl?: string;
+  source?: string;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -24,7 +26,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export function fetchRecentBirds(latitude: number, longitude: number): Promise<EbirdObservation[]> {
-  return request<RawEbirdObservation[]>(`/api/birds/recent?lat=${latitude}&lng=${longitude}&dist=10&back=7`)
+  return request<RawEbirdObservation[]>(`/api/birds/recent?lat=${latitude}&lng=${longitude}&dist=15&back=14`)
     .then((observations) => observations.flatMap((observation) => mapObservation(observation)));
 }
 
@@ -45,6 +47,8 @@ function mapObservation(raw: RawEbirdObservation, isNotable = false): EbirdObser
     locName: raw.locName,
     obsDt: raw.obsDt,
     howMany: raw.howMany,
+    imageUrl: raw.imageUrl,
+    source: raw.source,
     ...(isNotable ? { isNotable: true } : {}),
   }];
 }

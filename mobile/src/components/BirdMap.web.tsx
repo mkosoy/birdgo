@@ -5,7 +5,11 @@ import { buildMapLibreHtml } from "./mapLibreHtml";
 import type { BirdMapProps } from "./BirdMap";
 
 interface LeafletMessage {
-  type: "capture" | "directions" | "about" | "regionChange";
+  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow" | "tracking";
+  open?: boolean;
+  paused?: boolean;
+  state?: "peek" | "half";
+  height?: number;
   id?: string;
   speciesCode?: string;
   comName?: string;
@@ -24,15 +28,20 @@ function relativeTime(date?: string): string {
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
-export function BirdMap({ center, userLocation, birds, mode, firstPerson, heading, recenterRequest, onCapture, onDirections, onAbout, onRegionChange }: BirdMapProps) {
+export function BirdMap({ center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange }: BirdMapProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
+  const lastOverviewRef = useRef(0);
+  const lastNearestRef = useRef(0);
   const markerLookup = useMemo(() => new Map(birds.map((bird) => [markerId(bird), bird])), [birds]);
   const data = useMemo(() => ({
     center,
+    loading,
     userLocation,
     heading,
+    firstPerson,
+    safeArea,
     markers: birds.map((bird) => ({
       id: markerId(bird),
       latitude: bird.latitude,
@@ -40,12 +49,14 @@ export function BirdMap({ center, userLocation, birds, mode, firstPerson, headin
       comName: bird.comName ?? "Bird",
       sciName: bird.sciName,
       locName: bird.locName,
+      obsDt: bird.obsDt,
       relativeTime: relativeTime(bird.obsDt),
       howMany: bird.howMany,
       speciesCode: bird.speciesCode,
       isNotable: Boolean(bird.isNotable),
+      imageUrl: bird.imageUrl,
     })),
-  }), [birds, center, heading, userLocation]);
+  }), [birds, center, firstPerson, heading, safeArea, userLocation]);
   const dataRef = useRef<typeof data | null>(null);
   useEffect(() => {
     dataRef.current = data;
@@ -66,13 +77,23 @@ export function BirdMap({ center, userLocation, birds, mode, firstPerson, headin
         onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name });
       } else if (message.type === "about" && message.speciesCode && message.comName) {
         onAbout({ speciesCode: message.speciesCode, comName: message.comName });
+      } else if (message.type === "popup") {
+        onPopupChange?.(Boolean(message.open));
+      } else if (message.type === "toast") {
+        onToastChange?.(Boolean(message.open));
+      } else if (message.type === "nearbyState" && (message.state === "peek" || message.state === "half")) {
+        onNearbyStateChange?.(message.state, message.height);
+      } else if (message.type === "follow") {
+        onFollowChange?.(Boolean(message.paused));
+      } else if (message.type === "tracking") {
+        onTrackingChange?.(Boolean(message.open));
       } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
         onRegionChange({ latitude: message.latitude, longitude: message.longitude });
       }
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [markerLookup, onAbout, onCapture, onDirections, onRegionChange]);
+  }, [markerLookup, onAbout, onCapture, onDirections, onNearbyStateChange, onPopupChange, onRegionChange, onToastChange, onFollowChange, onTrackingChange]);
 
   useEffect(() => {
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify(data), "*");
@@ -89,6 +110,27 @@ export function BirdMap({ center, userLocation, birds, mode, firstPerson, headin
     const latestData = dataRef.current;
     if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "setView", firstPerson }), "*");
   }, [firstPerson]);
+  useEffect(() => {
+    if (!overviewRequest || overviewRequest === lastOverviewRef.current) return;
+    lastOverviewRef.current = overviewRequest;
+    const latestData = dataRef.current;
+    if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "overview" }), "*");
+  }, [overviewRequest]);
+  useEffect(() => {
+    if (!nearestRequest || nearestRequest === lastNearestRef.current) return;
+    lastNearestRef.current = nearestRequest;
+    const latestData = dataRef.current;
+    if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "nearest" }), "*");
+  }, [nearestRequest]);
+  useEffect(() => {
+    if (!trackRequest) return;
+    const latestData = dataRef.current;
+    if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({
+      ...latestData,
+      command: "track",
+      trackTarget: trackRequest,
+    }), "*");
+  }, [trackRequest]);
 
   const html = mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml();
   const blobUrl = useMemo(() => URL.createObjectURL(new Blob([html], { type: "text/html" })), [html]);

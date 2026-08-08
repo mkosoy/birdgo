@@ -9,6 +9,8 @@ export interface EbirdObservation {
   lat?: number;
   lng?: number;
   obsDt?: string;
+  imageUrl?: string;
+  source?: string;
   [key: string]: unknown;
 }
 
@@ -39,11 +41,17 @@ export async function ebirdGet<T>(
   return (await response.json()) as T;
 }
 
+export function isSpeciesObservation(observation: EbirdObservation): boolean {
+  const name = `${observation.comName ?? ""} ${observation.sciName ?? ""}`.trim();
+  if (!name || /\b(?:sp|spp)\.?\b/i.test(name) || name.includes("/") || /\bhybrid\b/i.test(name)) return false;
+  return !/\b(?:unknown|unidentified)\b/i.test(name);
+}
+
 export function deduplicateObservations(
   observations: EbirdObservation[],
 ): EbirdObservation[] {
   const byKey = new Map<string, EbirdObservation>();
-  for (const observation of observations) {
+  for (const observation of observations.filter(isSpeciesObservation)) {
     const key = `${observation.speciesCode}:${observation.locId ?? ""}`;
     const existing = byKey.get(key);
     if (

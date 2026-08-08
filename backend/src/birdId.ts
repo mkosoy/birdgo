@@ -30,25 +30,12 @@ interface HuggingFacePrediction {
 const IDENTIFICATION_PROMPT =
   'Is this a bird? If yes, return the most likely species common name and scientific name. Respond as strict JSON {"isBird":boolean,"commonName":string|null,"sciName":string|null,"confidence":number}.';
 
-function seededIndex(seed: string, length: number): number {
-  let hash = 0;
-  for (const character of seed) hash = (hash * 31 + character.charCodeAt(0)) | 0;
-  return Math.abs(hash) % length;
-}
-
-function heuristicIdentify(hints: string[]): BirdIdentification {
-  const species = hints.length ? hints[seededIndex(hints.join("|"), hints.length)] : "Anna's Hummingbird";
-  const scientificNames: Record<string, string> = {
-    "Anna's Hummingbird": "Calypte anna",
-    "American Robin": "Turdus migratorius",
-    "Red-tailed Hawk": "Buteo jamaicensis",
-    "California Scrub-Jay": "Aphelocoma californica",
-  };
+function heuristicIdentify(): BirdIdentification {
   return {
-    isBird: true,
-    commonName: species,
-    sciName: scientificNames[species] ?? null,
-    confidence: hints.length ? 0.6 : 0.5,
+    isBird: false,
+    commonName: null,
+    sciName: null,
+    confidence: 0,
   };
 }
 
@@ -162,7 +149,7 @@ export async function identifyBird(
   provider: BirdIdProvider,
   keys: BirdIdKeys,
 ): Promise<BirdIdentification & { provider: BirdIdProvider }> {
-  if (provider === "heuristic") return { ...heuristicIdentify(hints), provider: "heuristic" };
+  if (provider === "heuristic") return { ...heuristicIdentify(), provider: "heuristic" };
   try {
     if (provider === "huggingface" && keys.huggingface) {
       return {
@@ -183,5 +170,5 @@ export async function identifyBird(
   } catch (error) {
     console.error(`${provider} bird identification failed; using heuristic fallback`, error);
   }
-  return { ...heuristicIdentify(hints), provider: "heuristic" };
+  return { ...heuristicIdentify(), provider: "heuristic" };
 }

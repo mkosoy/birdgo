@@ -6,6 +6,12 @@ import { buildMapLibreHtml } from "./mapLibreHtml";
 import type { Coordinates, EbirdObservation } from "../types";
 
 export type BirdMapMode = "classic" | "adventure";
+export interface SafeAreaInsets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
 
 export interface BirdMapProps {
   center: Coordinates;
@@ -15,9 +21,19 @@ export interface BirdMapProps {
   firstPerson: boolean;
   heading?: number;
   recenterRequest?: number;
+  overviewRequest?: number;
+  nearestRequest?: number;
+  trackRequest?: Coordinates & { name: string };
+  loading?: boolean;
+  safeArea?: SafeAreaInsets;
   onCapture: (bird: EbirdObservation) => void;
   onDirections: (coordinates: Coordinates & { name: string }) => void;
   onAbout: (bird: { speciesCode: string; comName: string }) => void;
+  onPopupChange?: (open: boolean) => void;
+  onToastChange?: (open: boolean) => void;
+  onNearbyStateChange?: (state: "peek" | "half", height?: number) => void;
+  onFollowChange?: (paused: boolean) => void;
+  onTrackingChange?: (active: boolean) => void;
   onRegionChange: (coordinates: Coordinates) => void;
 }
 
@@ -28,23 +44,32 @@ interface LeafletMarker {
   comName: string;
   sciName?: string;
   locName?: string;
+  obsDt?: string;
   relativeTime: string;
   howMany?: number;
   speciesCode: string;
   isNotable: boolean;
+  imageUrl?: string;
 }
 
 interface LeafletData {
   center: Coordinates;
   userLocation?: Coordinates;
+  loading?: boolean;
   heading?: number;
   markers: LeafletMarker[];
-  command?: "recenter" | "setView";
+  command?: "recenter" | "setView" | "overview" | "nearest" | "track";
+  trackTarget?: Coordinates & { name: string };
   firstPerson?: boolean;
+  safeArea?: SafeAreaInsets;
 }
 
 interface LeafletMessage {
-  type: "capture" | "directions" | "about" | "regionChange";
+  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow" | "tracking";
+  open?: boolean;
+  paused?: boolean;
+  state?: "peek" | "half";
+  height?: number;
   id?: string;
   speciesCode?: string;
   comName?: string;
@@ -64,12 +89,14 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, onCapture, onDirections, onAbout, onRegionChange },
+  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
+  const lastOverviewRef = useRef(0);
+  const lastNearestRef = useRef(0);
   const dataRef = useRef<LeafletData | null>(null);
   useImperativeHandle(forwardedRef, () => webViewRef.current as WebView);
   const markerLookup = useMemo(() => new Map(birds.map((bird) => [markerId(bird), bird])), [birds]);
@@ -77,6 +104,9 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     center,
     userLocation,
     heading,
+    firstPerson,
+    safeArea,
+    loading,
     markers: birds.map((bird) => ({
       id: markerId(bird),
       latitude: bird.latitude,
@@ -84,12 +114,14 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       comName: bird.comName ?? "Bird",
       sciName: bird.sciName,
       locName: bird.locName,
+      obsDt: bird.obsDt,
       relativeTime: relativeTime(bird.obsDt),
       howMany: bird.howMany,
       speciesCode: bird.speciesCode,
       isNotable: Boolean(bird.isNotable),
+      imageUrl: bird.imageUrl,
     })),
-  }), [birds, center, heading, userLocation]);
+  }), [birds, center, firstPerson, heading, safeArea, userLocation]);
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
@@ -114,6 +146,29 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "setView", firstPerson }))}, '*'); true;`);
     }
   }, [firstPerson]);
+  useEffect(() => {
+    if (!overviewRequest || overviewRequest === lastOverviewRef.current) return;
+    lastOverviewRef.current = overviewRequest;
+    const latestData = dataRef.current;
+    if (latestData) {
+      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "overview" }))}, '*'); true;`);
+    }
+  }, [overviewRequest]);
+  useEffect(() => {
+    if (!nearestRequest || nearestRequest === lastNearestRef.current) return;
+    lastNearestRef.current = nearestRequest;
+    const latestData = dataRef.current;
+    if (latestData) {
+      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "nearest" }))}, '*'); true;`);
+    }
+  }, [nearestRequest]);
+  useEffect(() => {
+    if (!trackRequest) return;
+    const latestData = dataRef.current;
+    if (latestData) {
+      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "track", trackTarget: trackRequest }))}, '*'); true;`);
+    }
+  }, [trackRequest]);
 
   const handleMessage = (event: WebViewMessageEvent) => {
     let message: LeafletMessage;
@@ -129,6 +184,16 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name });
     } else if (message.type === "about" && message.speciesCode && message.comName) {
       onAbout({ speciesCode: message.speciesCode, comName: message.comName });
+    } else if (message.type === "popup") {
+      onPopupChange?.(Boolean(message.open));
+    } else if (message.type === "toast") {
+      onToastChange?.(Boolean(message.open));
+    } else if (message.type === "nearbyState" && (message.state === "peek" || message.state === "half")) {
+      onNearbyStateChange?.(message.state, message.height);
+    } else if (message.type === "follow") {
+      onFollowChange?.(Boolean(message.paused));
+    } else if (message.type === "tracking") {
+      onTrackingChange?.(Boolean(message.open));
     } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
       onRegionChange({ latitude: message.latitude, longitude: message.longitude });
     }
