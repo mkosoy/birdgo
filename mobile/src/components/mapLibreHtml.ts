@@ -1031,7 +1031,7 @@ export function buildMapLibreHtml(): string {
         if (currentPopup) currentPopup.remove();
         trackId = bird.id;
         renderBirdMarkers(latestMarkers);
-        postOutward({ type: 'tracking', open: true });
+        postOutward({ type: 'tracking', open: true, id: bird.id, name: bird.comName || bird.name || 'Bird', latitude: bird.latitude, longitude: bird.longitude });
         follow = true;
         clearRoute();
         setToast(false);
@@ -1161,10 +1161,7 @@ export function buildMapLibreHtml(): string {
         refreshNearby();
       });
       trackSnap.addEventListener('click', function () {
-        if (trackId) {
-          capture(trackId);
-          stopTrack();
-        }
+        if (trackId) capture(trackId);
       });
       trackStop.addEventListener('click', stopTrack);
       routeHeader.addEventListener('click', function () {

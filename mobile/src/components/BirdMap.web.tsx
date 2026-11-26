@@ -88,7 +88,12 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
       } else if (message.type === "follow") {
         onFollowChange?.(Boolean(message.paused));
       } else if (message.type === "tracking") {
-        onTrackingChange?.(Boolean(message.open));
+        onTrackingChange?.(
+        Boolean(message.open),
+        message.open && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name
+          ? { latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id }
+          : undefined,
+      );
       } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
         onRegionChange({ latitude: message.latitude, longitude: message.longitude });
       }

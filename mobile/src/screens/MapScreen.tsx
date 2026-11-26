@@ -274,8 +274,9 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         onToastChange={setToastOpen}
         onNearbyStateChange={setNearbyState}
         onFollowChange={setFollowPaused}
-        onTrackingChange={(open) => {
+        onTrackingChange={(open, target) => {
           setTracking(open);
+          if (open && target) setActiveTrackTarget(target);
           if (!open) setActiveTrackTarget(undefined);
         }}
         onRegionChange={handleRegionChange}

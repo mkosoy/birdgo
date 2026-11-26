@@ -35,7 +35,7 @@ export interface BirdMapProps {
   onToastChange?: (open: boolean) => void;
   onNearbyStateChange?: (state: "peek" | "half", height?: number) => void;
   onFollowChange?: (paused: boolean) => void;
-  onTrackingChange?: (active: boolean) => void;
+  onTrackingChange?: (active: boolean, target?: Coordinates & { name: string; id?: string }) => void;
   onRegionChange: (coordinates: Coordinates) => void;
 }
 
@@ -197,7 +197,12 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     } else if (message.type === "follow") {
       onFollowChange?.(Boolean(message.paused));
     } else if (message.type === "tracking") {
-      onTrackingChange?.(Boolean(message.open));
+      onTrackingChange?.(
+        Boolean(message.open),
+        message.open && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name
+          ? { latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id }
+          : undefined,
+      );
     } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
       onRegionChange({ latitude: message.latitude, longitude: message.longitude });
     }
