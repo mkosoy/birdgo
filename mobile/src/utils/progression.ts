@@ -113,12 +113,12 @@ function isEbirdSpeciesCode(speciesCode?: string): boolean {
 function speciesIdentitiesMatch(left: SpeciesIdentityFields, right: SpeciesIdentityFields): boolean {
   const leftCanonical = normalizedSpeciesName(left.canonicalKey);
   const rightCanonical = normalizedSpeciesName(right.canonicalKey);
-  if (leftCanonical && rightCanonical) return leftCanonical === rightCanonical;
   if (
     isEbirdSpeciesCode(left.speciesCode)
     && isEbirdSpeciesCode(right.speciesCode)
     && left.speciesCode !== right.speciesCode
   ) return false;
+  if (leftCanonical && rightCanonical) return leftCanonical === rightCanonical;
   const leftScientific = normalizedSpeciesName(left.sciName);
   const rightScientific = normalizedSpeciesName(right.sciName);
   if (leftScientific && leftScientific === rightScientific) return true;

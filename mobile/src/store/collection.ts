@@ -148,12 +148,12 @@ export function captureMatchesSpecies(
   const normalize = (value?: string | null) => value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
   const captureCanonical = normalize(capture.canonicalKey);
   const targetCanonical = normalize(canonicalKey);
-  if (captureCanonical && targetCanonical) return captureCanonical === targetCanonical;
-  const captureScientific = normalize(capture.sciName);
-  const targetScientific = normalize(sciName);
   const captureIsEbird = capture.speciesCode && !capture.speciesCode.startsWith("inat-");
   const targetIsEbird = speciesCode && !speciesCode.startsWith("inat-");
   if (captureIsEbird && targetIsEbird && capture.speciesCode !== speciesCode) return false;
+  if (captureCanonical && targetCanonical) return captureCanonical === targetCanonical;
+  const captureScientific = normalize(capture.sciName);
+  const targetScientific = normalize(sciName);
   if (captureScientific && targetScientific && captureScientific === targetScientific) return true;
   const captureName = normalize(capture.commonName);
   const targetName = normalize(commonName);
