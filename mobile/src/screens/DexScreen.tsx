@@ -19,7 +19,11 @@ function shortDate(timestamp?: string): string {
 }
 
 function rarityLabel(entry: SpeciesDexEntry): string {
-  return entry.rarity.charAt(0).toUpperCase() + entry.rarity.slice(1);
+  return entry.identified === false ? "Unverified" : entry.rarity.charAt(0).toUpperCase() + entry.rarity.slice(1);
+}
+
+function displayName(entry: SpeciesDexEntry): string {
+  return entry.identified === false ? "Unidentified photo" : entry.commonName;
 }
 
 export function DexScreen() {
@@ -75,16 +79,16 @@ export function DexScreen() {
   const renderCard = ({ item }: { item: SpeciesDexEntry }) => {
     const captured = item.capturedCount > 0;
     const imageUri = item.photoUri || item.imageUrl;
-    return <Pressable accessibilityRole="button" accessibilityLabel={`${item.commonName}, ${captured ? `${item.capturedCount} captured` : "seen nearby"}`} style={[styles.card, !captured && styles.lockedCard]} onPress={() => setSelected(item)}>
+    return <Pressable accessibilityRole="button" accessibilityLabel={`${displayName(item)}, ${captured ? `${item.capturedCount} captured` : "seen nearby"}`} style={[styles.card, !captured && styles.lockedCard]} onPress={() => setSelected(item)}>
       <View style={styles.cardImageWrap}>
         {imageUri
           ? <Image source={{ uri: imageUri }} style={[styles.photo, !captured && styles.lockedPhoto]} />
           : <View style={[styles.photo, styles.noPhoto]}><Text style={styles.noPhotoText}>{captured ? "🐦" : "?"}</Text></View>}
         {!captured && imageUri && <View style={styles.lockedVeil}><Text style={styles.question}>?</Text></View>}
-        <View style={[styles.rarityChip, { backgroundColor: RARITY_COLORS[item.rarity] }]}><Text style={styles.rarityChipText}>{rarityLabel(item)}</Text></View>
+        <View style={[styles.rarityChip, { backgroundColor: item.identified === false ? "#68746d" : RARITY_COLORS[item.rarity] }]}><Text style={styles.rarityChipText}>{rarityLabel(item)}</Text></View>
       </View>
-      <Text style={styles.name} numberOfLines={2}>{item.commonName}</Text>
-      <Text style={styles.scientific} numberOfLines={1}>{item.sciName ?? "Scientific name unknown"}</Text>
+      <Text style={styles.name} numberOfLines={2}>{displayName(item)}</Text>
+      <Text style={styles.scientific} numberOfLines={1}>{item.identified === false ? "Species unknown" : item.sciName ?? "Scientific name unknown"}</Text>
       <View style={styles.cardFooter}>
         <Text style={captured ? styles.badge : styles.badgeLocked}>{captured ? `CAPTURED ×${item.capturedCount}` : "SEEN NEARBY"}</Text>
         <Text style={styles.chevron}>›</Text>
@@ -112,17 +116,17 @@ export function DexScreen() {
       <View style={styles.modalBackdrop}>
         <View style={styles.detailCard}>
           <ScrollView showsVerticalScrollIndicator={false}>
-            {selected && <Bird3DPreview commonName={selected.commonName} rarity={selected.rarity} height={190} />}
-            <Text style={styles.detailTitle}>{selected?.commonName}</Text>
-            <Text style={styles.detailScientific}>{selected?.sciName ?? "Scientific name unknown"}</Text>
+            {selected && selected.identified !== false ? <Bird3DPreview commonName={selected.commonName} rarity={selected.rarity} height={190} /> : null}
+            <Text style={styles.detailTitle}>{selected ? displayName(selected) : ""}</Text>
+            <Text style={styles.detailScientific}>{selected?.identified === false ? "Species unknown" : selected?.sciName ?? "Scientific name unknown"}</Text>
             <View style={styles.detailStats}>
-              <Text style={styles.detailStat}>{selected ? rarityLabel(selected) : ""} encounter</Text>
+              <Text style={styles.detailStat}>{selected?.identified === false ? "Unverified photo" : `${selected ? rarityLabel(selected) : ""} encounter`}</Text>
               <Text style={styles.detailStat}>{selected?.capturedCount ? `Captured ×${selected.capturedCount}` : "Seen nearby"}</Text>
               {selected?.firstCapturedAt && <Text style={styles.detailStat}>First captured {shortDate(selected.firstCapturedAt)}</Text>}
               {coordinates && <Text style={styles.detailStat}>{coordinates}</Text>}
             </View>
             {selectedCapture?.photoUri && <Image source={{ uri: selectedCapture.photoUri }} style={styles.detailPhoto} />}
-            <Text style={styles.detailCopy}>The 3D bird is a stylized encounter model; your photo remains the real observation record.</Text>
+            <Text style={styles.detailCopy}>{selected?.identified === false ? "This photo is kept as an unverified observation record and does not count as a collected species." : "The 3D bird is a stylized encounter model; your photo remains the real observation record."}</Text>
             <View style={styles.detailActions}>
               <Pressable accessibilityRole="button" style={styles.modalKeep} onPress={() => setSelected(undefined)}><Text>Close</Text></Pressable>
               {selected?.capturedCount ? <Pressable accessibilityRole="button" style={styles.modalRelease} onPress={() => release(selected)}><Text style={styles.modalReleaseText}>Release</Text></Pressable> : null}
