@@ -133,8 +133,13 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
       const orbitAngle = elapsed * 1.08 * speed + seed * 0.037;
       const baseX = Math.cos(orbitAngle) * orbitRadius + Math.sin(elapsed * 3.25 * speed + seed * 0.11) * 11 + dartX * 0.62;
       const baseY = Math.sin(orbitAngle * 0.91 + seed * 0.021) * orbitRadius * 0.76 + Math.cos(elapsed * 2.55 * speed + seed * 0.05) * 9 + dartY * 0.62;
-      const x = clamp(baseX + panRef.current.x, -scopeRadius + 24, scopeRadius - 24);
-      const y = clamp(baseY + panRef.current.y, -scopeRadius + 24, scopeRadius - 24);
+      const unclampedX = baseX + panRef.current.x;
+      const unclampedY = baseY + panRef.current.y;
+      const maxCenterDistance = scopeRadius - 34;
+      const unclampedDistance = Math.hypot(unclampedX, unclampedY);
+      const visibleScale = unclampedDistance > maxCenterDistance ? maxCenterDistance / unclampedDistance : 1;
+      const x = unclampedX * visibleScale;
+      const y = unclampedY * visibleScale;
       const distance = Math.hypot(x, y);
       const centered = distance <= difficulty.focusRadius;
       focus = clamp(focus + (centered ? delta / difficulty.focusSeconds : -delta / (difficulty.focusSeconds * 1.55)), 0, 1);
