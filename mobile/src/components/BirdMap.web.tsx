@@ -56,6 +56,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
       speciesCode: bird.speciesCode,
       isNotable: Boolean(bird.isNotable),
       imageUrl: bird.imageUrl,
+      virtual: Boolean(bird.virtual),
       captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
     })),
   }), [birds, captureCounts, center, firstPerson, heading, safeArea, userLocation]);

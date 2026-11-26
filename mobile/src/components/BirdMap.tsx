@@ -53,6 +53,7 @@ interface LeafletMarker {
   speciesCode: string;
   isNotable: boolean;
   imageUrl?: string;
+  virtual?: boolean;
   captureCount?: number;
 }
 
@@ -124,6 +125,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       speciesCode: bird.speciesCode,
       isNotable: Boolean(bird.isNotable),
       imageUrl: bird.imageUrl,
+      virtual: Boolean(bird.virtual),
       captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
     })),
   }), [birds, captureCounts, center, firstPerson, heading, safeArea, userLocation]);

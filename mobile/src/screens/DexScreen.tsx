@@ -27,7 +27,7 @@ function displayName(entry: SpeciesDexEntry): string {
 }
 
 export function DexScreen() {
-  const { captures, seenSpecies, xp, loading, refresh } = useCollection();
+  const { captures, seenSpecies, skyfriends, xp, loading, refresh } = useCollection();
   const [selected, setSelected] = useState<SpeciesDexEntry>();
   const [pendingRelease, setPendingRelease] = useState<{
     commonName: string;
@@ -44,6 +44,7 @@ export function DexScreen() {
   const progress = levelForXp(xp);
   const capturedSpecies = entries.filter((entry) => entry.capturedCount > 0 && entry.identified !== false).length;
   const totalCaptured = entries.reduce((total, entry) => total + entry.capturedCount, 0);
+  const skyfriendSpecies = new Set(skyfriends.map((record) => record.canonicalKey ?? record.speciesCode ?? record.commonName.toLowerCase())).size;
 
   if (loading) return <View style={styles.center}><Text>Loading your Bird-dex…</Text></View>;
 
@@ -76,6 +77,23 @@ export function DexScreen() {
     <Text style={styles.progressHint}>Capture new species for +50 XP. Duplicates still train your collection.</Text>
   </View>;
 
+  const skyfriendArea = <View style={styles.skyfriendArea}>
+    <View style={styles.skyfriendHeader}>
+      <View style={styles.skyfriendTitleWrap}>
+        <Text style={styles.skyfriendTitle}>Skyfriends</Text>
+        <Text style={styles.skyfriendSubtitle}>Virtual field guide · never counts as real birds</Text>
+      </View>
+      <View style={styles.skyfriendCount}><Text style={styles.skyfriendCountText}>{skyfriendSpecies}</Text></View>
+    </View>
+    {skyfriends.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.skyfriendRow}>
+      {skyfriends.slice(0, 16).map((record) => <View key={record.id} style={styles.skyfriendCard}>
+        {record.imageUrl ? <Image source={{ uri: record.imageUrl }} style={styles.skyfriendImage} /> : <View style={styles.skyfriendImageEmpty}><Text style={styles.skyfriendSparkle}>✦</Text></View>}
+        <Text style={styles.skyfriendName} numberOfLines={2}>{record.commonName}</Text>
+        <Text style={styles.skyfriendMeta}>{shortDate(record.timestamp)}</Text>
+      </View>)}
+    </ScrollView> : <Text style={styles.skyfriendEmpty}>Explore low-activity areas and look for glowing holographic birds.</Text>}
+  </View>;
+
   const renderCard = ({ item }: { item: SpeciesDexEntry }) => {
     const captured = item.capturedCount > 0;
     const imageUri = item.photoUri || item.imageUrl;
@@ -103,7 +121,7 @@ export function DexScreen() {
       data={entries}
       keyExtractor={(item) => item.key}
       numColumns={2}
-      ListHeaderComponent={header}
+      ListHeaderComponent={<View>{header}{skyfriendArea}</View>}
       renderItem={renderCard}
     />;
 
@@ -162,6 +180,21 @@ const styles = StyleSheet.create({
   progressFill: { height: "100%", borderRadius: 8, backgroundColor: "#65d184" },
   progressCopy: { color: "#e2f1e7", fontWeight: "800", marginTop: 6, fontSize: 12 },
   progressHint: { color: "#a9c9b4", marginTop: 3, fontSize: 11, lineHeight: 15 },
+  skyfriendArea: { margin: 5, marginBottom: 12, padding: 14, borderRadius: 18, backgroundColor: "#28264f", elevation: 3 },
+  skyfriendHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  skyfriendTitleWrap: { flex: 1 },
+  skyfriendTitle: { color: "#eaf6ff", fontSize: 21, fontWeight: "900" },
+  skyfriendSubtitle: { color: "#a9bde8", fontSize: 11, fontWeight: "700", marginTop: 2 },
+  skyfriendCount: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "#59d6ee" },
+  skyfriendCountText: { color: "#1c2454", fontSize: 18, fontWeight: "900" },
+  skyfriendRow: { gap: 10, paddingTop: 12, paddingRight: 4 },
+  skyfriendCard: { width: 112, padding: 8, borderRadius: 14, backgroundColor: "#383674" },
+  skyfriendImage: { width: "100%", height: 76, borderRadius: 10, backgroundColor: "#20204a" },
+  skyfriendImageEmpty: { width: "100%", height: 76, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "#20204a" },
+  skyfriendSparkle: { color: "#72e7ff", fontSize: 38, fontWeight: "900" },
+  skyfriendName: { color: "#f1f7ff", fontSize: 12, fontWeight: "800", minHeight: 30, marginTop: 7 },
+  skyfriendMeta: { color: "#a9bde8", fontSize: 10, fontWeight: "700", marginTop: 2 },
+  skyfriendEmpty: { color: "#c5d3f1", fontSize: 12, lineHeight: 17, marginTop: 10 },
   card: { flex: 1, margin: 5, padding: 10, borderRadius: 14, backgroundColor: "#fff", elevation: 2, minHeight: 218 },
   lockedCard: { backgroundColor: "#e3e8e5" },
   cardImageWrap: { position: "relative" },

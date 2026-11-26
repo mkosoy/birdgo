@@ -15,7 +15,13 @@ export function buildMapLibreHtml(): string {
     .bird-marker.in-range { box-shadow: 0 0 0 5px rgba(217,157,33,.38), 0 2px 8px rgba(0,0,0,.3); }
     .bird-marker.notable { background: linear-gradient(145deg, #efbd35, #b97d08); border-color: #fff3bd; }
     .bird-marker.captured { background: #61776c; border-color: #a9f0bf; }
-    .bird-marker .caught-badge { position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; }
+    .bird-marker.virtual { background: linear-gradient(145deg, #7d64f2, #28b9d7); border-color: #d9fbff; box-shadow: 0 0 14px rgba(92,220,255,.72), 0 3px 9px rgba(0,0,0,.32); }
+    .bird-marker .caught-badge, .bird-marker .skyfriend-badge { position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; }
+    .bird-marker .skyfriend-badge { background: #72e7ff; color: #273075; }
+    .skyfriend-tag { display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 10px; background: linear-gradient(135deg, #735eea, #29bedd); color: white; font-size: 10px; font-weight: 900; vertical-align: middle; letter-spacing: .02em; }
+    .nb-row.virtual .nb-thumb { box-shadow: 0 0 0 2px #72e7ff inset; background: linear-gradient(145deg, #ece7ff, #dffaff); }
+    .nb-row.virtual .nb-name { color: #4241a0; }
+    .nb-row.virtual .nb-go { background: linear-gradient(135deg, #735eea, #27aacb); }
     .user-marker { position: absolute; width: 36px; height: 36px; background: linear-gradient(#2f8ee8,#175fb4); border: 3px solid white; box-shadow: 0 0 0 2px rgba(40,120,209,.45), 0 4px 10px rgba(0,0,0,.35); }
     .user-marker::before { content: ''; position: absolute; top: 50%; left: 50%; width: 48px; height: 48px; border-radius: 50%; border: 2px solid rgba(40, 120, 209, 0.55); animation: pulse 1.8s ease-out infinite; }
     @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(1.45); opacity: 0; } }
@@ -423,7 +429,7 @@ export function buildMapLibreHtml(): string {
         return emojiFallback || birdGlyph();
       }
       function markerInnerHtml(bird) {
-        return thumbInnerHtml(bird) + (bird.captureCount ? '<span class="caught-badge">✓</span>' : '');
+        return thumbInnerHtml(bird) + (bird.captureCount ? '<span class="caught-badge">✓</span>' : bird.virtual ? '<span class="skyfriend-badge">✦</span>' : '');
       }
       function refreshBirdMarkerIcons() {
         birdMarkers.forEach(function (marker) {
@@ -952,11 +958,11 @@ export function buildMapLibreHtml(): string {
           nearbyList.innerHTML = filtered.slice(0, 14).map(function (entry) {
             var bird = entry.bird;
             var name = bird.comName || bird.sciName || 'Bird';
-            var rareClass = bird.isNotable ? ' rare' : '';
+            var rareClass = (bird.isNotable ? ' rare' : '') + (bird.virtual ? ' virtual' : '');
             return '<div class="nb-row' + rareClass + '" data-bird-id="' + escapeHtml(bird.id) + '">' +
               '<div class="nb-thumb">' + thumbInnerHtml(bird) + '</div>' +
               '<div class="nb-info"><div class="nb-name">' + escapeHtml(name) + (bird.isNotable ? ' <span class="star">★</span>' : '') + '</div>' +
-              '<div class="nb-sub">' + fmtDist(entry.distance) + ' away · ' + etaMin(entry.distance) + ' min walk · seen ' + escapeHtml(bird.relativeTime || 'recently') + (bird.captureCount ? ' · collected ×' + bird.captureCount : '') + '</div></div>' +
+              '<div class="nb-sub">' + fmtDist(entry.distance) + ' away · ' + etaMin(entry.distance) + ' min walk · ' + (bird.virtual ? 'Skyfriend' : 'seen ' + escapeHtml(bird.relativeTime || 'recently')) + (bird.captureCount ? ' · collected ×' + bird.captureCount : '') + '</div></div>' +
               '<button class="nb-go' + rareClass + '" type="button" data-go-id="' + escapeHtml(bird.id) + '">Go</button>' +
               '</div>';
           }).join('');
@@ -968,13 +974,13 @@ export function buildMapLibreHtml(): string {
           var closest = nearest[0];
           if (closest && closest.distance * 1000 <= SNAP_M) {
             var closestName = closest.bird.comName || closest.bird.sciName || 'Bird';
-            snapToastCopy.textContent = (compactToast() ? '' : 'Snap ') + closestName + ' · ' + fmtDist(closest.distance);
-            snapToastGo.textContent = 'Snap';
+            snapToastCopy.textContent = (compactToast() ? '' : closest.bird.virtual ? 'Collect ' : 'Snap ') + closestName + ' · ' + fmtDist(closest.distance);
+            snapToastGo.textContent = closest.bird.virtual ? 'Collect' : 'Snap';
             setToast(true);
             snapToastAction = function () { capture(closest.bird.id); };
           } else if (closest && closest.distance * 1000 <= 180) {
             var nearbyName = closest.bird.comName || closest.bird.sciName || 'Bird';
-            snapToastCopy.textContent = (compactToast() ? '' : 'Nearby ') + nearbyName + ' · ' + fmtDist(closest.distance);
+            snapToastCopy.textContent = (compactToast() && !closest.bird.virtual ? '' : closest.bird.virtual ? 'Skyfriend ' : 'Nearby ') + nearbyName + ' · ' + fmtDist(closest.distance);
             snapToastGo.textContent = 'Go';
             setToast(true);
             snapToastAction = function () { startTrack(closest.bird); };
@@ -1001,19 +1007,19 @@ export function buildMapLibreHtml(): string {
         if (distance != null && distance * 1000 <= ARRIVE_M) {
           if (routeSteps.length || routeGeometryCoordinates.length) clearRoute();
           trackSnap.classList.add('ready');
-          trackSnap.textContent = 'Snap!';
-          trackDist.textContent = 'You’re here! Snap it';
+          trackSnap.textContent = entry.virtual ? 'Collect!' : 'Snap!';
+          trackDist.textContent = entry.virtual ? 'You’re here! Collect it' : 'You’re here! Snap it';
         } else if (distance != null && routeDistanceM != null && lastRouteTargetKey && lastRouteTargetKey.indexOf(trackId + ':') === 0) {
           trackSnap.classList.remove('ready');
-          trackSnap.textContent = 'Snap';
+          trackSnap.textContent = entry.virtual ? 'Collect' : 'Snap';
           trackDist.textContent = 'Walk · ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
         } else if (distance != null) {
           trackSnap.classList.remove('ready');
-          trackSnap.textContent = 'Snap';
+          trackSnap.textContent = entry.virtual ? 'Collect' : 'Snap';
           trackDist.textContent = 'Direct · ' + fmtDist(distance) + ' · Walk est. ' + etaMin(distance) + ' min';
         } else {
           trackSnap.classList.remove('ready');
-          trackSnap.textContent = 'Snap';
+          trackSnap.textContent = entry.virtual ? 'Collect' : 'Snap';
           trackDist.textContent = 'Finding distance…';
         }
         updateRouteProgress();
@@ -1181,15 +1187,25 @@ export function buildMapLibreHtml(): string {
       function popupHtml(bird, userLocation) {
         var distance = haversineKm(userLocation, bird);
         var count = typeof bird.howMany === 'number' && bird.howMany > 0 ? ' • ×' + bird.howMany : '';
+        var virtual = Boolean(bird.virtual);
+        var statusCopy = virtual ? 'Virtual learning encounter' : 'Past sighting · ' + escapeHtml(bird.relativeTime || 'recently');
+        var captureCopy = virtual
+          ? distance != null && distance > 0.06
+            ? 'A habitat-plausible Skyfriend. Move within 60m to collect it for your virtual field guide — it never counts as a real bird.'
+            : 'Close enough! Collecting this Skyfriend builds your virtual field guide — it never counts as a real bird.'
+          : bird.captureCount
+            ? 'Already collected ×' + bird.captureCount + ' — recaptures still earn XP.'
+            : 'Not collected yet — capture it to add it to your Bird-dex.';
+        var actionLabel = virtual ? 'Collect' : bird.captureCount ? 'Recapture' : 'Capture';
         return '<div class="encounter">' +
-          '<h3>' + escapeHtml(bird.comName || 'Bird') + '</h3>' +
+          '<h3>' + escapeHtml(bird.comName || 'Bird') + (virtual ? '<span class="skyfriend-tag">Skyfriend</span>' : '') + '</h3>' +
           '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div>' +
-          '<div class="stale">Past sighting · ' + escapeHtml(bird.relativeTime || 'recently') + '</div>' +
-          '<div class="where">' + escapeHtml(bird.locName || 'No hotspot recorded') + count + '</div>' +
+          '<div class="stale">' + statusCopy + '</div>' +
+          '<div class="where">' + escapeHtml(virtual ? 'Could occur in this habitat' : bird.locName || 'No hotspot recorded') + count + '</div>' +
           (distance == null ? '' : '<div class="distance">' + fmtDist(distance) + ' away · ' + etaMin(distance) + ' min walk</div>') +
-          (bird.captureCount ? '<div class="distance" data-capture-copy>Already collected ×' + bird.captureCount + ' — recaptures still earn XP.</div>' : '<div class="distance" data-capture-copy>Not collected yet — capture it to add it to your Bird-dex.</div>') +
+          '<div class="distance" data-capture-copy>' + captureCopy + '</div>' +
           '<div class="field-notes" data-info>How to spot it: Field notes loading…</div>' +
-          '<div class="actions"><button data-action="capture">' + (bird.captureCount ? 'Recapture' : 'Capture') + '</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
+          '<div class="actions"><button data-action="capture">' + actionLabel + '</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
           '</div>';
       }
 
@@ -1198,6 +1214,7 @@ export function buildMapLibreHtml(): string {
         if (!element) return;
         element.querySelector('[data-action="capture"]').addEventListener('click', function () {
           postOutward({ type: 'capture', id: bird.id });
+          if (bird.virtual) popup.remove();
         });
         element.querySelector('[data-action="directions"]').addEventListener('click', function () {
           postOutward({ type: 'directions', id: bird.id, latitude: bird.latitude, longitude: bird.longitude, name: bird.comName });
@@ -1353,8 +1370,8 @@ export function buildMapLibreHtml(): string {
           var leftTracked = trackId && String(left.id) === String(trackId) ? 0 : 1;
           var rightTracked = trackId && String(right.id) === String(trackId) ? 0 : 1;
           if (leftTracked !== rightTracked) return leftTracked - rightTracked;
-          var leftRange = lastUserLocation && haversineKm(lastUserLocation, left) != null && haversineKm(lastUserLocation, left) <= 0.18 ? 0 : 1;
-          var rightRange = lastUserLocation && haversineKm(lastUserLocation, right) != null && haversineKm(lastUserLocation, right) <= 0.18 ? 0 : 1;
+          var leftRange = lastUserLocation && haversineKm(lastUserLocation, left) != null && haversineKm(lastUserLocation, left) <= 0.06 ? 0 : 1;
+          var rightRange = lastUserLocation && haversineKm(lastUserLocation, right) != null && haversineKm(lastUserLocation, right) <= 0.06 ? 0 : 1;
           if (leftRange !== rightRange) return leftRange - rightRange;
           return markerScore(left) - markerScore(right);
         });
@@ -1393,8 +1410,8 @@ export function buildMapLibreHtml(): string {
         chosen.forEach(function (bird) {
           var element = document.createElement('div');
           var distance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
-          var inRange = distance != null && distance <= 0.18;
-          element.className = 'bird-marker' + (bird.isNotable ? ' notable' : '') + (inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
+          var inRange = distance != null && distance <= 0.06;
+          element.className = 'bird-marker' + (bird.virtual ? ' virtual' : '') + (bird.isNotable ? ' notable' : '') + (inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
           element.innerHTML = markerInnerHtml(bird);
           var marker = new maplibregl.Marker({ element: element })
             .setLngLat([wrappedLongitude(bird.longitude), bird.latitude])
@@ -1548,11 +1565,18 @@ export function buildMapLibreHtml(): string {
           var popupElement = currentPopup.getElement && currentPopup.getElement();
           var captureCopy = popupElement && popupElement.querySelector('[data-capture-copy]');
           if (freshPopupBird && captureCopy) {
-            captureCopy.textContent = freshPopupBird.captureCount
-              ? 'Already collected ×' + freshPopupBird.captureCount + ' — recaptures still earn XP.'
-              : 'Not collected yet — capture it to add it to your Bird-dex.';
+            if (freshPopupBird.virtual) {
+              var freshDistance = haversineKm(lastUserLocation, freshPopupBird);
+              captureCopy.textContent = freshDistance != null && freshDistance > 0.06
+                ? 'A habitat-plausible Skyfriend. Move within 60m to collect it for your virtual field guide — it never counts as a real bird.'
+                : 'Close enough! Collecting this Skyfriend builds your virtual field guide — it never counts as a real bird.';
+            } else {
+              captureCopy.textContent = freshPopupBird.captureCount
+                ? 'Already collected ×' + freshPopupBird.captureCount + ' — recaptures still earn XP.'
+                : 'Not collected yet — capture it to add it to your Bird-dex.';
+            }
             var captureButton = popupElement.querySelector('[data-action="capture"]');
-            if (captureButton) captureButton.textContent = freshPopupBird.captureCount ? 'Recapture' : 'Capture';
+            if (captureButton) captureButton.textContent = freshPopupBird.virtual ? 'Collect' : freshPopupBird.captureCount ? 'Recapture' : 'Capture';
           }
         }
         refreshUi();
