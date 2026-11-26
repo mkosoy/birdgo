@@ -134,7 +134,10 @@ export function DexScreen() {
   };
 
   const content = !entries.length
-    ? <View style={styles.center}><Text style={styles.title}>Your Bird-dex is empty</Text><Text style={styles.copy}>Explore the map and capture your first bird.</Text></View>
+    ? <ScrollView contentContainerStyle={styles.emptyContent}>
+      <View>{header}{skyfriendArea}</View>
+      <View style={styles.center}><Text style={styles.title}>Your Bird-dex is empty</Text><Text style={styles.copy}>Explore the map and capture your first bird.</Text></View>
+    </ScrollView>
     : <FlatList
       contentContainerStyle={styles.list}
       data={entries}
@@ -275,6 +278,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 25 },
   title: { fontSize: 22, fontWeight: "700", color: "#173c2b" },
   copy: { color: "#67786d", marginTop: 8 },
+  emptyContent: { flexGrow: 1, paddingBottom: 28 },
   screen: { flex: 1, backgroundColor: "#edf2ee" },
   modalBackdrop: { flex: 1, backgroundColor: "#0009", alignItems: "center", justifyContent: "center", padding: 20 },
   detailCard: { width: "100%", maxWidth: 390, maxHeight: "92%", borderRadius: 20, padding: 16, backgroundColor: "#fff" },
