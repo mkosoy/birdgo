@@ -33,8 +33,8 @@ export function speciesKey(speciesCode?: string, commonName?: string, sciName?: 
   const normalizedScientific = sciName?.trim().toLowerCase().replace(/\s+/g, " ");
   if (normalizedScientific) return normalizedScientific;
   const normalizedName = commonName?.trim().toLowerCase().replace(/\s+/g, " ");
-  if (normalizedName) return normalizedName;
-  return speciesCode?.trim().toLowerCase() || "unidentified bird";
+  if (normalizedName && normalizedName !== "unidentified bird") return normalizedName;
+  return speciesCode?.trim().toLowerCase() || normalizedName || "unidentified bird";
 }
 
 export function speciesKeyAliases(speciesCode?: string, commonName?: string, sciName?: string | null, canonicalKey?: string | null): string[] {
@@ -42,7 +42,7 @@ export function speciesKeyAliases(speciesCode?: string, commonName?: string, sci
     speciesKey(speciesCode, commonName, sciName, canonicalKey),
     speciesKey(speciesCode, commonName, sciName),
     speciesKey(speciesCode, commonName),
-  ])];
+  ].filter((key) => key !== "unidentified bird"))];
 }
 
 export function rarityForSpecies(speciesCode?: string, commonName?: string, isNotable?: boolean, sciName?: string | null, canonicalKey?: string | null, frequency?: number, abundanceCount?: number): BirdRarity {
@@ -66,10 +66,31 @@ export function isIdentifiedCapture(capture: Pick<CaptureRecord, "speciesCode" |
   return Boolean(capture.speciesCode?.trim() || capture.sciName?.trim() || (commonName && commonName !== "unidentified bird"));
 }
 
-export function xpForCapture(capture: Pick<CaptureRecord, "rarity" | "verified" | "speciesCode" | "commonName" | "sciName">, isNewSpecies: boolean): number {
+export interface SpeciesCountGroup {
+  aliases: string[];
+  count: number;
+}
+
+export function applySpeciesCaptureCount(groups: SpeciesCountGroup[], aliases: string[]): { groups: SpeciesCountGroup[]; priorCaptureCount: number } {
+  const uniqueAliases = [...new Set(aliases.filter(Boolean))];
+  if (!uniqueAliases.length) return { groups, priorCaptureCount: 0 };
+  const matching = groups.filter((group) => group.aliases.some((alias) => uniqueAliases.includes(alias)));
+  const remaining = groups.filter((group) => !matching.includes(group));
+  const priorCaptureCount = matching.reduce((total, group) => total + group.count, 0);
+  const mergedAliases = [...new Set(matching.flatMap((group) => group.aliases).concat(uniqueAliases))];
+  return {
+    groups: [...remaining, { aliases: mergedAliases, count: priorCaptureCount + 1 }],
+    priorCaptureCount,
+  };
+}
+
+export function xpForCapture(capture: Pick<CaptureRecord, "rarity" | "verified" | "speciesCode" | "commonName" | "sciName">, isNewSpecies: boolean, priorCaptureCount = 0, discountDuplicates = true): number {
   if (!isIdentifiedCapture(capture)) return 0;
   const rarity = capture.rarity ?? "common";
-  return RARITY_XP[rarity] + (capture.verified ? 20 : 0) + (isNewSpecies ? 50 : 0);
+  const baseXp = RARITY_XP[rarity] + (capture.verified ? 20 : 0);
+  if (isNewSpecies || !discountDuplicates) return baseXp + (isNewSpecies ? 50 : 0);
+  const duplicateScale = priorCaptureCount <= 1 ? 0.5 : priorCaptureCount === 2 ? 0.25 : 0.1;
+  return Math.max(5, Math.round(baseXp * duplicateScale));
 }
 
 export function levelForXp(xp: number): { level: number; currentLevelXp: number; nextLevelXp: number; progress: number } {

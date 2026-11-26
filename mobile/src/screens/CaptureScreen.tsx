@@ -214,9 +214,11 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
         rarity,
         verified,
       });
-      const firstBonus = (record.xpAwarded ?? 0) > xpForCapture({ rarity, verified, speciesCode: contextSpecies?.speciesCode, commonName, sciName: contextSpecies?.sciName ?? result.sciName }, false) ? " First species bonus!" : "";
+      const earnedXp = record.xpAwarded ?? 0;
+      const firstSpecies = earnedXp > xpForCapture({ rarity, verified, speciesCode: contextSpecies?.speciesCode, commonName, sciName: contextSpecies?.sciName ?? result.sciName }, false);
+      const progressionNote = firstSpecies ? " First species bonus!" : earnedXp > 0 ? " Duplicate species — diminishing XP." : "";
       onCaptureSaved?.({ speciesCode: contextSpecies?.speciesCode, commonName, sciName: contextSpecies?.sciName ?? result.sciName, encounterId: contextSpecies?.encounterId });
-      setConfirmation(`${commonName} joined your Bird-dex. +${record.xpAwarded ?? 0} XP.${firstBonus}`);
+      setConfirmation(`${commonName} joined your Bird-dex. +${earnedXp} XP.${progressionNote}`);
       setSavedPhotoUri(photoUri);
       if (encounterHint) onHintConsumed?.();
     } catch {

@@ -112,7 +112,7 @@ export function DexScreen() {
     </View>
     <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(progress.progress * 100)}%` }]} /></View>
     <Text style={styles.progressCopy}>{progress.currentLevelXp} / {progress.nextLevelXp} XP to level {progress.level + 1}</Text>
-    <Text style={styles.progressHint}>Capture new species for +50 XP. Duplicates still train your collection.</Text>
+    <Text style={styles.progressHint}>Capture new species for +50 XP. Duplicates still train your collection, with diminishing XP.</Text>
   </View>;
 
   const hallOfFameArea = <View style={styles.hallArea}>
