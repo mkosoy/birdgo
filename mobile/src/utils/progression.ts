@@ -49,7 +49,7 @@ export function isIdentifiedCapture(capture: Pick<CaptureRecord, "speciesCode" |
 }
 
 export function xpForCapture(capture: Pick<CaptureRecord, "rarity" | "verified" | "speciesCode" | "commonName" | "sciName">, isNewSpecies: boolean): number {
-  if (!isIdentifiedCapture(capture)) return 10;
+  if (!isIdentifiedCapture(capture)) return 0;
   const rarity = capture.rarity ?? "common";
   return RARITY_XP[rarity] + (capture.verified ? 20 : 0) + (isNewSpecies ? 50 : 0);
 }
