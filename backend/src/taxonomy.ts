@@ -33,7 +33,9 @@ let ebirdTaxonomyCache: { expiresAt: number; entries: EbirdTaxonomyEntry[] } | u
 const GBIF_CACHE_LIMIT = 500;
 const GBIF_CONCURRENCY_LIMIT = 8;
 const GBIF_QUEUE_LIMIT = 64;
-const gbifCache = new Map<string, CanonicalSpeciesIdentity | undefined>();
+const GBIF_SUCCESS_CACHE_MS = 24 * 60 * 60 * 1000;
+const GBIF_FAILURE_CACHE_MS = 5 * 60 * 1000;
+const gbifCache = new Map<string, { expiresAt: number; result: CanonicalSpeciesIdentity | undefined }>();
 let gbifSlots = GBIF_CONCURRENCY_LIMIT;
 const gbifSlotWaiters: Array<() => void> = [];
 
@@ -58,7 +60,20 @@ function cacheGbifResult(key: string, result: CanonicalSpeciesIdentity | undefin
     const oldest = gbifCache.keys().next().value;
     if (oldest) gbifCache.delete(oldest);
   }
-  gbifCache.set(key, result);
+  gbifCache.set(key, {
+    result,
+    expiresAt: Date.now() + (result ? GBIF_SUCCESS_CACHE_MS : GBIF_FAILURE_CACHE_MS),
+  });
+}
+
+function cachedGbifResult(key: string): CanonicalSpeciesIdentity | undefined | null {
+  const cached = gbifCache.get(key);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    gbifCache.delete(key);
+    return null;
+  }
+  return cached.result;
 }
 
 function normalize(value?: string | null): string {
@@ -87,7 +102,8 @@ async function scientificNameFor(input: SpeciesIdentityInput, token?: string): P
 
 async function gbifCanonicalize(scientificName: string): Promise<CanonicalSpeciesIdentity | undefined> {
   const cacheKey = normalize(scientificName);
-  if (gbifCache.has(cacheKey)) return gbifCache.get(cacheKey);
+  const cached = cachedGbifResult(cacheKey);
+  if (cached !== null) return cached;
   try {
     const params = new URLSearchParams({ name: scientificName, class: "Aves" });
     const controller = new AbortController();
