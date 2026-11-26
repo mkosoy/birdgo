@@ -345,7 +345,7 @@ export function buildMapLibreHtml(): string {
         if (!a || !b) return null;
         var radians = Math.PI / 180;
         var dLat = (b.latitude - a.latitude) * radians;
-        var dLng = (b.longitude - a.longitude) * radians;
+        var dLng = (((b.longitude - a.longitude) + 540) % 360 - 180) * radians;
         var lat1 = a.latitude * radians;
         var lat2 = b.latitude * radians;
         var value = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -1030,6 +1030,7 @@ export function buildMapLibreHtml(): string {
       function startTrack(bird) {
         if (currentPopup) currentPopup.remove();
         trackId = bird.id;
+        renderBirdMarkers(latestMarkers);
         postOutward({ type: 'tracking', open: true });
         follow = true;
         clearRoute();
@@ -1341,9 +1342,12 @@ export function buildMapLibreHtml(): string {
         var zoom = map.getZoom();
         var minSpacing = zoom >= 15 ? 24 : zoom >= 13 ? 42 : 58;
         var maxMarkers = zoom >= 15 ? 160 : zoom >= 13 ? 80 : 45;
-        var bounds = map.getBounds();
-        var lonPad = Math.max(0.002, (bounds.getEast() - bounds.getWest()) * 0.12);
-        var latPad = Math.max(0.002, (bounds.getNorth() - bounds.getSouth()) * 0.12);
+        var viewportWidth = map.getContainer().clientWidth || 0;
+        var viewportHeight = map.getContainer().clientHeight || 0;
+        var centerLng = map.getCenter().lng;
+        function wrappedLongitude(longitude) {
+          return (((longitude - centerLng) + 540) % 360 - 180) + centerLng;
+        }
         function markerScore(bird) {
           var distance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
           return (distance == null ? 999 : distance) - (bird.isNotable ? 0.35 : 0) - (bird.captureCount ? 0.1 : 0);
@@ -1362,11 +1366,9 @@ export function buildMapLibreHtml(): string {
         for (var index = 0; index < sorted.length && chosen.length < maxMarkers; index += 1) {
           var bird = sorted[index];
           var isTracked = trackId && String(bird.id) === String(trackId);
-          if (!isTracked && (
-            bird.longitude < bounds.getWest() - lonPad || bird.longitude > bounds.getEast() + lonPad
-            || bird.latitude < bounds.getSouth() - latPad || bird.latitude > bounds.getNorth() + latPad
-          )) continue;
-          var point = map.project([bird.longitude, bird.latitude]);
+          var displayLng = wrappedLongitude(bird.longitude);
+          var point = map.project([displayLng, bird.latitude]);
+          if (!isTracked && (point.x < 0 || point.x > viewportWidth || point.y < 0 || point.y > viewportHeight)) continue;
           var crowded = false;
           if (!isTracked) {
             for (var pointIndex = 0; pointIndex < chosenPoints.length; pointIndex += 1) {
@@ -1389,7 +1391,7 @@ export function buildMapLibreHtml(): string {
           element.className = 'bird-marker' + (bird.isNotable ? ' notable' : '') + (inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
           element.innerHTML = markerInnerHtml(bird);
           var marker = new maplibregl.Marker({ element: element })
-            .setLngLat([bird.longitude, bird.latitude])
+            .setLngLat([wrappedLongitude(bird.longitude), bird.latitude])
             .addTo(map);
           element.style.pointerEvents = 'auto';
           element.onclick = function (event) {
