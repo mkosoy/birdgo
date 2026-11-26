@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, AppState, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SF_COORDS } from "../config";
 import { BirdMap } from "../components/BirdMap";
@@ -35,7 +35,10 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const fallbackActive = useRef(true);
   const [rareDismissed, setRareDismissed] = useState(false);
   const { birds, notable, loading, error, loadedArea, refresh } = useBirds(center.latitude, center.longitude);
-  const { saveSeen, captures } = useCollection();
+  const { saveSeen, captures, refresh: refreshCollection } = useCollection();
+  useFocusEffect(useCallback(() => {
+    void refreshCollection();
+  }, [refreshCollection]));
   const captureCounts = useMemo(() => captures.reduce<Record<string, number>>((counts, capture) => {
     const key = speciesKey(capture.speciesCode, capture.commonName);
     counts[key] = (counts[key] ?? 0) + 1;
