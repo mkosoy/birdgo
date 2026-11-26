@@ -189,6 +189,14 @@ export async function releaseSpecies(speciesCode?: string, commonName?: string, 
   await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify(remaining));
 }
 
+export async function releaseCaptures(captureIds: string[]): Promise<void> {
+  const ids = new Set(captureIds);
+  if (!ids.size) return;
+  const captures = await listCaptures();
+  const remaining = captures.filter((capture) => !ids.has(capture.id));
+  await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify(remaining));
+}
+
 export async function listSeenSpecies(): Promise<SeenSpecies[]> {
   const raw = await AsyncStorage.getItem(SEEN_KEY);
   return raw ? (JSON.parse(raw) as SeenSpecies[]) : [];

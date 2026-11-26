@@ -105,6 +105,7 @@ export interface SpeciesDexEntry {
   imageUrl?: string;
   capture?: CaptureRecord;
   bestCapture?: CaptureRecord;
+  captureIds: string[];
   identified?: boolean;
 }
 
@@ -196,11 +197,13 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
         photoUri: capture.photoUri,
         capture,
         bestCapture: capture,
+        captureIds: [capture.id],
         identified: isIdentifiedCapture(capture),
       });
       return;
     }
     existing.capturedCount += 1;
+    if (!existing.captureIds.includes(capture.id)) existing.captureIds.push(capture.id);
     const currentBest = existing.bestCapture ?? existing.capture;
     if (!currentBest || captureMeritScore(capture) > captureMeritScore(currentBest)) {
       existing.bestCapture = capture;
@@ -245,6 +248,7 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
       capturedCount: 0,
       seen: true,
       imageUrl: species.imageUrl,
+      captureIds: [],
     });
   });
   return [...entries.values()].sort((left, right) =>
