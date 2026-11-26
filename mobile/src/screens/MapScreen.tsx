@@ -234,7 +234,17 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
           });
           navigation.navigate("Capture" as never);
         }}
-        onDirections={(target) => setTrackRequest(target)}
+        onDirections={(target) => {
+          if (mode === "classic") {
+            const destination = `${target.latitude},${target.longitude}`;
+            const url = Platform.OS === "ios"
+              ? `https://maps.apple.com/?daddr=${destination}&dirflg=w`
+              : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=walking`;
+            void Linking.openURL(url);
+            return;
+          }
+          setTrackRequest(target);
+        }}
         onAbout={({ speciesCode, comName }) => {
           const url = speciesCode.startsWith("inat-")
             ? `https://www.inaturalist.org/taxa/${speciesCode.slice(5)}`
