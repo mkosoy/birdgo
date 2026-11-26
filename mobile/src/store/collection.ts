@@ -151,7 +151,10 @@ export function captureMatchesSpecies(
   if (captureCanonical && targetCanonical) return captureCanonical === targetCanonical;
   const captureScientific = normalize(capture.sciName);
   const targetScientific = normalize(sciName);
-  if (captureScientific && targetScientific) return captureScientific === targetScientific;
+  const captureIsEbird = capture.speciesCode && !capture.speciesCode.startsWith("inat-");
+  const targetIsEbird = speciesCode && !speciesCode.startsWith("inat-");
+  if (captureIsEbird && targetIsEbird && capture.speciesCode !== speciesCode) return false;
+  if (captureScientific && targetScientific && captureScientific === targetScientific) return true;
   const captureName = normalize(capture.commonName);
   const targetName = normalize(commonName);
   if (captureName && targetName && captureName === targetName) return true;
