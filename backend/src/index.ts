@@ -76,6 +76,11 @@ function identifyRateLimited(request: Request): boolean {
     || request.socket.remoteAddress
     || "unknown";
   const now = Date.now();
+  if (identifyRequests.size > 1000) {
+    for (const [key, entry] of identifyRequests) {
+      if (entry.resetAt <= now) identifyRequests.delete(key);
+    }
+  }
   const current = identifyRequests.get(ip);
   if (!current || current.resetAt <= now) {
     identifyRequests.set(ip, { count: 1, resetAt: now + IDENTIFY_RATE_WINDOW_MS });
