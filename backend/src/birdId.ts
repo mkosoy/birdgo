@@ -12,6 +12,7 @@ export interface BirdIdKeys {
   gemini?: string;
   openai?: string;
   huggingfaceModel?: string;
+  geminiModel?: string;
 }
 
 interface OpenAiResponse {
@@ -91,9 +92,14 @@ async function openAiIdentify(imageBase64: string, apiKey: string, hints: string
   return parseIdentification(text);
 }
 
-async function geminiIdentify(imageBase64: string, apiKey: string, hints: string[]): Promise<BirdIdentification> {
+async function geminiIdentifyWithModel(
+  imageBase64: string,
+  apiKey: string,
+  hints: string[],
+  model: string,
+): Promise<BirdIdentification> {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -108,10 +114,34 @@ async function geminiIdentify(imageBase64: string, apiKey: string, hints: string
       }),
     },
   );
-  if (!response.ok) throw new Error(`Gemini request failed with status ${response.status}`);
+  if (!response.ok) throw new Error(`Gemini ${model} request failed with status ${response.status}`);
   const body = (await response.json()) as GeminiResponse;
   const text = body.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
   return parseIdentification(text);
+}
+
+async function geminiIdentify(
+  imageBase64: string,
+  apiKey: string,
+  hints: string[],
+  preferredModel?: string,
+): Promise<BirdIdentification> {
+  const models = [...new Set([
+    preferredModel,
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash-lite",
+    "gemini-2.5-flash",
+  ].filter((model): model is string => Boolean(model)))];
+  let lastError: unknown;
+  for (const model of models) {
+    try {
+      return await geminiIdentifyWithModel(imageBase64, apiKey, hints, model);
+    } catch (error) {
+      lastError = error;
+      console.warn(`Gemini ${model} bird identification unavailable`, error);
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Gemini bird identification failed");
 }
 
 async function huggingFaceIdentify(
@@ -166,7 +196,7 @@ export async function identifyBird(
       };
     }
     if (provider === "gemini" && keys.gemini) {
-      return { ...(await geminiIdentify(imageBase64, keys.gemini, hints)), provider: "gemini" };
+      return { ...(await geminiIdentify(imageBase64, keys.gemini, hints, keys.geminiModel)), provider: "gemini" };
     }
     if (provider === "openai" && keys.openai) {
       return { ...(await openAiIdentify(imageBase64, keys.openai, hints)), provider: "openai" };

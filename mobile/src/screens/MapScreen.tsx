@@ -11,7 +11,7 @@ import type { BirdMapMode } from "../components/BirdMap";
 import { useBirds } from "../hooks/useBirds";
 import { useCollection } from "../hooks/useCollection";
 import type { Coordinates, SeenSpecies } from "../types";
-import { speciesKey } from "../utils/progression";
+import { speciesKeyAliases } from "../utils/progression";
 
 export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => void }) {
   const navigation = useNavigation();
@@ -41,8 +41,9 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
     void refreshCollection();
   }, [refreshCollection]));
   const captureCounts = useMemo(() => captures.reduce<Record<string, number>>((counts, capture) => {
-    const key = speciesKey(capture.speciesCode, capture.commonName, capture.sciName);
-    counts[key] = (counts[key] ?? 0) + 1;
+    speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey).forEach((key) => {
+      counts[key] = (counts[key] ?? 0) + 1;
+    });
     return counts;
   }, {}), [captures]);
   const topMessage = locationNotice
@@ -175,16 +176,20 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
 
   useEffect(() => {
     if (!birds.length || !loadedArea) return;
-    void saveSeen(
-      birds.flatMap((bird) => bird.comName ? [{
+    const unique = new Map<string, SeenSpecies>();
+    birds.forEach((bird) => {
+      if (!bird.comName || unique.has(bird.speciesCode)) return;
+      unique.set(bird.speciesCode, {
         speciesCode: bird.speciesCode,
         comName: bird.comName,
         sciName: bird.sciName,
+        canonicalKey: bird.canonicalKey,
         isNotable: Boolean(bird.isNotable),
         imageUrl: bird.imageUrl,
-      }] : []),
-      loadedArea,
-    );
+      });
+    });
+    const species = [...unique.values()];
+    void saveSeen(species, loadedArea);
   }, [birds, loadedArea, saveSeen]);
 
   useEffect(() => {
@@ -235,6 +240,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
             speciesCode: bird.speciesCode,
             comName: bird.comName ?? "Unknown bird",
             sciName: bird.sciName,
+            canonicalKey: bird.canonicalKey,
             isNotable: Boolean(bird.isNotable),
             imageUrl: bird.imageUrl,
           });
