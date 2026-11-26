@@ -31,7 +31,6 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const [heading, setHeading] = useState<number | undefined>();
   const [recenterRequest, setRecenterRequest] = useState(0);
   const [overviewRequest, setOverviewRequest] = useState(0);
-  const [nearestRequest, setNearestRequest] = useState(0);
   const [trackRequest, setTrackRequest] = useState<TrackTarget | undefined>();
   const [stopTrackRequest, setStopTrackRequest] = useState(0);
   const processedTargetCapture = useRef(0);
@@ -187,9 +186,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     ? { text: locationNotice, onPress: () => setLocationRetry((request) => request + 1) }
     : error
       ? { text: "Couldn’t load birds. Tap to retry.", onPress: () => void refresh() }
-      : followPaused
-        ? { text: "Camera follow paused — tap the locate control to resume.", onPress: () => setRecenterRequest((request) => request + 1) }
-        : notable.length > 0 && !rareDismissed && !toastOpen
+      : notable.length > 0 && !rareDismissed && !toastOpen
           ? { text: `Rare bird nearby: ${notable[0].comName ?? "Unknown"}!`, onPress: () => setRareDismissed(true) }
           : null;
   const handleRegionChange = (next: Coordinates) => {
@@ -375,7 +372,6 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         heading={heading}
         recenterRequest={recenterRequest}
         overviewRequest={overviewRequest}
-        nearestRequest={nearestRequest}
         trackRequest={trackRequest}
         stopTrackRequest={stopTrackRequest}
         onCapture={(bird) => {
@@ -440,7 +436,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         )}
         </View>
         {topMessage && !popupOpen && (
-          <Pressable style={styles.topMessage} onPress={topMessage.onPress}>
+          <Pressable style={[styles.topMessage, toastOpen && styles.topMessageBelowToast]} onPress={topMessage.onPress}>
             <Text style={styles.topMessageText}>{topMessage.text}</Text>
             <Text style={styles.topMessageDismiss}>×</Text>
           </Pressable>
@@ -449,16 +445,10 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
       </View>
       {!loading && !error && birds.length === 0 && <View style={styles.empty}><Text style={styles.emptyText}>No birds spotted nearby — try moving the map.</Text></View>}
       {mode === "adventure" && nearbyState !== "half" && (
-        <View pointerEvents="box-none" style={[styles.actionRail, { bottom: insets.bottom + 168 }]}>
-          <Pressable accessibilityLabel="Find closest bird" style={styles.actionButton} onPress={() => setNearestRequest((request) => request + 1)}><Ionicons name="navigate" size={26} color="#2878d1" /></Pressable>
-          <Pressable accessibilityLabel="See all birds" style={styles.actionButton} onPress={() => setOverviewRequest((request) => request + 1)}><Ionicons name="map" size={25} color="#2878d1" /></Pressable>
-          <Pressable accessibilityLabel="Back to me" style={styles.actionButton} onPress={() => setRecenterRequest((request) => request + 1)}><Ionicons name="locate" size={27} color="#2878d1" /></Pressable>
+        <View pointerEvents="box-none" style={[styles.actionRail, { bottom: insets.bottom + 102 }]}>
+          <Pressable accessibilityLabel="See all birds" style={styles.actionButton} onPress={() => setOverviewRequest((request) => request + 1)}><Ionicons name="map" size={23} color="#2878d1" /></Pressable>
+          <Pressable accessibilityLabel={followPaused ? "Back to me — camera follow paused" : "Back to me"} style={[styles.actionButton, followPaused && styles.recenterAttention]} onPress={() => setRecenterRequest((request) => request + 1)}><Ionicons name="locate" size={25} color="#2878d1" /></Pressable>
         </View>
-      )}
-      {mode === "adventure" && nearbyState !== "half" && !popupOpen && !tracking && (
-        <Pressable accessibilityLabel="Capture a bird" style={[styles.captureButton, { bottom: insets.bottom + 72 }]} onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}>
-          <Ionicons name="camera" size={27} color="#fff" />
-        </Pressable>
       )}
       {mode === "classic" && (
         <Pressable accessibilityLabel="Back to me" style={[styles.actionButton, styles.classicRecenter, { top: insets.top + 112 }]} onPress={() => setRecenterRequest((request) => request + 1)}><Ionicons name="locate" size={27} color="#2878d1" /></Pressable>
@@ -475,12 +465,13 @@ const styles = StyleSheet.create({
   modeButtonActive: { backgroundColor: "#d9efe1", borderWidth: 2, borderColor: "#2f7d5b" },
   modeButtonText: { color: "#173c2b", fontWeight: "700" },
   topMessage: { minHeight: 44, maxWidth: 360, alignSelf: "flex-start", backgroundColor: "#ffffffee", paddingHorizontal: 12, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 8 },
+  topMessageBelowToast: { marginTop: 52 },
   topMessageText: { flex: 1, color: "#173c2b", fontWeight: "700", fontSize: 13 },
   topMessageDismiss: { color: "#173c2b", fontSize: 22, lineHeight: 24 },
   empty: { position: "absolute", top: "42%", left: 35, right: 35, backgroundColor: "#ffffffe8", padding: 16, borderRadius: 12 },
   emptyText: { textAlign: "center", color: "#555" },
   actionRail: { position: "absolute", right: 14, gap: 10, alignItems: "center" },
-  actionButton: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
+  actionButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
+  recenterAttention: { borderWidth: 3, borderColor: "#d99d21", backgroundColor: "#fff7df" },
   classicRecenter: { position: "absolute", right: 16 },
-  captureButton: { position: "absolute", alignSelf: "center", width: 68, height: 68, borderRadius: 34, backgroundColor: "#2f7d5b", alignItems: "center", justifyContent: "center", borderWidth: 5, borderColor: "#fff", elevation: 6, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
 });
