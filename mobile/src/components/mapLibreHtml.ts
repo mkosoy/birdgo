@@ -1457,8 +1457,11 @@ export function buildMapLibreHtml(): string {
 
       function applyAtmosphere(weather) {
         var hour = new Date().getHours();
-        var isDay = weather && typeof weather.isDay === 'boolean' ? weather.isDay : hour >= 6 && hour < 20;
-        var period = !isDay || hour < 6 || hour >= 21 ? 'night' : hour < 8 ? 'dawn' : hour >= 17 ? 'dusk' : 'day';
+        var hasApiDaylight = weather && typeof weather.isDay === 'boolean';
+        var isDay = hasApiDaylight ? weather.isDay : hour >= 6 && hour < 20;
+        var period = hasApiDaylight
+          ? isDay ? (hour < 8 ? 'dawn' : hour >= 17 ? 'dusk' : 'day') : 'night'
+          : !isDay || hour < 6 || hour >= 21 ? 'night' : hour < 8 ? 'dawn' : hour >= 17 ? 'dusk' : 'day';
         document.body.dataset.period = period;
         document.body.dataset.weather = weather && weather.condition ? weather.condition : 'clear';
       }
