@@ -10,6 +10,7 @@ interface InatTaxon {
   id?: number;
   name?: string;
   preferred_common_name?: string;
+  matched_term?: string;
   rank?: string;
   iconic_taxon_name?: string;
   default_photo?: {
@@ -86,6 +87,7 @@ async function lookupReferenceImage(query: string): Promise<SpeciesReferenceImag
     const exact = birdTaxa.find((taxon) =>
       (taxon.name && normalizeLookupName(taxon.name) === normalizedQuery)
       || (taxon.preferred_common_name && normalizeLookupName(taxon.preferred_common_name) === normalizedQuery)
+      || (taxon.matched_term && normalizeLookupName(taxon.matched_term) === normalizedQuery)
     );
     const taxon = exact;
     const url = taxon?.default_photo?.medium_url ?? taxon?.default_photo?.url;
