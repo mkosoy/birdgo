@@ -200,6 +200,8 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   }, [notable]);
 
   const toggleMode = () => {
+    setTrackRequest(undefined);
+    setTracking(false);
     setFollowPaused(false);
     setToastOpen(false);
     setNearbyState("peek");

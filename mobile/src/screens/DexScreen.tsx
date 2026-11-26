@@ -28,6 +28,7 @@ export function DexScreen() {
   const [pendingRelease, setPendingRelease] = useState<{
     commonName: string;
     speciesCode?: string;
+    sciName?: string | null;
     photoLabel: string;
   }>();
   useFocusEffect(useCallback(() => {
@@ -42,11 +43,12 @@ export function DexScreen() {
   if (loading) return <View style={styles.center}><Text>Loading your Bird-dex…</Text></View>;
 
   const release = (entry: SpeciesDexEntry) => {
-    const photoCount = captures.filter((capture) => captureMatchesSpecies(capture, entry.speciesCode, entry.commonName)).length;
+    const photoCount = captures.filter((capture) => captureMatchesSpecies(capture, entry.speciesCode, entry.commonName, entry.sciName)).length;
     setSelected(undefined);
     setPendingRelease({
       commonName: entry.commonName,
       speciesCode: entry.speciesCode,
+      sciName: entry.sciName,
       photoLabel: `${photoCount} photo${photoCount === 1 ? "" : "s"}`,
     });
   };
@@ -134,7 +136,7 @@ export function DexScreen() {
           <Text style={styles.modalCopy}>{pendingRelease?.commonName} will remove {pendingRelease?.photoLabel} from your captured collection and return to its seen state if it is still in this area. Trainer XP you already earned is kept.</Text>
           <View style={styles.modalActions}>
             <Pressable accessibilityRole="button" style={styles.modalKeep} onPress={() => setPendingRelease(undefined)}><Text>Keep</Text></Pressable>
-            <Pressable accessibilityRole="button" style={styles.modalRelease} onPress={() => { const releaseRequest = pendingRelease; setPendingRelease(undefined); if (releaseRequest) void releaseSpecies(releaseRequest.speciesCode, releaseRequest.commonName).then(refresh); }}><Text style={styles.modalReleaseText}>Release</Text></Pressable>
+            <Pressable accessibilityRole="button" style={styles.modalRelease} onPress={() => { const releaseRequest = pendingRelease; setPendingRelease(undefined); if (releaseRequest) void releaseSpecies(releaseRequest.speciesCode, releaseRequest.commonName, releaseRequest.sciName).then(refresh); }}><Text style={styles.modalReleaseText}>Release</Text></Pressable>
           </View>
         </View>
       </View>

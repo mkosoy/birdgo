@@ -127,9 +127,13 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
     }
     if (!existing.sciName && capture.sciName) existing.sciName = capture.sciName;
   });
+  const normalize = (value?: string | null) => value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
   seenSpecies.forEach((species) => {
     const key = speciesKey(species.speciesCode, species.comName, species.sciName);
-    const existing = entries.get(key);
+    const existing = entries.get(key) ?? [...entries.values()].find((entry) =>
+      normalize(entry.commonName) === normalize(species.comName)
+      || (normalize(entry.sciName) && normalize(entry.sciName) === normalize(species.sciName))
+    );
     if (existing) {
       existing.seen = true;
       if (!existing.speciesCode && species.speciesCode) existing.speciesCode = species.speciesCode;

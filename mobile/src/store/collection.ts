@@ -144,17 +144,21 @@ export function captureMatchesSpecies(
   capture: CaptureRecord,
   speciesCode?: string,
   commonName?: string,
+  sciName?: string | null,
 ): boolean {
-  const normalizedName = commonName?.trim().toLowerCase().replace(/\s+/g, " ");
-  if (normalizedName && typeof capture.commonName === "string") {
-    return capture.commonName.trim().toLowerCase().replace(/\s+/g, " ") === normalizedName;
-  }
+  const normalize = (value?: string | null) => value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+  const captureScientific = normalize(capture.sciName);
+  const targetScientific = normalize(sciName);
+  if (captureScientific && targetScientific) return captureScientific === targetScientific;
+  const captureName = normalize(capture.commonName);
+  const targetName = normalize(commonName);
+  if (captureName && targetName && captureName === targetName) return true;
   return Boolean(capture.speciesCode && speciesCode && capture.speciesCode === speciesCode);
 }
 
-export async function releaseSpecies(speciesCode?: string, commonName?: string): Promise<void> {
+export async function releaseSpecies(speciesCode?: string, commonName?: string, sciName?: string | null): Promise<void> {
   const captures = await listCaptures();
-  const remaining = captures.filter((capture) => !captureMatchesSpecies(capture, speciesCode, commonName));
+  const remaining = captures.filter((capture) => !captureMatchesSpecies(capture, speciesCode, commonName, sciName));
   await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify(remaining));
 }
 
