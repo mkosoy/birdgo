@@ -53,6 +53,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
   const { saveCapture, seenSpecies, refresh: refreshCollection } = useCollection();
   const [encounterHint, setEncounterHint] = useState<SeenSpecies | undefined>(hint);
   const [visualMode, setVisualMode] = useState<"reference" | "model">("reference");
+  const [confirmingHonor, setConfirmingHonor] = useState(false);
   const previousHint = useRef<SeenSpecies | undefined>(hint);
 
   useFocusEffect(useCallback(() => {
@@ -69,6 +70,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
         setResult(null);
         setConfirmation(null);
         setNotice(null);
+        setConfirmingHonor(false);
       }
     } else if (!photoUri) {
       setEncounterHint(undefined);
@@ -256,9 +258,16 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
           <Text style={styles.targetLabel}>Target encounter</Text>
           <Text style={styles.targetName}>{encounterHint.comName}</Text>
         </View>
-        <Pressable accessibilityLabel={`Honor log ${encounterHint.comName}`} disabled={saving} style={[styles.honorButton, saving && styles.disabledButton]} onPress={() => void quickLogEncounter()}>
+        <Pressable accessibilityLabel={`Honor log ${encounterHint.comName}`} disabled={saving} style={[styles.honorButton, saving && styles.disabledButton]} onPress={() => setConfirmingHonor(true)}>
           <Text style={styles.honorButtonText}>{saving ? "Logging…" : "I saw it"}</Text>
         </Pressable>
+      </View>}
+      {!photoUri && encounterHint && confirmingHonor && <View style={styles.honorConfirm}>
+        <Text style={styles.honorConfirmText}>Log {encounterHint.comName} without a photo?</Text>
+        <View style={styles.honorConfirmActions}>
+          <Pressable accessibilityRole="button" style={styles.honorCancel} onPress={() => setConfirmingHonor(false)}><Text style={styles.honorCancelText}>Cancel</Text></Pressable>
+          <Pressable accessibilityRole="button" disabled={saving} style={[styles.honorConfirmButton, saving && styles.disabledButton]} onPress={() => { setConfirmingHonor(false); void quickLogEncounter(); }}><Text style={styles.honorConfirmButtonText}>{saving ? "Logging…" : "Log sighting"}</Text></Pressable>
+        </View>
       </View>}
       {!photoUri && permission?.granted && <Pressable style={styles.shutter} onPress={() => void takePhoto()}><Text style={styles.shutterText}>●</Text></Pressable>}
       {photoUri && <View style={styles.buttonRow}><Pressable style={[styles.button, styles.flexButton]} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); setSavedPhotoUri(null); }}><Text style={styles.buttonText}>Try another</Text></Pressable><Pressable style={[styles.secondaryDark, styles.flexButton]} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Library</Text></Pressable></View>}
@@ -328,6 +337,13 @@ const styles = StyleSheet.create({
   targetName: { color: "#fff", fontSize: 16, fontWeight: "800", marginTop: 1 },
   honorButton: { minHeight: 38, paddingHorizontal: 12, borderRadius: 19, backgroundColor: "#f2cf5b", alignItems: "center", justifyContent: "center" },
   honorButtonText: { color: "#263019", fontSize: 12, fontWeight: "900" },
+  honorConfirm: { position: "absolute", left: 20, right: 20, bottom: 112, zIndex: 5, maxWidth: 390, borderRadius: 14, backgroundColor: "#17281f", borderWidth: 1, borderColor: "#577457", padding: 12, gap: 10 },
+  honorConfirmText: { color: "#e5f0e7", fontSize: 14, fontWeight: "700", textAlign: "center" },
+  honorConfirmActions: { flexDirection: "row", gap: 8 },
+  honorCancel: { flex: 1, minHeight: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "#294232" },
+  honorCancelText: { color: "#d7e8da", fontWeight: "800" },
+  honorConfirmButton: { flex: 1, minHeight: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "#f2cf5b" },
+  honorConfirmButtonText: { color: "#263019", fontWeight: "900" },
   confirmation: { color: "#bde8c9", fontWeight: "700", textAlign: "center" },
   notice: { color: "#ffd0a8", fontWeight: "700", textAlign: "center" },
 });
