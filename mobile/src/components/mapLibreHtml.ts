@@ -345,7 +345,7 @@ export function buildMapLibreHtml(): string {
         if (!a || !b) return null;
         var radians = Math.PI / 180;
         var dLat = (b.latitude - a.latitude) * radians;
-        var dLng = (b.longitude - a.longitude) * radians;
+        var dLng = (((b.longitude - a.longitude) + 540) % 360 - 180) * radians;
         var lat1 = a.latitude * radians;
         var lat2 = b.latitude * radians;
         var value = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -1030,6 +1030,7 @@ export function buildMapLibreHtml(): string {
       function startTrack(bird) {
         if (currentPopup) currentPopup.remove();
         trackId = bird.id;
+        renderBirdMarkers(latestMarkers);
         postOutward({ type: 'tracking', open: true });
         follow = true;
         clearRoute();
@@ -1334,6 +1335,83 @@ export function buildMapLibreHtml(): string {
       map.on('rotate', scheduleArrow);
       map.on('pitch', scheduleArrow);
 
+
+      function renderBirdMarkers(markers) {
+        birdMarkers.forEach(function (marker) { marker.remove(); });
+        birdMarkers = [];
+        var zoom = map.getZoom();
+        var minSpacing = zoom >= 15 ? 24 : zoom >= 13 ? 42 : 58;
+        var maxMarkers = zoom >= 15 ? 160 : zoom >= 13 ? 80 : 45;
+        var viewportWidth = map.getContainer().clientWidth || 0;
+        var viewportHeight = map.getContainer().clientHeight || 0;
+        var centerLng = map.getCenter().lng;
+        function wrappedLongitude(longitude) {
+          return (((longitude - centerLng) + 540) % 360 - 180) + centerLng;
+        }
+        function markerScore(bird) {
+          var distance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
+          return (distance == null ? 999 : distance) - (bird.isNotable ? 0.35 : 0) - (bird.captureCount ? 0.1 : 0);
+        }
+        var sorted = (markers || []).slice().sort(function (left, right) {
+          var leftTracked = trackId && String(left.id) === String(trackId) ? 0 : 1;
+          var rightTracked = trackId && String(right.id) === String(trackId) ? 0 : 1;
+          if (leftTracked !== rightTracked) return leftTracked - rightTracked;
+          var leftRange = lastUserLocation && haversineKm(lastUserLocation, left) != null && haversineKm(lastUserLocation, left) <= 0.18 ? 0 : 1;
+          var rightRange = lastUserLocation && haversineKm(lastUserLocation, right) != null && haversineKm(lastUserLocation, right) <= 0.18 ? 0 : 1;
+          if (leftRange !== rightRange) return leftRange - rightRange;
+          return markerScore(left) - markerScore(right);
+        });
+        var edgeMargin = 30;
+        var candidates = sorted.map(function (bird) {
+          var isTracked = trackId && String(bird.id) === String(trackId);
+          var displayLng = wrappedLongitude(bird.longitude);
+          var point = map.project([displayLng, bird.latitude]);
+          var centerVisible = point.x >= 0 && point.x <= viewportWidth && point.y >= 0 && point.y <= viewportHeight;
+          var partiallyVisible = point.x >= -edgeMargin && point.x <= viewportWidth + edgeMargin
+            && point.y >= -edgeMargin && point.y <= viewportHeight + edgeMargin;
+          return { bird: bird, point: point, isTracked: isTracked, centerVisible: centerVisible, partiallyVisible: partiallyVisible };
+        });
+        var ordered = candidates.filter(function (entry) { return entry.isTracked || entry.centerVisible; })
+          .concat(candidates.filter(function (entry) { return !entry.isTracked && !entry.centerVisible && entry.partiallyVisible; }));
+        var chosen = [];
+        var chosenPoints = [];
+        for (var index = 0; index < ordered.length && chosen.length < maxMarkers; index += 1) {
+          var entry = ordered[index];
+          if (!entry.partiallyVisible && !entry.isTracked) continue;
+          var crowded = false;
+          if (!entry.isTracked) {
+            for (var pointIndex = 0; pointIndex < chosenPoints.length; pointIndex += 1) {
+              var dx = entry.point.x - chosenPoints[pointIndex].x;
+              var dy = entry.point.y - chosenPoints[pointIndex].y;
+              if (Math.sqrt(dx * dx + dy * dy) < minSpacing) {
+                crowded = true;
+                break;
+              }
+            }
+          }
+          if (crowded) continue;
+          chosen.push(entry.bird);
+          chosenPoints.push(entry.point);
+        }
+        chosen.forEach(function (bird) {
+          var element = document.createElement('div');
+          var distance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
+          var inRange = distance != null && distance <= 0.18;
+          element.className = 'bird-marker' + (bird.isNotable ? ' notable' : '') + (inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
+          element.innerHTML = markerInnerHtml(bird);
+          var marker = new maplibregl.Marker({ element: element })
+            .setLngLat([wrappedLongitude(bird.longitude), bird.latitude])
+            .addTo(map);
+          element.style.pointerEvents = 'auto';
+          element.onclick = function (event) {
+            event.stopPropagation();
+            openBirdPopup(bird);
+          };
+          marker._birdgoBird = bird;
+          birdMarkers.push(marker);
+        });
+      }
+
       function render(data) {
         if (!data || !data.center) return;
         applySafeArea(data.safeArea);
@@ -1453,24 +1531,7 @@ export function buildMapLibreHtml(): string {
           }
         }
         if (trackId) updateRoute();
-        birdMarkers.forEach(function (marker) { marker.remove(); });
-        birdMarkers = [];
-        (data.markers || []).forEach(function (bird) {
-          var element = document.createElement('div');
-          var inRange = lastUserLocation && haversineKm(lastUserLocation, bird) != null && haversineKm(lastUserLocation, bird) <= 0.18;
-          element.className = 'bird-marker' + (bird.isNotable ? ' notable' : '') + (inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
-          element.innerHTML = markerInnerHtml(bird);
-          var marker = new maplibregl.Marker({ element: element })
-            .setLngLat([bird.longitude, bird.latitude])
-            .addTo(map);
-          element.style.pointerEvents = 'auto';
-          element.onclick = function (event) {
-            event.stopPropagation();
-            openBirdPopup(bird);
-          };
-          marker._birdgoBird = bird;
-          birdMarkers.push(marker);
-        });
+        renderBirdMarkers(data.markers || []);
         if (data.userLocation) {
           if (!userElement) {
             userElement = document.createElement('div');
@@ -1500,6 +1561,7 @@ export function buildMapLibreHtml(): string {
       }
 
       map.on('moveend', function () {
+        if (latestMarkers.length) renderBirdMarkers(latestMarkers);
         if (!userGesture || programmaticCameraMove || programmatic) {
           programmaticCameraMove = false;
           clearTimeout(moveTimer);
