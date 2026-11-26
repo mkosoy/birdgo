@@ -189,6 +189,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
       });
     });
     const species = [...unique.values()];
+    let cancelled = false;
     const persist = async () => {
       try {
         const canonical = await canonicalizeSpecies(species.map((item) => ({
@@ -196,16 +197,18 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
           comName: item.comName,
           sciName: item.sciName,
         })));
+        if (cancelled) return;
         await saveSeen(species.map((item, index) => ({
           ...item,
           sciName: canonical[index]?.canonicalSciName ?? item.sciName,
           canonicalKey: canonical[index]?.canonicalKey,
         })), loadedArea);
       } catch {
-        await saveSeen(species, loadedArea);
+        if (!cancelled) await saveSeen(species, loadedArea);
       }
     };
     void persist();
+    return () => { cancelled = true; };
   }, [birds, loadedArea, saveSeen]);
 
   useEffect(() => {

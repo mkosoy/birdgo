@@ -11,6 +11,7 @@ const XP_BANK_KEY = "birdgo.xp-bank";
 const XP_MIGRATION_KEY = "birdgo.xp-migrated-v2";
 const DISCOVERED_KEY = "birdgo.discovered-species";
 const SEEN_SCOPE_KM = 25;
+let seenWriteVersion = 0;
 
 interface XpEvent {
   captureId: string;
@@ -169,6 +170,7 @@ export async function listSeenSpecies(): Promise<SeenSpecies[]> {
 }
 
 export async function markSeenSpecies(species: SeenSpecies[], area: Coordinates): Promise<void> {
+  const writeVersion = ++seenWriteVersion;
   const existing = await listSeenSpecies();
   const previousAreaRaw = await AsyncStorage.getItem(SEEN_AREA_KEY);
   const previousArea = previousAreaRaw ? JSON.parse(previousAreaRaw) as Coordinates : undefined;
@@ -180,6 +182,7 @@ export async function markSeenSpecies(species: SeenSpecies[], area: Coordinates)
   );
   const current = new Map(retained.map((item) => [item.speciesCode, item]));
   species.forEach((item) => current.set(item.speciesCode, { ...item, location: area }));
+  if (writeVersion !== seenWriteVersion) return;
   await Promise.all([
     AsyncStorage.setItem(SEEN_KEY, JSON.stringify([...current.values()])),
     AsyncStorage.setItem(SEEN_AREA_KEY, JSON.stringify(area)),
