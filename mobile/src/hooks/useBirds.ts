@@ -79,12 +79,21 @@ export function useBirds(latitude: number, longitude: number) {
         })));
         if (currentRequest !== requestId.current) return;
         const bySpeciesCode = new Map(inputs.map((bird, index) => [bird.speciesCode, canonical[index]]));
+        const canonicalByScientific = new Map<string, string>();
+        inputs.forEach((bird, index) => {
+          const identity = canonical[index];
+          if (!identity?.canonicalKey) return;
+          [bird.sciName, identity.canonicalSciName].forEach((name) => {
+            const normalized = normalizedIdentity(name);
+            if (normalized && !canonicalByScientific.has(normalized)) canonicalByScientific.set(normalized, identity.canonicalKey ?? "");
+          });
+        });
         const annotate = (bird: EbirdObservation): EbirdObservation => {
           const identity = bySpeciesCode.get(bird.speciesCode);
           return {
             ...bird,
             sciName: identity?.canonicalSciName ?? bird.sciName,
-            canonicalKey: identity?.canonicalKey,
+            canonicalKey: identity?.canonicalKey ?? canonicalByScientific.get(normalizedIdentity(bird.sciName)),
           };
         };
         const canonicalMergedBirds = frequencyMergedBirds.map(annotate);
