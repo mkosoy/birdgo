@@ -115,7 +115,9 @@ app.post("/api/identify", async (request, response) => {
     response.status(400).json({ error: "imageBase64 is required", status: 400 });
     return;
   }
-  const validHints = Array.isArray(hints) ? hints.filter((hint): hint is string => typeof hint === "string") : [];
+  const validHints = Array.isArray(hints)
+    ? hints.filter((hint): hint is string => typeof hint === "string").map((hint) => hint.trim().slice(0, 120)).filter(Boolean).slice(0, 5)
+    : [];
   try {
     response.json(await identifyBird(imageBase64, validHints, provider, {
       huggingface: process.env.HUGGINGFACE_API_KEY,
