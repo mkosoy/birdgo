@@ -46,13 +46,14 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
   }, [hint, photoUri]);
 
   const processPhoto = async (uri: string, base64?: string | null) => {
+    setEncounterHint(hint);
     setPhotoUri(uri);
     setConfirmation(null);
     setNotice(null);
     setBusy(true);
     try {
       const encoded = base64 ?? await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-      setResult(await identifyBird(encoded, encounterHint?.comName ? [encounterHint.comName] : []));
+      setResult(await identifyBird(encoded, hint?.comName ? [hint.comName] : []));
     } catch {
       setNotice("Identification unavailable. Check your connection and try again.");
     } finally {
