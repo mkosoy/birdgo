@@ -6,7 +6,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import * as FileSystem from "expo-file-system";
 import { useFocusEffect } from "@react-navigation/native";
-import { identifyBird } from "../api";
+import { canonicalizeSpecies, identifyBird } from "../api";
 import { SF_COORDS } from "../config";
 import { useCollection } from "../hooks/useCollection";
 import type { Coordinates } from "../types";
@@ -122,7 +122,23 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
         const current = await Location.getCurrentPositionAsync({});
         location = { latitude: current.coords.latitude, longitude: current.coords.longitude };
       } catch { /* SF fallback is intentional */ }
-      const contextSpecies = speciesContext();
+      let contextSpecies = speciesContext();
+      if (contextSpecies && !contextSpecies.canonicalKey) {
+        try {
+          const [canonical] = await canonicalizeSpecies([{
+            speciesCode: contextSpecies.speciesCode,
+            comName: contextSpecies.comName,
+            sciName: contextSpecies.sciName,
+          }]);
+          if (canonical?.canonicalKey) {
+            contextSpecies = {
+              ...contextSpecies,
+              sciName: canonical.canonicalSciName ?? contextSpecies.sciName,
+              canonicalKey: canonical.canonicalKey,
+            };
+          }
+        } catch { /* Saving still works with legacy identity fallback. */ }
+      }
       const commonName = contextSpecies?.comName ?? result.commonName ?? "Unidentified bird";
       const canonicalKey = contextSpecies?.canonicalKey ?? result.canonicalKey;
       const sciName = contextSpecies?.canonicalKey
