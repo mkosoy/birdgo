@@ -1190,7 +1190,9 @@ export function buildMapLibreHtml(): string {
         var virtual = Boolean(bird.virtual);
         var statusCopy = virtual ? 'Virtual learning encounter' : 'Past sighting · ' + escapeHtml(bird.relativeTime || 'recently');
         var captureCopy = virtual
-          ? 'A habitat-plausible Skyfriend. Collecting it builds your virtual field guide — it never counts as a real bird.'
+          ? distance != null && distance > 0.06
+            ? 'A habitat-plausible Skyfriend. Move within 60m to collect it for your virtual field guide — it never counts as a real bird.'
+            : 'Close enough! Collecting this Skyfriend builds your virtual field guide — it never counts as a real bird.'
           : bird.captureCount
             ? 'Already collected ×' + bird.captureCount + ' — recaptures still earn XP.'
             : 'Not collected yet — capture it to add it to your Bird-dex.';
@@ -1368,8 +1370,8 @@ export function buildMapLibreHtml(): string {
           var leftTracked = trackId && String(left.id) === String(trackId) ? 0 : 1;
           var rightTracked = trackId && String(right.id) === String(trackId) ? 0 : 1;
           if (leftTracked !== rightTracked) return leftTracked - rightTracked;
-          var leftRange = lastUserLocation && haversineKm(lastUserLocation, left) != null && haversineKm(lastUserLocation, left) <= 0.18 ? 0 : 1;
-          var rightRange = lastUserLocation && haversineKm(lastUserLocation, right) != null && haversineKm(lastUserLocation, right) <= 0.18 ? 0 : 1;
+          var leftRange = lastUserLocation && haversineKm(lastUserLocation, left) != null && haversineKm(lastUserLocation, left) <= 0.06 ? 0 : 1;
+          var rightRange = lastUserLocation && haversineKm(lastUserLocation, right) != null && haversineKm(lastUserLocation, right) <= 0.06 ? 0 : 1;
           if (leftRange !== rightRange) return leftRange - rightRange;
           return markerScore(left) - markerScore(right);
         });
@@ -1408,7 +1410,7 @@ export function buildMapLibreHtml(): string {
         chosen.forEach(function (bird) {
           var element = document.createElement('div');
           var distance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
-          var inRange = distance != null && distance <= 0.18;
+          var inRange = distance != null && distance <= 0.06;
           element.className = 'bird-marker' + (bird.virtual ? ' virtual' : '') + (bird.isNotable ? ' notable' : '') + (inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
           element.innerHTML = markerInnerHtml(bird);
           var marker = new maplibregl.Marker({ element: element })

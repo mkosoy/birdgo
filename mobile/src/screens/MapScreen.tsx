@@ -12,7 +12,7 @@ import { useBirds } from "../hooks/useBirds";
 import { useCollection } from "../hooks/useCollection";
 import type { Coordinates, EbirdObservation, SeenSpecies } from "../types";
 import { rarityForSpecies, speciesKeyAliases } from "../utils/progression";
-import { buildSkyfriendSpawns, distanceKm, loadSkyfriendSpecies, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKey } from "../utils/skyfriends";
+import { buildSkyfriendSpawns, distanceKm, loadSkyfriendSpecies, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKey } from "../utils/skyfriends";
 
 type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string };
 let persistentTrackTarget: TrackTarget | undefined;
@@ -125,7 +125,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     if (collectingSkyfriends.current.has(encounterId)) return;
     collectingSkyfriends.current.add(encounterId);
     try {
-      if (distanceKm(location, bird) > 0.18) {
+      if (distanceKm(location, bird) > SKYFRIEND_COLLECT_KM) {
         setCompletionNotice("Get closer to collect this Skyfriend.");
         return;
       }

@@ -38,6 +38,7 @@ export function observationMarkerId(bird: Pick<EbirdObservation, "speciesCode" |
 }
 
 const ASSIGNMENTS_KEY = "birdgo.skyfriend-spawn-species-v1";
+export const SKYFRIEND_COLLECT_KM = 0.06;
 
 export function skyfriendCellKey(userLocation: Coordinates, now = new Date()): string {
   const cellSize = 0.004;
@@ -104,7 +105,7 @@ export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation
     if (!selected) continue;
     usedSpecies.add(selected.bird.speciesCode);
     const bearing = hash(`${seed}:bearing`) % 360;
-    const distance = 45 + (hash(`${seed}:distance`) % 115);
+    const distance = 80 + (hash(`${seed}:distance`) % 160);
     const coordinates = destination(userLocation, bearing, distance);
     const locId = `skyfriend-${gridLat}-${gridLng}-${day}-${selected.bird.speciesCode}-${index}`;
     spawns.push({
