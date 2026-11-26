@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dimensions, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
+import { Dimensions, PanResponder, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import type { BirdRarity, EbirdObservation } from "../types";
 import { RARITY_COLORS, rarityForSpecies } from "../utils/progression";
@@ -182,6 +182,24 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
     };
   }, [difficulty, finish, phase, scopeRadius, seed]);
 
+  useEffect(() => {
+    if (phase !== "playing" || Platform.OS !== "web") return undefined;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const step = event.shiftKey ? 16 : 8;
+      const key = event.key.toLowerCase();
+      const dx = key === "arrowleft" || key === "a" ? -step : key === "arrowright" || key === "d" ? step : 0;
+      const dy = key === "arrowup" || key === "w" ? -step : key === "arrowdown" || key === "s" ? step : 0;
+      if (!dx && !dy) return;
+      event.preventDefault();
+      panRef.current = {
+        x: clamp(panRef.current.x + dx, -112, 112),
+        y: clamp(panRef.current.y + dy, -112, 112),
+      };
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [phase]);
+
   const panResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
@@ -228,7 +246,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
           </View>
           <View style={[styles.rarityPill, { backgroundColor: rarityColor }]}><Text style={styles.rarityText}>{rarity.toUpperCase()} SKYFRIEND</Text></View>
           <Text style={styles.introHeading}>Spot it through the binoculars.</Text>
-          <Text style={styles.introCopy}>Drag anywhere inside the scope to keep the holographic bird inside the focus ring. Fill the focus meter before time runs out, or it slips away for a while.</Text>
+          <Text style={styles.introCopy}>Drag anywhere inside the scope{Platform.OS === "web" ? " or use the arrow keys" : ""} to keep the holographic bird inside the focus ring. Fill the focus meter before time runs out, or it slips away for a while.</Text>
           <Text style={styles.difficultyCopy}>{difficulty.copy} · {difficulty.focusSeconds.toFixed(1)} seconds of clean focus needed</Text>
           <Pressable accessibilityLabel="Start Skyfriend watch" style={styles.primaryButton} onPress={startWatch}><Text style={styles.primaryButtonText}>Start watching</Text></Pressable>
           <Pressable accessibilityLabel="Not now" style={styles.secondaryButton} onPress={onClose}><Text style={styles.secondaryButtonText}>Not now</Text></Pressable>
@@ -255,7 +273,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
             <View style={styles.meterTrack}><View style={[styles.meterFill, { width: `${Math.round(frame.focus * 100)}%` }]} /></View>
             <Text style={styles.meterLabel}>Focus {Math.round(frame.focus * 100)}%</Text>
           </View>
-          <Text style={styles.playInstructions}>{frame.intensified ? "It’s startled — stay smooth and don’t overcorrect." : "Drag inside the scope. Small steady movements work better than chasing wildly."}</Text>
+          <Text style={styles.playInstructions}>{frame.intensified ? "It’s startled — stay smooth and don’t overcorrect." : Platform.OS === "web" ? "Drag inside the scope or steer with arrow keys. Small steady movements work best." : "Drag inside the scope. Small steady movements work better than chasing wildly."}</Text>
         </>
       )}
 
