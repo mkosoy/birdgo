@@ -33,6 +33,7 @@ cp package.json "$package_backup"
 restore_package_json() {
     if [[ -f "$package_backup" ]]; then
         cp "$package_backup" package.json
+        rm -f "$package_backup"
     fi
 }
 trap 'restore_package_json; rm -rf -- "$private_dir"' EXIT
