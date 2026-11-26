@@ -73,7 +73,7 @@ export interface CaptureRecord {
   commonName: string;
   sciName?: string | null;
   canonicalKey?: string;
-  photoUri: string;
+  photoUri?: string;
   timestamp: string;
   location: Coordinates;
   rarity?: BirdRarity;

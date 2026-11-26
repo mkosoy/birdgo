@@ -199,13 +199,13 @@ export function DexScreen() {
             <Text style={styles.detailTitle}>{selected ? displayName(selected) : ""}</Text>
             <Text style={styles.detailScientific}>{selected?.identified === false ? "Species unknown" : selected?.sciName ?? "Scientific name unknown"}</Text>
             <View style={styles.detailStats}>
-              <Text style={styles.detailStat}>{selected?.identified === false ? "Unverified photo" : `${selected ? rarityLabel(selected) : ""} encounter`}</Text>
+              <Text style={styles.detailStat}>{selected?.identified === false ? "Unverified photo" : selectedCapture && !selectedCapture.photoUri && !selectedCapture.verified ? "Honor-system sighting" : `${selected ? rarityLabel(selected) : ""} encounter`}</Text>
               <Text style={styles.detailStat}>{selected?.capturedCount ? `Captured ×${selected.capturedCount}` : "Seen nearby"}</Text>
               {selected?.firstCapturedAt && <Text style={styles.detailStat}>First captured {shortDate(selected.firstCapturedAt)}</Text>}
               {coordinates && <Text style={styles.detailStat}>{coordinates}</Text>}
             </View>
             {selectedCapture?.photoUri && <Image source={{ uri: selectedCapture.photoUri }} style={styles.detailPhoto} />}
-            <Text style={styles.detailCopy}>{selected?.identified === false ? "This photo is kept as an unverified observation record and does not count as a collected species." : "The 3D bird is a stylized encounter model; your photo remains the real observation record."}</Text>
+            <Text style={styles.detailCopy}>{selected?.identified === false ? "This photo is kept as an unverified observation record and does not count as a collected species." : selectedCapture && !selectedCapture.photoUri && !selectedCapture.verified ? "Logged by the honor system without a photo. Add a real photo later to make this a stronger personal record." : "The 3D bird is a stylized encounter model; your photo remains the real observation record."}</Text>
             <View style={styles.detailActions}>
               <Pressable accessibilityRole="button" style={styles.modalKeep} onPress={() => setSelected(undefined)}><Text>Close</Text></Pressable>
               {selected?.capturedCount ? <Pressable accessibilityRole="button" style={styles.modalRelease} onPress={() => release(selected)}><Text style={styles.modalReleaseText}>Release</Text></Pressable> : null}
