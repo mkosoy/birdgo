@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StyleSheet, View } from "react-native";
 import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -9,6 +10,7 @@ import { MapScreen } from "./src/screens/MapScreen";
 import { CaptureScreen } from "./src/screens/CaptureScreen";
 import { DexScreen } from "./src/screens/DexScreen";
 import type { SeenSpecies } from "./src/types";
+import { OnboardingModal } from "./src/components/OnboardingModal";
 
 type Tabs = { Map: undefined; Capture: { hint?: SeenSpecies } | undefined; "Bird-dex": undefined };
 const Tab = createBottomTabNavigator<Tabs>();
@@ -22,7 +24,25 @@ function AppTabs() {
   const [targetCapture, setTargetCapture] = useState<{ speciesCode?: string; commonName: string; sciName?: string | null; encounterId?: string; timestamp: number } | undefined>();
   const insets = useSafeAreaInsets();
   const navigationRef = useNavigationContainerRef<Tabs>();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem("birdgo.onboarding-v1").then((seen) => {
+      if (active && !seen) setShowOnboarding(true);
+    }).catch(() => {
+      if (active) setShowOnboarding(true);
+    });
+    return () => { active = false; };
+  }, []);
+
+  const completeOnboarding = () => {
+    setShowOnboarding(false);
+    void AsyncStorage.setItem("birdgo.onboarding-v1", "1").catch(() => undefined);
+  };
+
   return (
+    <>
     <NavigationContainer ref={navigationRef}>
       <Tab.Navigator screenOptions={({ route }) => ({
         headerShown: false,
@@ -53,6 +73,8 @@ function AppTabs() {
         <Tab.Screen name="Bird-dex" component={DexScreen} />
       </Tab.Navigator>
     </NavigationContainer>
+    <OnboardingModal visible={showOnboarding} onDone={completeOnboarding} />
+    </>
   );
 }
 
