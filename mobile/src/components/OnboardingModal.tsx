@@ -23,7 +23,7 @@ const STEPS = [
 ];
 
 export function OnboardingModal({ visible, onDone }: { visible: boolean; onDone: () => void }) {
-  return <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
+  return <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onDone}>
     <View style={styles.backdrop}>
       <View style={styles.card}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
