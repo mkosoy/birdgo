@@ -99,7 +99,7 @@ app.get("/api/birds/recent", async (request, response) => {
         `/data/obs/geo/recent?lat=${lat}&lng=${lng}&dist=${dist}&back=${back}`,
         token,
       ),
-      fetchInatBirds(lat, lng, dist),
+      fetchInatBirds(lat, lng, dist, back),
     ]);
     if (ebirdResult.status === "rejected" && inatResult.status === "rejected") {
       handleEbirdError(ebirdResult.reason, response);

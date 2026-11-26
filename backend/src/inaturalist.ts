@@ -50,7 +50,9 @@ export async function fetchInatBirds(
   lat: number,
   lng: number,
   radiusKm: number,
+  backDays = 14,
 ): Promise<EbirdObservation[]> {
+  const startDate = new Date(Date.now() - backDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const params = new URLSearchParams({
     taxon_id: "3",
     lat: String(lat),
@@ -62,6 +64,7 @@ export async function fetchInatBirds(
     photos: "true",
     geo: "true",
     geoprivacy: "open",
+    d1: startDate,
   });
   params.append("rank", "species");
   params.append("rank", "subspecies");
