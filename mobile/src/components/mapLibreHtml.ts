@@ -1337,8 +1337,8 @@ export function buildMapLibreHtml(): string {
         birdMarkers.forEach(function (marker) { marker.remove(); });
         birdMarkers = [];
         var zoom = map.getZoom();
-        var minSpacing = zoom >= 15 ? 24 : zoom >= 13 ? 42 : 58;
-        var maxMarkers = zoom >= 15 ? 160 : zoom >= 13 ? 80 : 45;
+        var minSpacing = zoom >= 15 ? 34 : zoom >= 13 ? 54 : 72;
+        var maxMarkers = zoom >= 15 ? 48 : zoom >= 13 ? 24 : 12;
         var viewportWidth = map.getContainer().clientWidth || 0;
         var viewportHeight = map.getContainer().clientHeight || 0;
         var centerLng = map.getCenter().lng;
