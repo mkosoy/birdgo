@@ -65,8 +65,8 @@ export function buildBird3dHtml(options: Bird3DOptions): string {
       };
       var lowerName = (config.commonName || '').toLowerCase();
       var speciesKind = /heron|egret|crane|bittern/.test(lowerName) ? 'wader'
-        : /owl/.test(lowerName) ? 'owl'
-        : /hawk|eagle|falcon|osprey|kite|harrier/.test(lowerName) ? 'raptor'
+        : /\bowl/.test(lowerName) ? 'owl'
+        : /\bhawk|eagle|falcon|osprey|kite|harrier/.test(lowerName) ? 'raptor'
         : /duck|goose|mallard|teal|merganser/.test(lowerName) ? 'waterfowl'
         : /hummingbird/.test(lowerName) ? 'hummingbird'
         : /woodpecker|flicker|sapsucker/.test(lowerName) ? 'woodpecker'
