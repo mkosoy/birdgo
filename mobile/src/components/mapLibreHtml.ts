@@ -609,6 +609,10 @@ export function buildMapLibreHtml(): string {
       function firstPersonPadding() {
         var height = map.getContainer().clientHeight || 600;
         var targetY = height * 0.68;
+        if (panelState === 'half' && !nearbyPanel.classList.contains('tracking')) {
+          var nearbyTop = nearbyPanel.getBoundingClientRect().top;
+          if (nearbyTop > 0) targetY = Math.min(targetY, nearbyTop - 24);
+        }
         if (routePanel.classList.contains('on')) {
           var routeTop = routePanel.getBoundingClientRect().top;
           if (routeTop > 0) targetY = Math.min(targetY, routeTop - 24);
@@ -1210,6 +1214,7 @@ export function buildMapLibreHtml(): string {
         nearbyTitle.textContent = nearbyTitleText(lastNearbyCount);
         updateAttributionVisibility();
         scheduleNearbyGeometry();
+        if (headingFollow) map.easeTo({ padding: firstPersonPadding(), duration: 220 });
       }
       var dragStartY = null;
       nearbyHandle.addEventListener('pointerdown', function (event) {
