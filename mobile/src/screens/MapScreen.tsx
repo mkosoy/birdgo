@@ -74,10 +74,10 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   }, [targetCapture, activeTrackTarget]);
 
   useEffect(() => {
-    if (!completionNotice) return;
+    if (!completionNotice || !isFocused) return;
     const timeout = setTimeout(() => setCompletionNotice(null), 6000);
     return () => clearTimeout(timeout);
-  }, [completionNotice]);
+  }, [completionNotice, isFocused]);
 
   useEffect(() => {
     if (isFocused && !wasFocused.current && activeTrackTarget) setTrackRequest({ ...activeTrackTarget });
