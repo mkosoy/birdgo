@@ -1691,6 +1691,7 @@ export function buildMapLibreHtml(): string {
             userElement = document.createElement('div');
             userElement.className = 'user-marker';
             userElement.style.zIndex = '30';
+            userElement.style.pointerEvents = 'none';
             userElement.innerHTML = personGlyph(data.trainer);
             userMarker = new maplibregl.Marker({ element: userElement })
               .setLngLat([data.userLocation.longitude, data.userLocation.latitude])
