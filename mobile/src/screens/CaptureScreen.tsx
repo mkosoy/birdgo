@@ -173,7 +173,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
         </View>
       </View>}
       {!photoUri && permission?.granted && <Pressable style={styles.shutter} onPress={() => void takePhoto()}><Text style={styles.shutterText}>●</Text></Pressable>}
-      {photoUri && <View style={styles.buttonRow}><Pressable style={[styles.button, styles.flexButton]} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); setEncounterHint(undefined); setSavedPhotoUri(null); onHintConsumed?.(); }}><Text style={styles.buttonText}>Try another</Text></Pressable><Pressable style={[styles.secondaryDark, styles.flexButton]} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Library</Text></Pressable></View>}
+      {photoUri && <View style={styles.buttonRow}><Pressable style={[styles.button, styles.flexButton]} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); setSavedPhotoUri(null); }}><Text style={styles.buttonText}>Try another</Text></Pressable><Pressable style={[styles.secondaryDark, styles.flexButton]} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Library</Text></Pressable></View>}
       {busy && <ActivityIndicator color="#fff" />}
       {result && !busy && <View style={styles.result}>
         {(result.isBird || contextSpecies) ? <Bird3DPreview commonName={resultName} rarity={resultRarity} height={118} /> : null}
