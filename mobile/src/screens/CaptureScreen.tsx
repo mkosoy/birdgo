@@ -117,6 +117,56 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
     return encounterMatches ? encounterHint ?? resultMatches : resultMatches;
   };
 
+  const quickLogEncounter = async () => {
+    if (!encounterHint || saving) return;
+    setSaving(true);
+    setConfirmation(null);
+    setNotice(null);
+    try {
+      let location: Coordinates = SF_COORDS;
+      try {
+        const current = await Location.getCurrentPositionAsync({});
+        location = { latitude: current.coords.latitude, longitude: current.coords.longitude };
+      } catch { /* SF fallback is intentional */ }
+      let contextSpecies = encounterHint;
+      if (!contextSpecies.canonicalKey) {
+        try {
+          const [canonical] = await canonicalizeSpecies([{
+            speciesCode: contextSpecies.speciesCode,
+            comName: contextSpecies.comName,
+            sciName: contextSpecies.sciName,
+          }]);
+          if (canonical?.canonicalKey) {
+            contextSpecies = {
+              ...contextSpecies,
+              sciName: canonical.canonicalSciName ?? contextSpecies.sciName,
+              canonicalKey: canonical.canonicalKey,
+            };
+          }
+        } catch { /* Saving still works with legacy identity fallback. */ }
+      }
+      const rarity = rarityForSpecies(contextSpecies.speciesCode, contextSpecies.comName, contextSpecies.isNotable, contextSpecies.sciName, contextSpecies.canonicalKey, contextSpecies.frequency, contextSpecies.abundanceCount);
+      const record = await saveCapture({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        speciesCode: contextSpecies.speciesCode,
+        commonName: contextSpecies.comName,
+        sciName: contextSpecies.sciName,
+        canonicalKey: contextSpecies.canonicalKey,
+        timestamp: new Date().toISOString(),
+        location,
+        rarity,
+        verified: false,
+      });
+      onCaptureSaved?.({ speciesCode: contextSpecies.speciesCode, commonName: contextSpecies.comName, sciName: contextSpecies.sciName, encounterId: contextSpecies.encounterId });
+      setConfirmation(`${contextSpecies.comName} honor-logged in your Bird-dex. +${record.xpAwarded ?? 0} XP.`);
+      onHintConsumed?.();
+    } catch {
+      setNotice("Could not save this honor log. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const addToCollection = async () => {
     if (!result || !photoUri || saving || savedPhotoUri === photoUri) return;
     setSaving(true);
@@ -206,6 +256,9 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
           <Text style={styles.targetLabel}>Target encounter</Text>
           <Text style={styles.targetName}>{encounterHint.comName}</Text>
         </View>
+        <Pressable accessibilityLabel={`Honor log ${encounterHint.comName}`} disabled={saving} style={[styles.honorButton, saving && styles.disabledButton]} onPress={() => void quickLogEncounter()}>
+          <Text style={styles.honorButtonText}>{saving ? "Logging…" : "I saw it"}</Text>
+        </Pressable>
       </View>}
       {!photoUri && permission?.granted && <Pressable style={styles.shutter} onPress={() => void takePhoto()}><Text style={styles.shutterText}>●</Text></Pressable>}
       {photoUri && <View style={styles.buttonRow}><Pressable style={[styles.button, styles.flexButton]} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); setSavedPhotoUri(null); }}><Text style={styles.buttonText}>Try another</Text></Pressable><Pressable style={[styles.secondaryDark, styles.flexButton]} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Library</Text></Pressable></View>}
@@ -273,6 +326,8 @@ const styles = StyleSheet.create({
   targetCopy: { flex: 1, minWidth: 0 },
   targetLabel: { color: "#9fc7ad", fontSize: 10, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" },
   targetName: { color: "#fff", fontSize: 16, fontWeight: "800", marginTop: 1 },
+  honorButton: { minHeight: 38, paddingHorizontal: 12, borderRadius: 19, backgroundColor: "#f2cf5b", alignItems: "center", justifyContent: "center" },
+  honorButtonText: { color: "#263019", fontSize: 12, fontWeight: "900" },
   confirmation: { color: "#bde8c9", fontWeight: "700", textAlign: "center" },
   notice: { color: "#ffd0a8", fontWeight: "700", textAlign: "center" },
 });
