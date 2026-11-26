@@ -120,11 +120,14 @@ export async function canonicalizeSpecies(
   items: SpeciesIdentityInput[],
   token?: string,
 ): Promise<CanonicalSpeciesIdentity[]> {
-  const bounded = items.filter((item): item is SpeciesIdentityInput => Boolean(item) && typeof item === "object").slice(0, 200).map((item) => ({
-    speciesCode: typeof item.speciesCode === "string" ? item.speciesCode.slice(0, 80) : undefined,
-    comName: typeof item.comName === "string" ? item.comName.slice(0, 160) : undefined,
-    commonName: typeof item.commonName === "string" ? item.commonName.slice(0, 160) : undefined,
-    sciName: typeof item.sciName === "string" ? item.sciName.slice(0, 160) : undefined,
-  }));
+  const bounded = items.slice(0, 200).map((raw) => {
+    const item = raw && typeof raw === "object" ? raw : {};
+    return {
+      speciesCode: typeof item.speciesCode === "string" ? item.speciesCode.slice(0, 80) : undefined,
+      comName: typeof item.comName === "string" ? item.comName.slice(0, 160) : undefined,
+      commonName: typeof item.commonName === "string" ? item.commonName.slice(0, 160) : undefined,
+      sciName: typeof item.sciName === "string" ? item.sciName.slice(0, 160) : undefined,
+    };
+  });
   return mapWithConcurrency(bounded, 8, (item) => canonicalizeOne(item, token));
 }
