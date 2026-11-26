@@ -121,11 +121,11 @@ export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation
         entry,
         score: (hash(`${seed}:${entry.bird.speciesCode}`) / 4294967295) * (entry.bird.isNotable
           ? 0.22
-          : (entry.bird.frequency ?? 1) >= 9
+          : (entry.bird.abundanceCount ?? 1) >= 25
             ? 1.15
-            : (entry.bird.frequency ?? 1) >= 6
+            : (entry.bird.abundanceCount ?? 1) >= 5
               ? 0.9
-              : (entry.bird.frequency ?? 1) >= 3
+              : (entry.bird.abundanceCount ?? 1) >= 2
                 ? 0.55
                 : 0.4),
       }))

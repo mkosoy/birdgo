@@ -1,20 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { canonicalizeSpecies, fetchNotableBirds, fetchRecentBirds } from "../api";
-import type { Coordinates, EbirdObservation } from "../types";
+import { canonicalizeSpecies, fetchBirdAbundance, fetchNotableBirds, fetchRecentBirds } from "../api";
+import type { BirdAbundance, Coordinates, EbirdObservation } from "../types";
 
 
 function normalizedIdentity(value?: string | null): string {
   return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
 }
 
-function prevalenceKey(bird: EbirdObservation): string {
-  return normalizedIdentity(bird.canonicalKey) || normalizedIdentity(bird.sciName) || bird.speciesCode.trim().toLowerCase();
+function speciesLevelName(value?: string | null): string {
+  const normalized = normalizedIdentity(value);
+  const parts = normalized.split(" ").filter(Boolean);
+  return parts.length >= 2 ? parts.slice(0, 2).join(" ") : normalized;
 }
 
-function buildPrevalenceAnnotator(allBirds: EbirdObservation[]): (bird: EbirdObservation) => EbirdObservation {
+function prevalenceKey(bird: EbirdObservation): string {
+  return speciesLevelName(bird.sciName) || normalizedIdentity(bird.canonicalKey) || bird.speciesCode.trim().toLowerCase();
+}
+
+function buildPrevalenceAnnotator(allBirds: EbirdObservation[], abundance: BirdAbundance[] | null = null): (bird: EbirdObservation) => EbirdObservation {
   const reportsBySpecies = new Map<string, number>();
   const individualsBySpecies = new Map<string, number>();
   const countedSightings = new Set<string>();
+  const abundanceBySpecies = new Map((abundance ?? []).map((entry) => [speciesLevelName(entry.scientificName), entry.count]));
   allBirds.forEach((bird) => {
     const key = prevalenceKey(bird);
     const locationKey = `${bird.latitude.toFixed(4)}:${bird.longitude.toFixed(4)}`;
@@ -32,6 +39,7 @@ function buildPrevalenceAnnotator(allBirds: EbirdObservation[]): (bird: EbirdObs
       ...bird,
       frequency: reportCount * 2 + Math.log10(individuals + 1) * 2,
       reportCount,
+      ...(abundance ? { abundanceCount: abundanceBySpecies.get(key) ?? 0 } : {}),
     };
   };
 }
@@ -48,9 +56,10 @@ export function useBirds(latitude: number, longitude: number) {
     setLoading(true);
     setError(null);
     try {
-      const [recent, rare] = await Promise.all([
+      const [recent, rare, abundance] = await Promise.all([
         fetchRecentBirds(latitude, longitude),
         fetchNotableBirds(latitude, longitude),
+        fetchBirdAbundance(latitude, longitude).catch(() => null),
       ]);
       const merged = new Map(recent.map((bird) => [`${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`, bird]));
       for (const bird of rare) {
@@ -60,7 +69,7 @@ export function useBirds(latitude: number, longitude: number) {
       if (currentRequest !== requestId.current) return;
       const notableByKey = new Map(rare.map((bird) => [`${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`, bird]));
       const mergedBirds = [...merged.values()];
-      const annotatePrevalence = buildPrevalenceAnnotator(mergedBirds);
+      const annotatePrevalence = buildPrevalenceAnnotator(mergedBirds, abundance);
       const notableBirds = [...notableByKey.values()].map(annotatePrevalence);
       const frequencyMergedBirds = mergedBirds.map(annotatePrevalence);
       setBirds(frequencyMergedBirds);
@@ -98,7 +107,7 @@ export function useBirds(latitude: number, longitude: number) {
         };
         const canonicalMergedBirds = frequencyMergedBirds.map(annotate);
         const canonicalNotableBirds = notableBirds.map(annotate);
-        const annotateCanonicalPrevalence = buildPrevalenceAnnotator(canonicalMergedBirds);
+        const annotateCanonicalPrevalence = buildPrevalenceAnnotator(canonicalMergedBirds, abundance);
         setBirds(canonicalMergedBirds.map(annotateCanonicalPrevalence));
         setNotable(canonicalNotableBirds.map(annotateCanonicalPrevalence));
       })().catch(() => undefined);

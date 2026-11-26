@@ -46,6 +46,44 @@ function coordinatesFor(observation: InatObservation): { lat: number; lng: numbe
   return null;
 }
 
+export interface BirdAbundance {
+  scientificName: string;
+  commonName?: string;
+  count: number;
+}
+
+export async function fetchInatBirdAbundance(
+  lat: number,
+  lng: number,
+  radiusKm: number,
+  days = 90,
+): Promise<BirdAbundance[]> {
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const params = new URLSearchParams({
+    taxon_id: "3",
+    lat: String(lat),
+    lng: String(lng),
+    radius: String(radiusKm),
+    per_page: "200",
+    d1: startDate,
+  });
+  const response = await fetch(`https://api.inaturalist.org/v1/observations/species_counts?${params.toString()}`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) throw new Error(`iNaturalist abundance request failed with status ${response.status}`);
+  const payload = (await response.json()) as { results?: Array<{ count?: number; taxon?: InatTaxon | null }> };
+  if (!Array.isArray(payload.results)) throw new Error("iNaturalist abundance response did not include results");
+  return payload.results.flatMap((result) => {
+    const taxon = result.taxon;
+    if (!taxon?.name || typeof result.count !== "number" || !Number.isFinite(result.count)) return [];
+    return [{
+      scientificName: taxon.name,
+      ...(taxon.preferred_common_name ? { commonName: taxon.preferred_common_name } : {}),
+      count: result.count,
+    }];
+  });
+}
+
 export async function fetchInatBirds(
   lat: number,
   lng: number,

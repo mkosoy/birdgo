@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "./config";
-import type { CanonicalSpeciesResult, EbirdObservation, IdentificationResult } from "./types";
+import type { BirdAbundance, CanonicalSpeciesResult, EbirdObservation, IdentificationResult } from "./types";
 
 interface RawEbirdObservation {
   lat?: number;
@@ -28,6 +28,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export function fetchRecentBirds(latitude: number, longitude: number): Promise<EbirdObservation[]> {
   return request<RawEbirdObservation[]>(`/api/birds/recent?lat=${latitude}&lng=${longitude}&dist=15&back=14`)
     .then((observations) => observations.flatMap((observation) => mapObservation(observation)));
+}
+
+export function fetchBirdAbundance(latitude: number, longitude: number): Promise<BirdAbundance[]> {
+  return request<BirdAbundance[]>(`/api/birds/abundance?lat=${latitude}&lng=${longitude}&dist=15`);
 }
 
 export function fetchNotableBirds(latitude: number, longitude: number): Promise<EbirdObservation[]> {

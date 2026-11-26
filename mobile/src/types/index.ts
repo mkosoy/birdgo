@@ -35,6 +35,13 @@ export interface EbirdObservation extends Coordinates {
   virtual?: boolean;
   frequency?: number;
   reportCount?: number;
+  abundanceCount?: number;
+}
+
+export interface BirdAbundance {
+  scientificName: string;
+  commonName?: string;
+  count: number;
 }
 
 export type BirdRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
@@ -50,6 +57,7 @@ export interface SeenSpecies {
   encounterId?: string;
   virtual?: boolean;
   frequency?: number;
+  abundanceCount?: number;
 }
 
 export interface TaxonomyEntry {

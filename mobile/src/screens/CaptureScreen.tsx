@@ -146,7 +146,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
       const sciName = contextSpecies?.canonicalKey
         ? contextSpecies.sciName
         : result.canonicalSciName ?? contextSpecies?.sciName ?? result.sciName;
-      const rarity = rarityForSpecies(contextSpecies?.speciesCode, commonName, contextSpecies?.isNotable, sciName, canonicalKey, contextSpecies?.frequency);
+      const rarity = rarityForSpecies(contextSpecies?.speciesCode, commonName, contextSpecies?.isNotable, sciName, canonicalKey, contextSpecies?.frequency, contextSpecies?.abundanceCount);
       const verified = Boolean(result.isBird && result.provider !== "heuristic" && (result.commonName || result.sciName));
       const record = await saveCapture({
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -178,7 +178,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
   const resultSciName = contextSpecies?.canonicalKey
     ? contextSpecies.sciName
     : result?.canonicalSciName ?? contextSpecies?.sciName ?? result?.sciName;
-  const resultRarity = rarityForSpecies(contextSpecies?.speciesCode, resultName, contextSpecies?.isNotable, resultSciName, resultCanonicalKey, contextSpecies?.frequency);
+  const resultRarity = rarityForSpecies(contextSpecies?.speciesCode, resultName, contextSpecies?.isNotable, resultSciName, resultCanonicalKey, contextSpecies?.frequency, contextSpecies?.abundanceCount);
   const encounterMismatch = Boolean(encounterHint && result && (result.commonName || result.sciName) && !couldBeSpecies(encounterHint, result));
   const targetHintApplied = Boolean(encounterHint && contextSpecies === encounterHint);
   const targetHintUnverified = Boolean(targetHintApplied && (!result?.isBird || result.provider === "heuristic"));
