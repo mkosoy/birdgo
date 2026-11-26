@@ -3,7 +3,7 @@ import { ActivityIndicator, AppState, Linking, Platform, Pressable, StyleSheet, 
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SF_COORDS } from "../config";
 import { BirdMap } from "../components/BirdMap";
@@ -18,6 +18,8 @@ let persistentTrackTarget: TrackTarget | undefined;
 
 export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => void }) {
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
+  const wasFocused = useRef(false);
   const insets = useSafeAreaInsets();
   const [location, setLocation] = useState<Coordinates>(SF_COORDS);
   const [center, setCenter] = useState<Coordinates>(SF_COORDS);
@@ -47,8 +49,11 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const { saveSeen, captures, refresh: refreshCollection } = useCollection();
   useFocusEffect(useCallback(() => {
     void refreshCollection();
-    if (activeTrackTarget) setTrackRequest({ ...activeTrackTarget });
-  }, [refreshCollection, activeTrackTarget]));
+  }, [refreshCollection]));
+  useEffect(() => {
+    if (isFocused && !wasFocused.current && activeTrackTarget) setTrackRequest({ ...activeTrackTarget });
+    wasFocused.current = isFocused;
+  }, [isFocused, activeTrackTarget]);
   const captureCounts = useMemo(() => captures.reduce<Record<string, number>>((counts, capture) => {
     const key = speciesKey(capture.speciesCode, capture.commonName, capture.sciName);
     counts[key] = (counts[key] ?? 0) + 1;
