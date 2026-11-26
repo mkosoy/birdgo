@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   targetName: { color: "#fff", fontSize: 16, fontWeight: "800", marginTop: 1 },
   honorButton: { minHeight: 38, paddingHorizontal: 12, borderRadius: 19, backgroundColor: "#f2cf5b", alignItems: "center", justifyContent: "center" },
   honorButtonText: { color: "#263019", fontSize: 12, fontWeight: "900" },
-  honorConfirm: { width: "100%", maxWidth: 390, borderRadius: 14, backgroundColor: "#17281f", borderWidth: 1, borderColor: "#577457", padding: 12, gap: 10 },
+  honorConfirm: { position: "absolute", left: 20, right: 20, bottom: 112, zIndex: 5, maxWidth: 390, borderRadius: 14, backgroundColor: "#17281f", borderWidth: 1, borderColor: "#577457", padding: 12, gap: 10 },
   honorConfirmText: { color: "#e5f0e7", fontSize: 14, fontWeight: "700", textAlign: "center" },
   honorConfirmActions: { flexDirection: "row", gap: 8 },
   honorCancel: { flex: 1, minHeight: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "#294232" },
