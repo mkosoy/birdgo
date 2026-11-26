@@ -89,6 +89,8 @@ export interface IdentificationResult {
   canonicalSciName?: string;
   confidence: number;
   provider: string;
+  imageUrl?: string;
+  imageAttribution?: string;
 }
 
 export interface SkyfriendRecord {

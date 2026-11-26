@@ -3,7 +3,7 @@ import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextIn
 import { useFocusEffect } from "@react-navigation/native";
 import { useCollection } from "../hooks/useCollection";
 import { useTrainerProfile } from "../hooks/useTrainerProfile";
-import { captureMatchesSpecies, releaseSpecies } from "../store/collection";
+import { releaseCaptures } from "../store/collection";
 import { Bird3DPreview } from "../components/Bird3DPreview";
 import { TrainerAvatar } from "../components/TrainerAvatar";
 import { buildSpeciesDex, levelForXp, RARITY_COLORS, RARITY_ORDER, type SpeciesDexEntry } from "../utils/progression";
@@ -49,6 +49,7 @@ export function DexScreen() {
     speciesCode?: string;
     sciName?: string | null;
     canonicalKey?: string;
+    captureIds: string[];
     photoLabel: string;
   }>();
   useFocusEffect(useCallback(() => {
@@ -77,13 +78,14 @@ export function DexScreen() {
   if (loading) return <View style={styles.center}><Text>Loading your Bird-dex…</Text></View>;
 
   const release = (entry: SpeciesDexEntry) => {
-    const photoCount = captures.filter((capture) => captureMatchesSpecies(capture, entry.speciesCode, entry.commonName, entry.sciName, entry.canonicalKey)).length;
+    const photoCount = entry.captureIds.length;
     setSelected(undefined);
     setPendingRelease({
       commonName: entry.commonName,
       speciesCode: entry.speciesCode,
       sciName: entry.sciName,
       canonicalKey: entry.canonicalKey,
+      captureIds: entry.captureIds,
       photoLabel: `${photoCount} photo${photoCount === 1 ? "" : "s"}`,
     });
   };
@@ -242,7 +244,7 @@ export function DexScreen() {
           <Text style={styles.modalCopy}>{pendingRelease?.commonName} will remove {pendingRelease?.photoLabel} from your captured collection and return to its seen state if it is still in this area. Trainer XP you already earned is kept.</Text>
           <View style={styles.modalActions}>
             <Pressable accessibilityRole="button" style={styles.modalKeep} onPress={() => setPendingRelease(undefined)}><Text>Keep</Text></Pressable>
-            <Pressable accessibilityRole="button" style={styles.modalRelease} onPress={() => { const releaseRequest = pendingRelease; setPendingRelease(undefined); if (releaseRequest) void releaseSpecies(releaseRequest.speciesCode, releaseRequest.commonName, releaseRequest.sciName, releaseRequest.canonicalKey).then(refresh); }}><Text style={styles.modalReleaseText}>Release</Text></Pressable>
+            <Pressable accessibilityRole="button" style={styles.modalRelease} onPress={() => { const releaseRequest = pendingRelease; setPendingRelease(undefined); if (releaseRequest) void releaseCaptures(releaseRequest.captureIds).then(refresh); }}><Text style={styles.modalReleaseText}>Release</Text></Pressable>
           </View>
         </View>
       </View>

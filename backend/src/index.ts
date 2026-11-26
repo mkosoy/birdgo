@@ -9,7 +9,7 @@ import {
   isSpeciesObservation,
   type EbirdObservation,
 } from "./ebird.js";
-import { fetchInatBirdAbundance, fetchInatBirds } from "./inaturalist.js";
+import { fetchInatBirdAbundance, fetchInatBirds, fetchSpeciesReferenceImage } from "./inaturalist.js";
 import { identifyBird, type BirdIdProvider } from "./birdId.js";
 import { canonicalizeSpecies, type SpeciesIdentityInput } from "./taxonomy.js";
 
@@ -199,10 +199,13 @@ app.post("/api/identify", async (request, response) => {
       commonName: identification.commonName ?? undefined,
       sciName: identification.sciName,
     }], token);
+    const referenceImage = await fetchSpeciesReferenceImage(canonical?.canonicalSciName ?? identification.sciName, identification.commonName).catch(() => undefined);
     response.json({
       ...identification,
       canonicalKey: canonical?.canonicalKey,
       canonicalSciName: canonical?.canonicalSciName,
+      imageUrl: referenceImage?.url,
+      imageAttribution: referenceImage?.attribution,
     });
   } catch (error) {
     console.error(error);
