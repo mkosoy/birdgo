@@ -1031,7 +1031,7 @@ export function buildMapLibreHtml(): string {
         if (currentPopup) currentPopup.remove();
         trackId = bird.id;
         renderBirdMarkers(latestMarkers);
-        postOutward({ type: 'tracking', open: true });
+        postOutward({ type: 'tracking', open: true, id: bird.id, name: bird.comName || bird.name || 'Bird', speciesCode: bird.speciesCode, latitude: bird.latitude, longitude: bird.longitude });
         follow = true;
         clearRoute();
         setToast(false);
@@ -1161,10 +1161,7 @@ export function buildMapLibreHtml(): string {
         refreshNearby();
       });
       trackSnap.addEventListener('click', function () {
-        if (trackId) {
-          capture(trackId);
-          stopTrack();
-        }
+        if (trackId) capture(trackId);
       });
       trackStop.addEventListener('click', stopTrack);
       routeHeader.addEventListener('click', function () {
@@ -1504,6 +1501,8 @@ export function buildMapLibreHtml(): string {
             openBirdPopup(closestEntry.bird);
             startTrack(closestEntry.bird);
           }
+        } else if (data.command === 'stopTrack') {
+          stopTrack();
         } else if (data.command === 'track' && data.trackTarget) {
           var exactBird = data.trackTarget.id ? latestMarkers.find(function (bird) { return String(bird.id) === String(data.trackTarget.id); }) : null;
           var targetBird = exactBird ? { bird: exactBird } : latestMarkers.reduce(function (closest, bird) {

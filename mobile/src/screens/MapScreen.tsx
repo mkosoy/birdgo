@@ -3,7 +3,7 @@ import { ActivityIndicator, AppState, Linking, Platform, Pressable, StyleSheet, 
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SF_COORDS } from "../config";
 import { BirdMap } from "../components/BirdMap";
@@ -13,8 +13,13 @@ import { useCollection } from "../hooks/useCollection";
 import type { Coordinates, SeenSpecies } from "../types";
 import { speciesKeyAliases } from "../utils/progression";
 
-export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => void }) {
+type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string };
+let persistentTrackTarget: TrackTarget | undefined;
+
+export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: SeenSpecies) => void; targetCapture?: { speciesCode?: string; commonName: string; sciName?: string | null; encounterId?: string; timestamp: number } }) {
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
+  const wasFocused = useRef(false);
   const insets = useSafeAreaInsets();
   const [location, setLocation] = useState<Coordinates>(SF_COORDS);
   const [center, setCenter] = useState<Coordinates>(SF_COORDS);
@@ -24,8 +29,16 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const [recenterRequest, setRecenterRequest] = useState(0);
   const [overviewRequest, setOverviewRequest] = useState(0);
   const [nearestRequest, setNearestRequest] = useState(0);
-  const [trackRequest, setTrackRequest] = useState<(Coordinates & { name: string; id?: string }) | undefined>();
+  const [trackRequest, setTrackRequest] = useState<TrackTarget | undefined>();
+  const [stopTrackRequest, setStopTrackRequest] = useState(0);
+  const processedTargetCapture = useRef(0);
+  const [activeTrackTarget, setActiveTrackTargetState] = useState<TrackTarget | undefined>(persistentTrackTarget);
+  const setActiveTrackTarget = (target?: TrackTarget) => {
+    persistentTrackTarget = target;
+    setActiveTrackTargetState(target);
+  };
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
+  const [completionNotice, setCompletionNotice] = useState<string | null>(null);
   const [popupOpen, setPopupOpen] = useState(false);
   const [toastOpen, setToastOpen] = useState(false);
   const [nearbyState, setNearbyState] = useState<"peek" | "half">("peek");
@@ -40,13 +53,45 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   useFocusEffect(useCallback(() => {
     void refreshCollection();
   }, [refreshCollection]));
+  useEffect(() => {
+    if (!targetCapture || processedTargetCapture.current === targetCapture.timestamp) return;
+    processedTargetCapture.current = targetCapture.timestamp;
+    if (!activeTrackTarget) return;
+    const targetName = activeTrackTarget.name.trim().toLowerCase().replace(/\s+/g, " ");
+    const captureName = targetCapture.commonName.trim().toLowerCase().replace(/\s+/g, " ");
+    const sameSpecies = Boolean(
+      (activeTrackTarget.speciesCode && targetCapture.speciesCode && activeTrackTarget.speciesCode === targetCapture.speciesCode)
+      || (targetName && captureName && targetName === captureName)
+    );
+    const sameEncounter = activeTrackTarget.id
+      ? targetCapture.encounterId === activeTrackTarget.id
+      : sameSpecies;
+    if (!sameSpecies || !sameEncounter) return;
+    setCompletionNotice(`Encounter complete: ${targetCapture.commonName}!`);
+    setActiveTrackTarget(undefined);
+    setTracking(false);
+    setStopTrackRequest((request) => request + 1);
+  }, [targetCapture, activeTrackTarget]);
+
+  useEffect(() => {
+    if (!completionNotice || !isFocused) return;
+    const timeout = setTimeout(() => setCompletionNotice(null), 6000);
+    return () => clearTimeout(timeout);
+  }, [completionNotice, isFocused]);
+
+  useEffect(() => {
+    if (isFocused && !wasFocused.current && activeTrackTarget) setTrackRequest({ ...activeTrackTarget });
+    wasFocused.current = isFocused;
+  }, [isFocused, activeTrackTarget]);
   const captureCounts = useMemo(() => captures.reduce<Record<string, number>>((counts, capture) => {
     speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey).forEach((key) => {
       counts[key] = (counts[key] ?? 0) + 1;
     });
     return counts;
   }, {}), [captures]);
-  const topMessage = locationNotice
+  const topMessage = completionNotice
+    ? { text: completionNotice, onPress: () => setCompletionNotice(null) }
+    : locationNotice
     ? { text: locationNotice, onPress: () => setLocationRetry((request) => request + 1) }
     : error
       ? { text: "Couldn’t load birds. Tap to retry.", onPress: () => void refresh() }
@@ -205,6 +250,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   }, [notable]);
 
   const toggleMode = () => {
+    setActiveTrackTarget(undefined);
     setTrackRequest(undefined);
     setTracking(false);
     setFollowPaused(false);
@@ -235,9 +281,11 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         overviewRequest={overviewRequest}
         nearestRequest={nearestRequest}
         trackRequest={trackRequest}
+        stopTrackRequest={stopTrackRequest}
         onCapture={(bird) => {
           onCapture?.({
             speciesCode: bird.speciesCode,
+            encounterId: `${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`,
             comName: bird.comName ?? "Unknown bird",
             sciName: bird.sciName,
             canonicalKey: bird.canonicalKey,
@@ -255,6 +303,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
             void Linking.openURL(url);
             return;
           }
+          setActiveTrackTarget(target);
           setTrackRequest(target);
         }}
         onAbout={({ speciesCode, comName }) => {
@@ -269,7 +318,11 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         onToastChange={setToastOpen}
         onNearbyStateChange={setNearbyState}
         onFollowChange={setFollowPaused}
-        onTrackingChange={setTracking}
+        onTrackingChange={(open, target) => {
+          setTracking(open);
+          if (open && target) setActiveTrackTarget(target);
+          if (!open) setActiveTrackTarget(undefined);
+        }}
         onRegionChange={handleRegionChange}
       />
       <View pointerEvents="box-none" style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}>

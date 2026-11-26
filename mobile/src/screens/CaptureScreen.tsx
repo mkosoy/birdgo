@@ -14,7 +14,7 @@ import type { SeenSpecies } from "../types";
 import { Bird3DPreview } from "../components/Bird3DPreview";
 import { rarityForSpecies, xpForCapture } from "../utils/progression";
 
-type Props = { hint?: SeenSpecies; onHintConsumed?: () => void };
+type Props = { hint?: SeenSpecies; onHintConsumed?: () => void; onCaptureSaved?: (capture: { speciesCode?: string; commonName: string; sciName?: string | null; encounterId?: string }) => void };
 
 function normalizeName(value?: string | null): string {
   return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
@@ -38,7 +38,7 @@ function sameSpecies(species: SeenSpecies, commonName?: string | null, sciName?:
   );
 }
 
-export function CaptureScreen({ hint, onHintConsumed }: Props) {
+export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
   const insets = useSafeAreaInsets();
   const camera = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -161,6 +161,7 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
         verified,
       });
       const firstBonus = (record.xpAwarded ?? 0) > xpForCapture({ rarity, verified, speciesCode: contextSpecies?.speciesCode, commonName, sciName: contextSpecies?.sciName ?? result.sciName }, false) ? " First species bonus!" : "";
+      onCaptureSaved?.({ speciesCode: contextSpecies?.speciesCode, commonName, sciName: contextSpecies?.sciName ?? result.sciName, encounterId: contextSpecies?.encounterId });
       setConfirmation(`${commonName} joined your Bird-dex. +${record.xpAwarded ?? 0} XP.${firstBonus}`);
       setSavedPhotoUri(photoUri);
       if (encounterHint) onHintConsumed?.();
@@ -180,6 +181,7 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
   const resultRarity = rarityForSpecies(contextSpecies?.speciesCode, resultName, contextSpecies?.isNotable, resultSciName, resultCanonicalKey);
   const encounterMismatch = Boolean(encounterHint && result && (result.commonName || result.sciName) && !couldBeSpecies(encounterHint, result));
   const targetHintApplied = Boolean(encounterHint && contextSpecies === encounterHint);
+  const targetHintUnverified = Boolean(targetHintApplied && (!result?.isBird || result.provider === "heuristic"));
 
   return <View style={styles.container}>
     {!photoUri
@@ -201,7 +203,7 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
         </View>
       </View>}
       {!photoUri && permission?.granted && <Pressable style={styles.shutter} onPress={() => void takePhoto()}><Text style={styles.shutterText}>●</Text></Pressable>}
-      {photoUri && <View style={styles.buttonRow}><Pressable style={[styles.button, styles.flexButton]} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); setEncounterHint(undefined); setSavedPhotoUri(null); onHintConsumed?.(); }}><Text style={styles.buttonText}>Try another</Text></Pressable><Pressable style={[styles.secondaryDark, styles.flexButton]} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Library</Text></Pressable></View>}
+      {photoUri && <View style={styles.buttonRow}><Pressable style={[styles.button, styles.flexButton]} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); setSavedPhotoUri(null); }}><Text style={styles.buttonText}>Try another</Text></Pressable><Pressable style={[styles.secondaryDark, styles.flexButton]} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Library</Text></Pressable></View>}
       {busy && <ActivityIndicator color="#fff" />}
       {result && !busy && <View style={styles.result}>
         {(result.isBird || contextSpecies) ? <Bird3DPreview commonName={resultName} rarity={resultRarity} height={118} /> : null}
@@ -209,7 +211,7 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
         <Text style={styles.resultTitle}>{resultName !== "Unidentified bird" ? resultName : result.provider === "heuristic" ? "Unverified photo" : "Unable to identify as a bird"}</Text>
         {encounterMismatch
           ? <Text style={styles.confidence}>Model suggests {result?.commonName}, not target {encounterHint?.comName}.</Text>
-          : targetHintApplied
+          : targetHintUnverified
             ? <Text style={styles.confidence}>Using nearby species hint — not model-verified</Text>
             : result.isBird
             ? <><Text style={styles.scientific}>{resultSciName ?? "Scientific name unknown"}</Text><Text style={styles.confidence}>{result.provider === "heuristic" ? "Unverified identification" : `${Math.round(result.confidence * 100)}% confidence`}</Text></>
