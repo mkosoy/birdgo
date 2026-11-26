@@ -10,7 +10,7 @@ export function buildMapLibreHtml(): string {
     body { position: relative; overflow: hidden; }
     #sky-gradient { position: absolute; left: 0; right: 0; top: 0; height: 36%; z-index: 2; pointer-events: none; background: linear-gradient(to bottom, rgba(108,190,238,.9), rgba(153,216,242,.38) 48%, rgba(153,216,242,0)); }
     #atmosphere-tint { position: absolute; inset: 0; z-index: 1; pointer-events: none; transition: background 700ms; }
-    #weather-orb { position: absolute; top: calc(var(--safe-top) + 28px); right: 24px; z-index: 3; width: 42px; height: 42px; border-radius: 50%; pointer-events: none; background: #ffd766; box-shadow: 0 0 28px rgba(255,214,102,.72); transition: all 700ms; }
+    #weather-orb { position: absolute; top: calc(var(--safe-top) + 112px); right: 18px; z-index: 3; width: 42px; height: 42px; border-radius: 50%; pointer-events: none; background: #ffd766; box-shadow: 0 0 28px rgba(255,214,102,.72); transition: all 700ms; }
     #weather-particles { position: absolute; inset: 0; z-index: 3; pointer-events: none; opacity: 0; transition: opacity 500ms; }
     body[data-period="dawn"] #sky-gradient { background: linear-gradient(to bottom, rgba(255,157,118,.78), rgba(119,173,222,.34) 52%, rgba(153,216,242,0)); }
     body[data-period="dusk"] #sky-gradient { background: linear-gradient(to bottom, rgba(245,126,103,.82), rgba(108,111,190,.38) 52%, rgba(153,216,242,0)); }
@@ -23,9 +23,15 @@ export function buildMapLibreHtml(): string {
     body[data-weather="rain"] #sky-gradient, body[data-weather="storm"] #sky-gradient { background: linear-gradient(to bottom, rgba(73,105,137,.9), rgba(102,139,163,.42) 52%, rgba(102,139,163,0)); }
     body[data-weather="rain"] #atmosphere-tint, body[data-weather="storm"] #atmosphere-tint { background: rgba(35,65,92,.20); }
     body[data-weather="snow"] #sky-gradient { background: linear-gradient(to bottom, rgba(177,207,229,.88), rgba(224,238,247,.45) 52%, rgba(224,238,247,0)); }
-    body[data-weather="rain"] #weather-particles, body[data-weather="storm"] #weather-particles { opacity: .34; background: repeating-linear-gradient(112deg, transparent 0 11px, rgba(196,229,255,.6) 12px 13px, transparent 14px 24px); animation: rain-fall .7s linear infinite; }
+    body[data-weather="rain"] #weather-particles, body[data-weather="storm"] #weather-particles { opacity: .24; background: repeating-linear-gradient(112deg, transparent 0 17px, rgba(196,229,255,.5) 18px 19px, transparent 20px 34px); animation: rain-fall .95s linear infinite; }
     body[data-weather="snow"] #weather-particles { opacity: .55; background-image: radial-gradient(circle, rgba(255,255,255,.95) 1.5px, transparent 2px), radial-gradient(circle, rgba(255,255,255,.75) 1px, transparent 1.6px); background-size: 74px 74px, 43px 43px; animation: snow-fall 8s linear infinite; }
     body[data-weather="fog"] #weather-particles { opacity: .28; background: linear-gradient(100deg, transparent, rgba(231,239,239,.72), transparent); animation: fog-drift 9s ease-in-out infinite alternate; }
+    body[data-weather="cloudy"] #weather-orb, body[data-weather="fog"] #weather-orb { opacity: .22; }
+    body[data-weather="rain"] #weather-orb, body[data-weather="storm"] #weather-orb, body[data-weather="snow"] #weather-orb { opacity: 0; }
+    body[data-period="night"][data-weather="cloudy"] #sky-gradient, body[data-period="night"][data-weather="fog"] #sky-gradient { background: linear-gradient(to bottom, rgba(23,35,67,.94), rgba(49,70,102,.46) 52%, rgba(49,70,102,0)); }
+    body[data-period="night"][data-weather="rain"] #sky-gradient, body[data-period="night"][data-weather="storm"] #sky-gradient { background: linear-gradient(to bottom, rgba(15,29,54,.95), rgba(35,61,86,.48) 52%, rgba(35,61,86,0)); }
+    body[data-period="night"][data-weather="snow"] #sky-gradient { background: linear-gradient(to bottom, rgba(35,51,88,.94), rgba(70,94,130,.44) 52%, rgba(70,94,130,0)); }
+    body[data-period="night"][data-weather="cloudy"] #atmosphere-tint, body[data-period="night"][data-weather="fog"] #atmosphere-tint, body[data-period="night"][data-weather="rain"] #atmosphere-tint, body[data-period="night"][data-weather="storm"] #atmosphere-tint, body[data-period="night"][data-weather="snow"] #atmosphere-tint { background: rgba(5,14,42,.28); }
     @keyframes rain-fall { from { background-position: 0 -30px; } to { background-position: -28px 54px; } }
     @keyframes snow-fall { from { background-position: 0 -80px, 0 -40px; } to { background-position: 24px 180px, -14px 150px; } }
     @keyframes fog-drift { from { transform: translateX(-6%); } to { transform: translateX(6%); } }
