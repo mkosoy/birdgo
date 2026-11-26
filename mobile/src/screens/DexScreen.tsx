@@ -189,7 +189,8 @@ export function DexScreen() {
       data={entries}
       keyExtractor={(item) => item.key}
       numColumns={2}
-      ListHeaderComponent={<View>{header}{hallOfFameArea}{skyfriendArea}</View>}
+      ListHeaderComponent={header}
+      ListFooterComponent={<View>{hallOfFameArea}{skyfriendArea}</View>}
       renderItem={renderCard}
     />;
 
