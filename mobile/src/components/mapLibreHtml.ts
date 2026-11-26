@@ -104,7 +104,7 @@ export function buildMapLibreHtml(): string {
     .nb-row { display: flex; align-items: center; gap: 8px; min-height: 60px; padding: 6px 8px; border-radius: 12px; cursor: pointer; }
     .nb-row:active { background: #f0f5f1; }
     .nb-thumb { position: relative; width: 46px; height: 46px; border-radius: 50%; overflow: hidden; flex: none; background: #dbe7df; display: flex; align-items: center; justify-content: center; font-size: 22px; }
-    .nb-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .nb-thumb img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; }
     .nb-info { flex: 1; min-width: 0; }
     .nb-name { font-weight: 700; color: #21362c; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .nb-name .star { color: #d99d21; }
@@ -119,7 +119,7 @@ export function buildMapLibreHtml(): string {
     #track-card { position: absolute; left: 8px; right: 8px; bottom: var(--bottom-hud); z-index: 8; background: rgba(255,255,255,.97); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.28); padding: 10px; display: none; align-items: center; gap: 8px; pointer-events: auto; font-family: -apple-system, system-ui, sans-serif; }
     #track-card.on { display: flex; }
     #track-thumb { position: relative; width: 54px; height: 54px; border-radius: 50%; overflow: hidden; flex: none; background: #dbe7df; display: flex; align-items: center; justify-content: center; font-size: 26px; }
-    #track-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    #track-thumb img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; }
     #track-meta { flex: 1; min-width: 0; }
     #track-name { font-weight: 800; color: #173c2b; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #track-dist { color: #2f7d5b; font-weight: 700; font-size: 13px; line-height: 17px; margin-top: 2px; min-width: 0; overflow-wrap: anywhere; }
