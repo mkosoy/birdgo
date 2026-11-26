@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   detailPhoto: { width: "100%", height: 140, borderRadius: 12, marginTop: 12, backgroundColor: "#dce6df" },
   detailCopy: { color: "#687a70", fontSize: 11, lineHeight: 15, textAlign: "center", marginTop: 10 },
   detailActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 14 },
-  modalCard: { width: "100%", maxWidth: 360, borderRadius: 16, padding: 20, backgroundColor: "#fff" },
+  modalCard: { width: "100%", maxWidth: 360, maxHeight: "92%", borderRadius: 16, padding: 20, backgroundColor: "#fff" },
   modalTitle: { color: "#173c2b", fontSize: 20, fontWeight: "700" },
   modalCopy: { color: "#49584f", lineHeight: 20, marginTop: 10 },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 18 },
