@@ -11,6 +11,12 @@ interface InatTaxon {
   name?: string;
   preferred_common_name?: string;
   rank?: string;
+  iconic_taxon_name?: string;
+  default_photo?: {
+    url?: string;
+    medium_url?: string;
+    attribution?: string;
+  };
 }
 
 interface InatObservation {
@@ -44,6 +50,69 @@ function coordinatesFor(observation: InatObservation): { lat: number; lng: numbe
     if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
   }
   return null;
+}
+
+export interface SpeciesReferenceImage {
+  url: string;
+  attribution?: string;
+}
+
+const referenceImageCache = new Map<string, { expiresAt: number; image?: SpeciesReferenceImage }>();
+
+function normalizeLookupName(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+async function lookupReferenceImage(query: string): Promise<SpeciesReferenceImage | undefined> {
+  const cacheKey = normalizeLookupName(query);
+  const cached = referenceImageCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.image;
+  const params = new URLSearchParams({
+    q: query,
+    rank: "species",
+    per_page: "5",
+  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3500);
+  try {
+    const response = await fetch(`https://api.inaturalist.org/v1/taxa?${params.toString()}`, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`iNaturalist taxon lookup failed with status ${response.status}`);
+    const payload = (await response.json()) as { results?: InatTaxon[] };
+    const normalizedQuery = normalizeLookupName(query);
+    const birdTaxa = (payload.results ?? []).filter((taxon) => taxon.rank === "species" && taxon.iconic_taxon_name === "Aves");
+    const exact = birdTaxa.find((taxon) =>
+      (taxon.name && normalizeLookupName(taxon.name) === normalizedQuery)
+      || (taxon.preferred_common_name && normalizeLookupName(taxon.preferred_common_name) === normalizedQuery)
+    );
+    const taxon = exact ?? birdTaxa[0];
+    const url = taxon?.default_photo?.medium_url ?? taxon?.default_photo?.url;
+    const image = taxon && typeof url === "string" && url
+      ? {
+        url,
+        ...(taxon.default_photo?.attribution ? { attribution: taxon.default_photo.attribution } : {}),
+      }
+      : undefined;
+    referenceImageCache.set(cacheKey, { image, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
+    return image;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function fetchSpeciesReferenceImage(scientificName?: string | null, commonName?: string | null): Promise<SpeciesReferenceImage | undefined> {
+  const queries = [...new Set([scientificName, commonName].filter((value): value is string => Boolean(value?.trim())))];
+  for (const query of queries) {
+    try {
+      const image = await lookupReferenceImage(query);
+      if (image) return image;
+    } catch {
+      // Reference imagery is an enhancement; identification should still succeed without it.
+    }
+  }
+  return undefined;
 }
 
 export interface BirdAbundance {

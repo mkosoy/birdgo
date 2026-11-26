@@ -52,6 +52,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
   const [savedPhotoUri, setSavedPhotoUri] = useState<string | null>(null);
   const { saveCapture, seenSpecies, refresh: refreshCollection } = useCollection();
   const [encounterHint, setEncounterHint] = useState<SeenSpecies | undefined>(hint);
+  const [visualMode, setVisualMode] = useState<"reference" | "model">("reference");
   const previousHint = useRef<SeenSpecies | undefined>(hint);
 
   useFocusEffect(useCallback(() => {
@@ -81,6 +82,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
     setConfirmation(null);
     setNotice(null);
     setSavedPhotoUri(null);
+    setVisualMode("reference");
     setBusy(true);
     try {
       const encoded = base64 ?? await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
@@ -179,6 +181,9 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
     ? contextSpecies.sciName
     : result?.canonicalSciName ?? contextSpecies?.sciName ?? result?.sciName;
   const resultRarity = rarityForSpecies(contextSpecies?.speciesCode, resultName, contextSpecies?.isNotable, resultSciName, resultCanonicalKey, contextSpecies?.frequency, contextSpecies?.abundanceCount);
+  const referenceImageUrl = result?.imageUrl ?? contextSpecies?.imageUrl;
+  const referenceImageAttribution = result?.imageUrl ? result.imageAttribution : undefined;
+  const showReferenceImage = Boolean(referenceImageUrl && visualMode === "reference");
   const encounterMismatch = Boolean(encounterHint && result && (result.commonName || result.sciName) && !couldBeSpecies(encounterHint, result));
   const targetHintApplied = Boolean(encounterHint && contextSpecies === encounterHint);
   const targetHintUnverified = Boolean(targetHintApplied && (!result?.isBird || result.provider === "heuristic"));
@@ -206,7 +211,17 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
       {photoUri && <View style={styles.buttonRow}><Pressable style={[styles.button, styles.flexButton]} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); setSavedPhotoUri(null); }}><Text style={styles.buttonText}>Try another</Text></Pressable><Pressable style={[styles.secondaryDark, styles.flexButton]} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Library</Text></Pressable></View>}
       {busy && <ActivityIndicator color="#fff" />}
       {result && !busy && <View style={styles.result}>
-        {(result.isBird || contextSpecies) ? <Bird3DPreview commonName={resultName} rarity={resultRarity} height={118} /> : null}
+        {(result.isBird || contextSpecies) ? (
+          showReferenceImage && referenceImageUrl
+            ? <View style={styles.referenceWrap}>
+              <Image source={{ uri: referenceImageUrl }} style={styles.referenceImage} resizeMode="cover" />
+              <Text numberOfLines={2} style={styles.referenceCaption}>{referenceImageAttribution ? `Reference photo · ${referenceImageAttribution}` : "Real species reference photo"}</Text>
+            </View>
+            : <Bird3DPreview commonName={resultName} rarity={resultRarity} height={118} />
+        ) : null}
+        {referenceImageUrl && (result.isBird || contextSpecies) ? <Pressable accessibilityLabel={visualMode === "reference" ? "View stylized 3D bird model" : "View real species reference photo"} style={styles.visualToggle} onPress={() => setVisualMode((mode) => mode === "reference" ? "model" : "reference")}>
+          <Text style={styles.visualToggleText}>{visualMode === "reference" ? "View 3D model" : "View real species photo"}</Text>
+        </Pressable> : null}
         {result.isBird || contextSpecies ? <Text style={[styles.rarity, { color: resultRarity === "legendary" ? "#ffd45e" : "#bde8c9" }]}>{resultRarity.toUpperCase()} ENCOUNTER</Text> : null}
         <Text style={styles.resultTitle}>{resultName !== "Unidentified bird" ? resultName : result.provider === "heuristic" ? "Unverified photo" : "Unable to identify as a bird"}</Text>
         {encounterMismatch
@@ -242,6 +257,11 @@ const styles = StyleSheet.create({
   secondaryDark: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, backgroundColor: "#2f7d5b", justifyContent: "center" },
   lightText: { color: "#fff" },
   result: { width: "100%", maxWidth: 390, alignItems: "center", gap: 5 },
+  referenceWrap: { width: "100%", height: 118, borderRadius: 14, overflow: "hidden", backgroundColor: "#18291f" },
+  referenceImage: { width: "100%", height: "100%" },
+  referenceCaption: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: "rgba(5,16,10,.62)", color: "#d7e8da", fontSize: 9, fontWeight: "700", textAlign: "center" },
+  visualToggle: { minHeight: 32, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: "#213f2e", borderWidth: 1, borderColor: "#4e8061" },
+  visualToggleText: { color: "#d7e8da", fontSize: 11, fontWeight: "800" },
   buttonRow: { flexDirection: "row", gap: 8, width: "100%", maxWidth: 390 },
   flexButton: { flex: 1, alignItems: "center" },
   rarity: { fontSize: 11, fontWeight: "900", letterSpacing: 1.1 },

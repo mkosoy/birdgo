@@ -156,6 +156,21 @@ function captureMeritScore(capture: CaptureRecord): number {
   return RARITY_ORDER.indexOf(rarity) * 10 + (capture.verified ? 4 : 0) + (capture.photoUri ? 2 : 0);
 }
 
+function collisionFreeEntryKey(entries: Map<string, SpeciesDexEntry>, baseKey: string, identity: SpeciesIdentityFields): string {
+  if (!entries.has(baseKey)) return baseKey;
+  const source = normalizedSpeciesName(identity.speciesCode)
+    || normalizedSpeciesName(identity.commonName ?? identity.comName)
+    || "species";
+  const slug = source.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "species";
+  let candidate = `${baseKey}#${slug}`;
+  let index = 2;
+  while (entries.has(candidate)) {
+    candidate = `${baseKey}#${slug}-${index}`;
+    index += 1;
+  }
+  return candidate;
+}
+
 export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpecies[]): SpeciesDexEntry[] {
   const entries = new Map<string, SpeciesDexEntry>();
   captures.forEach((capture) => {
@@ -166,8 +181,9 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
       ?? [...entries.values()].find((entry) => speciesIdentitiesMatch(entry, { ...capture, commonName }));
     const timestamp = typeof capture.timestamp === "string" ? capture.timestamp : "";
     if (!existing) {
-      entries.set(key, {
-        key,
+      const entryKey = collisionFreeEntryKey(entries, key, { ...capture, commonName });
+      entries.set(entryKey, {
+        key: entryKey,
         speciesCode: capture.speciesCode,
         commonName,
         sciName: capture.sciName,
@@ -218,8 +234,9 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
       if (!existing.imageUrl && species.imageUrl) existing.imageUrl = species.imageUrl;
       return;
     }
-    entries.set(key, {
-      key,
+    const entryKey = collisionFreeEntryKey(entries, key, species);
+    entries.set(entryKey, {
+      key: entryKey,
       speciesCode: species.speciesCode,
       commonName: species.comName,
       sciName: species.sciName,
