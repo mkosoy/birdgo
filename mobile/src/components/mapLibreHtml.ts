@@ -250,6 +250,9 @@ export function buildMapLibreHtml(): string {
       var sortMode = 'nearest';
       var birdsLoading = true;
       var panelState = 'peek';
+      var lastMarkerRenderSignature = '';
+      var lastMarkerInput = null;
+      var lastMarkerInputSignature = '';
       var paddingAnimationActive = false;
       var paddingAnimationToken = 0;
       var deferredCompassHeading = null;
@@ -1512,9 +1515,27 @@ export function buildMapLibreHtml(): string {
       map.on('pitch', scheduleArrow);
 
 
+      function hashString(input) {
+        var hash = 5381;
+        for (var index = 0; index < input.length; index += 1) {
+          hash = ((hash << 5) + hash + input.charCodeAt(index)) >>> 0;
+        }
+        return String(hash);
+      }
+
+      function markerDataSignature(markers) {
+        if (markers === lastMarkerInput) return lastMarkerInputSignature;
+        lastMarkerInput = markers;
+        lastMarkerInputSignature = hashString(JSON.stringify(markers || []));
+        return lastMarkerInputSignature;
+      }
+
+      function markerRenderSignature(markers) {
+        var locationKey = lastUserLocation ? lastUserLocation.latitude.toFixed(5) + ':' + lastUserLocation.longitude.toFixed(5) : 'none';
+        return String(trackId || '') + '|' + locationKey + '|' + markerDataSignature(markers);
+      }
+
       function renderBirdMarkers(markers) {
-        birdMarkers.forEach(function (marker) { marker.remove(); });
-        birdMarkers = [];
         var zoom = map.getZoom();
         var minSpacing = zoom >= 15 ? 30 : zoom >= 13 ? 48 : 64;
         var maxMarkers = zoom >= 15 ? 64 : zoom >= 13 ? 32 : 20;
@@ -1569,6 +1590,11 @@ export function buildMapLibreHtml(): string {
           chosen.push(entry.bird);
           chosenPoints.push(entry.point);
         }
+        var signature = markerRenderSignature(markers) + '|' + JSON.stringify(chosen.map(function (bird) { return bird.id; }));
+        if (signature === lastMarkerRenderSignature) return;
+        lastMarkerRenderSignature = signature;
+        birdMarkers.forEach(function (marker) { marker.remove(); });
+        birdMarkers = [];
         chosen.forEach(function (bird) {
           var element = document.createElement('div');
           var distance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
