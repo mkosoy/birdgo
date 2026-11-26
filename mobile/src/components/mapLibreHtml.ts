@@ -1530,11 +1530,6 @@ export function buildMapLibreHtml(): string {
         return lastMarkerInputSignature;
       }
 
-      function markerRenderSignature(markers) {
-        var locationKey = lastUserLocation ? lastUserLocation.latitude.toFixed(5) + ':' + lastUserLocation.longitude.toFixed(5) : 'none';
-        return String(trackId || '') + '|' + locationKey + '|' + markerDataSignature(markers);
-      }
-
       function renderBirdMarkers(markers) {
         var zoom = map.getZoom();
         var minSpacing = zoom >= 15 ? 30 : zoom >= 13 ? 48 : 64;
@@ -1590,17 +1585,23 @@ export function buildMapLibreHtml(): string {
           chosen.push(entry.bird);
           chosenPoints.push(entry.point);
         }
-        var signature = markerRenderSignature(markers) + '|' + JSON.stringify(chosen.map(function (bird) { return bird.id; }));
+        var visualStates = chosen.map(function (bird) {
+          var distance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
+          return {
+            inRange: distance != null && distance <= 0.06,
+            presenceClass: distance == null ? 'presence-mid' : distance <= 0.06 ? 'presence-close' : distance <= 0.12 ? 'presence-near' : distance <= 0.25 ? 'presence-mid' : 'presence-far'
+          };
+        });
+        var signature = String(trackId || '') + '|' + markerDataSignature(markers) + '|' + JSON.stringify(chosen.map(function (bird, chosenIndex) {
+          return [bird.id, visualStates[chosenIndex].presenceClass, visualStates[chosenIndex].inRange ? 1 : 0];
+        }));
         if (signature === lastMarkerRenderSignature) return;
         lastMarkerRenderSignature = signature;
         birdMarkers.forEach(function (marker) { marker.remove(); });
         birdMarkers = [];
-        chosen.forEach(function (bird) {
+        chosen.forEach(function (bird, chosenIndex) {
           var element = document.createElement('div');
-          var distance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
-          var inRange = distance != null && distance <= 0.06;
-          var presenceClass = distance == null ? 'presence-mid' : distance <= 0.06 ? 'presence-close' : distance <= 0.12 ? 'presence-near' : distance <= 0.25 ? 'presence-mid' : 'presence-far';
-          element.className = 'bird-marker ' + presenceClass + (bird.virtual ? ' virtual' : '') + (bird.isNotable ? ' notable' : '') + (inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
+          element.className = 'bird-marker ' + visualStates[chosenIndex].presenceClass + (bird.virtual ? ' virtual' : '') + (bird.isNotable ? ' notable' : '') + (visualStates[chosenIndex].inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
           element.innerHTML = markerInnerHtml(bird);
           var marker = new maplibregl.Marker({ element: element })
             .setLngLat([wrappedLongitude(bird.longitude), bird.latitude])
