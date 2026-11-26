@@ -26,6 +26,7 @@ export interface BirdMapProps {
   overviewRequest?: number;
   nearestRequest?: number;
   trackRequest?: Coordinates & { name: string; id?: string };
+  stopTrackRequest?: number;
   loading?: boolean;
   safeArea?: SafeAreaInsets;
   onCapture: (bird: EbirdObservation) => void;
@@ -35,7 +36,7 @@ export interface BirdMapProps {
   onToastChange?: (open: boolean) => void;
   onNearbyStateChange?: (state: "peek" | "half", height?: number) => void;
   onFollowChange?: (paused: boolean) => void;
-  onTrackingChange?: (active: boolean, target?: Coordinates & { name: string; id?: string }) => void;
+  onTrackingChange?: (active: boolean, target?: Coordinates & { name: string; id?: string; speciesCode?: string }) => void;
   onRegionChange: (coordinates: Coordinates) => void;
 }
 
@@ -61,7 +62,7 @@ interface LeafletData {
   loading?: boolean;
   heading?: number;
   markers: LeafletMarker[];
-  command?: "recenter" | "setView" | "overview" | "nearest" | "track";
+  command?: "recenter" | "setView" | "overview" | "nearest" | "track" | "stopTrack";
   trackTarget?: Coordinates & { name: string; id?: string };
   firstPerson?: boolean;
   safeArea?: SafeAreaInsets;
@@ -92,7 +93,7 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, captureCounts, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange },
+  { center, userLocation, birds, captureCounts, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
@@ -200,13 +201,21 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       onTrackingChange?.(
         Boolean(message.open),
         message.open && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name
-          ? { latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id }
+          ? { latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id, speciesCode: message.speciesCode }
           : undefined,
       );
     } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
       onRegionChange({ latitude: message.latitude, longitude: message.longitude });
     }
   };
+
+  useEffect(() => {
+    if (!stopTrackRequest) return;
+    const latestData = dataRef.current;
+    if (latestData) {
+      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "stopTrack" }))}, '*'); true;`);
+    }
+  }, [stopTrackRequest]);
 
   const html = mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml();
   return <WebView key={mode} ref={webViewRef} style={styles.map} source={{ html }} onLoadEnd={pushData} onMessage={handleMessage} originWhitelist={["*"]} />;

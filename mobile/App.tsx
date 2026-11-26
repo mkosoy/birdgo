@@ -18,6 +18,7 @@ export default function App() {
 
 function AppTabs() {
   const [captureHint, setCaptureHint] = useState<SeenSpecies | undefined>();
+  const [targetCapture, setTargetCapture] = useState<{ speciesCode?: string; commonName: string; sciName?: string | null; timestamp: number } | undefined>();
   const insets = useSafeAreaInsets();
   return (
     <NavigationContainer>
@@ -36,8 +37,8 @@ function AppTabs() {
           return <Ionicons name={icon} size={size} color={color} />;
         },
       })}>
-        <Tab.Screen name="Map">{() => <MapScreen onCapture={(hint) => { setCaptureHint(hint); }} />}</Tab.Screen>
-        <Tab.Screen name="Capture">{() => <CaptureScreen hint={captureHint} onHintConsumed={() => setCaptureHint(undefined)} />}</Tab.Screen>
+        <Tab.Screen name="Map">{() => <MapScreen targetCapture={targetCapture} onCapture={(hint) => { setCaptureHint(hint); }} />}</Tab.Screen>
+        <Tab.Screen name="Capture">{() => <CaptureScreen hint={captureHint} onHintConsumed={() => setCaptureHint(undefined)} onCaptureSaved={(capture) => setTargetCapture({ ...capture, timestamp: Date.now() })} />}</Tab.Screen>
         <Tab.Screen name="Bird-dex" component={DexScreen} />
       </Tab.Navigator>
     </NavigationContainer>

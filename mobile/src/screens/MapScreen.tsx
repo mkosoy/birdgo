@@ -13,10 +13,10 @@ import { useCollection } from "../hooks/useCollection";
 import type { Coordinates, SeenSpecies } from "../types";
 import { speciesKey } from "../utils/progression";
 
-type TrackTarget = Coordinates & { name: string; id?: string };
+type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string };
 let persistentTrackTarget: TrackTarget | undefined;
 
-export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => void }) {
+export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: SeenSpecies) => void; targetCapture?: { speciesCode?: string; commonName: string; sciName?: string | null; timestamp: number } }) {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const wasFocused = useRef(false);
@@ -30,6 +30,8 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const [overviewRequest, setOverviewRequest] = useState(0);
   const [nearestRequest, setNearestRequest] = useState(0);
   const [trackRequest, setTrackRequest] = useState<TrackTarget | undefined>();
+  const [stopTrackRequest, setStopTrackRequest] = useState(0);
+  const processedTargetCapture = useRef(0);
   const [activeTrackTarget, setActiveTrackTargetState] = useState<TrackTarget | undefined>(persistentTrackTarget);
   const setActiveTrackTarget = (target?: TrackTarget) => {
     persistentTrackTarget = target;
@@ -50,6 +52,22 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   useFocusEffect(useCallback(() => {
     void refreshCollection();
   }, [refreshCollection]));
+  useEffect(() => {
+    if (!targetCapture || processedTargetCapture.current === targetCapture.timestamp) return;
+    processedTargetCapture.current = targetCapture.timestamp;
+    if (!activeTrackTarget) return;
+    const targetName = activeTrackTarget.name.trim().toLowerCase().replace(/\s+/g, " ");
+    const captureName = targetCapture.commonName.trim().toLowerCase().replace(/\s+/g, " ");
+    const sameSpecies = Boolean(
+      (activeTrackTarget.speciesCode && targetCapture.speciesCode && activeTrackTarget.speciesCode === targetCapture.speciesCode)
+      || (targetName && captureName && targetName === captureName)
+    );
+    if (!sameSpecies) return;
+    setActiveTrackTarget(undefined);
+    setTracking(false);
+    setStopTrackRequest((request) => request + 1);
+  }, [targetCapture, activeTrackTarget]);
+
   useEffect(() => {
     if (isFocused && !wasFocused.current && activeTrackTarget) setTrackRequest({ ...activeTrackTarget });
     wasFocused.current = isFocused;
@@ -245,6 +263,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         overviewRequest={overviewRequest}
         nearestRequest={nearestRequest}
         trackRequest={trackRequest}
+        stopTrackRequest={stopTrackRequest}
         onCapture={(bird) => {
           onCapture?.({
             speciesCode: bird.speciesCode,
