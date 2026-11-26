@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, AppState, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SF_COORDS } from "../config";
@@ -49,7 +50,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
     : error
       ? { text: "Couldn’t load birds. Tap to retry.", onPress: () => void refresh() }
       : followPaused
-        ? { text: "Camera follow paused — tap ◎ to resume.", onPress: () => setRecenterRequest((request) => request + 1) }
+        ? { text: "Camera follow paused — tap the locate control to resume.", onPress: () => setRecenterRequest((request) => request + 1) }
         : notable.length > 0 && !rareDismissed && !toastOpen
           ? { text: `Rare bird nearby: ${notable[0].comName ?? "Unknown"}!`, onPress: () => setRareDismissed(true) }
           : null;
@@ -266,11 +267,11 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
       <View pointerEvents="box-none" style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}>
         <View style={styles.controlRail}>
         <Pressable accessibilityLabel={`Current map mode: ${mode === "classic" ? "Classic" : "Adventure"}. Tap to switch.`} style={[styles.modeButton, styles.modeButtonActive]} onPress={toggleMode}>
-          <Text style={styles.modeButtonText}>{mode === "classic" ? "🗺 2D" : "🌿 3D"}</Text>
+          <Text style={styles.modeButtonText}>{mode === "classic" ? "2D" : "3D"}</Text>
         </Pressable>
         {mode === "adventure" && (
           <Pressable accessibilityLabel={`Current view: ${firstPerson ? "First-person" : "Overhead"}. Tap to switch.`} style={[styles.modeButton, styles.modeButtonActive]} onPress={() => setFirstPerson((current) => !current)}>
-            <Text style={styles.modeButtonText}>{firstPerson ? "👣 Walk" : "🐦 Above"}</Text>
+            <Text style={styles.modeButtonText}>{firstPerson ? "Walk" : "Above"}</Text>
           </Pressable>
         )}
         </View>
@@ -283,28 +284,15 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         {loading && <ActivityIndicator color="#fff" />}
       </View>
       {!loading && !error && birds.length === 0 && <View style={styles.empty}><Text style={styles.emptyText}>No birds spotted nearby — try moving the map.</Text></View>}
-      {mode === "adventure" && (
-        <>
-          <View pointerEvents="box-none" style={[styles.actionRail, { top: insets.top + (nearbyState === "half" ? 56 : 112) }]}>
-            <Pressable accessibilityLabel="Find closest bird" style={styles.actionButton} onPress={() => setNearestRequest((request) => request + 1)}><Text style={styles.recenterText}>🐦</Text></Pressable>
-            <Pressable accessibilityLabel="See all birds" style={styles.actionButton} onPress={() => setOverviewRequest((request) => request + 1)}><Text style={styles.recenterText}>🗺</Text></Pressable>
-            <Pressable accessibilityLabel="Back to me" style={styles.actionButton} onPress={() => setRecenterRequest((request) => request + 1)}><Text style={styles.recenterText}>◎</Text></Pressable>
-          </View>
-        </>
+      {mode === "adventure" && nearbyState !== "half" && (
+        <View pointerEvents="box-none" style={[styles.actionRail, { bottom: insets.bottom + 168 }]}>
+          <Pressable accessibilityLabel="Find closest bird" style={styles.actionButton} onPress={() => setNearestRequest((request) => request + 1)}><Ionicons name="navigate" size={26} color="#2878d1" /></Pressable>
+          <Pressable accessibilityLabel="See all birds" style={styles.actionButton} onPress={() => setOverviewRequest((request) => request + 1)}><Ionicons name="map" size={25} color="#2878d1" /></Pressable>
+          <Pressable accessibilityLabel="Back to me" style={styles.actionButton} onPress={() => setRecenterRequest((request) => request + 1)}><Ionicons name="locate" size={27} color="#2878d1" /></Pressable>
+        </View>
       )}
       {mode === "classic" && (
-        <Pressable accessibilityLabel="Back to me" style={[styles.actionButton, styles.classicRecenter, { top: insets.top + 112 }]} onPress={() => setRecenterRequest((request) => request + 1)}><Text style={styles.recenterText}>◎</Text></Pressable>
-      )}
-      {nearbyState !== "half" && !tracking && (
-        <Pressable
-          disabled={popupOpen}
-          pointerEvents={popupOpen ? "none" : "auto"}
-          style={[styles.captureButton, { bottom: insets.bottom + 164 }, popupOpen && styles.captureButtonDimmed]}
-          onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}
-        >
-          <Text style={styles.captureText}>📷</Text>
-          <Text style={styles.captureLabel}>Capture</Text>
-        </Pressable>
+        <Pressable accessibilityLabel="Back to me" style={[styles.actionButton, styles.classicRecenter, { top: insets.top + 112 }]} onPress={() => setRecenterRequest((request) => request + 1)}><Ionicons name="locate" size={27} color="#2878d1" /></Pressable>
       )}
     </View>
   );
@@ -322,12 +310,7 @@ const styles = StyleSheet.create({
   topMessageDismiss: { color: "#173c2b", fontSize: 22, lineHeight: 24 },
   empty: { position: "absolute", top: "42%", left: 35, right: 35, backgroundColor: "#ffffffe8", padding: 16, borderRadius: 12 },
   emptyText: { textAlign: "center", color: "#555" },
-  actionRail: { position: "absolute", right: 16, gap: 8, alignItems: "center" },
+  actionRail: { position: "absolute", right: 14, gap: 10, alignItems: "center" },
   actionButton: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
   classicRecenter: { position: "absolute", right: 16 },
-  recenterText: { color: "#2878d1", fontSize: 30, lineHeight: 32 },
-  captureButton: { position: "absolute", left: 16, width: 82, height: 82, borderRadius: 41, backgroundColor: "#2f7d5b", alignItems: "center", justifyContent: "center", borderWidth: 5, borderColor: "#fff", elevation: 5 },
-  captureButtonDimmed: { opacity: 0.35 },
-  captureText: { fontSize: 28 },
-  captureLabel: { color: "#fff", fontWeight: "700", fontSize: 11 },
 });

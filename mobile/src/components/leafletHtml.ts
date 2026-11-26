@@ -67,10 +67,13 @@ export function buildLeafletHtml(): string {
         else window.postMessage(serialized, '*');
       }
 
+      function birdGlyph() {
+        return '<svg viewBox="0 0 64 64" width="20" height="20" aria-hidden="true"><path d="M12 39c4-13 15-23 29-23 7 0 12 3 14 8l7 3-6 4c-2 9-10 15-20 15-8 0-15-2-24-7z" fill="currentColor"/><circle cx="47" cy="24" r="2.4" fill="#234236"/><path d="M14 39 4 45l13 2z" fill="currentColor" opacity=".82"/></svg>';
+      }
       function markerIcon(bird) {
         return L.divIcon({
           className: '',
-          html: '<div class="bird-marker' + (bird.isNotable ? ' notable' : '') + (bird.captureCount ? ' captured' : '') + '">' + (bird.isNotable ? '★' : '🐦') + (bird.captureCount ? '<span class="caught-badge">✓</span>' : '') + '</div>',
+          html: '<div class="bird-marker' + (bird.isNotable ? ' notable' : '') + (bird.captureCount ? ' captured' : '') + '">' + birdGlyph() + (bird.captureCount ? '<span class="caught-badge">✓</span>' : '') + '</div>',
           iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -18]
         });
       }

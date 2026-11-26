@@ -37,9 +37,8 @@ export function rarityForSpecies(speciesCode?: string, commonName?: string, isNo
   const key = speciesKey(speciesCode, commonName);
   if (!key || key === "unidentified bird") return "common";
   const roll = stableHash(key) % 100;
-  let rarity: BirdRarity = roll < 55 ? "common" : roll < 80 ? "uncommon" : roll < 93 ? "rare" : roll < 99 ? "epic" : "legendary";
-  if (isNotable && RARITY_ORDER.indexOf(rarity) < RARITY_ORDER.indexOf("rare")) rarity = "rare";
-  return rarity;
+  if (!isNotable) return roll < 75 ? "common" : "uncommon";
+  return roll < 70 ? "rare" : roll < 95 ? "epic" : "legendary";
 }
 
 export function xpForCapture(capture: Pick<CaptureRecord, "rarity" | "verified">, isNewSpecies: boolean): number {
