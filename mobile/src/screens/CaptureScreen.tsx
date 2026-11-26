@@ -20,8 +20,9 @@ function normalizeName(value?: string | null): string {
   return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
 }
 
-function couldBeSpecies(species: SeenSpecies, result: { commonName: string | null; sciName: string | null; canonicalKey?: string }): boolean {
-  if (!result.commonName && !result.sciName) return true;
+function couldBeSpecies(species: SeenSpecies, result: { isBird: boolean; commonName: string | null; sciName: string | null; canonicalKey?: string }): boolean {
+  if (!result.isBird) return false;
+  if (!result.commonName && !result.sciName) return false;
   return sameSpecies(species, result.commonName, result.sciName, result.canonicalKey);
 }
 
@@ -159,7 +160,7 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
         rarity,
         verified,
       });
-      const firstBonus = (record.xpAwarded ?? 0) > xpForCapture({ rarity, verified }, false) ? " First species bonus!" : "";
+      const firstBonus = (record.xpAwarded ?? 0) > xpForCapture({ rarity, verified, speciesCode: contextSpecies?.speciesCode, commonName, sciName: contextSpecies?.sciName ?? result.sciName }, false) ? " First species bonus!" : "";
       setConfirmation(`${commonName} joined your Bird-dex. +${record.xpAwarded ?? 0} XP.${firstBonus}`);
       setSavedPhotoUri(photoUri);
       if (encounterHint) onHintConsumed?.();
@@ -178,6 +179,7 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
     : result?.canonicalSciName ?? contextSpecies?.sciName ?? result?.sciName;
   const resultRarity = rarityForSpecies(contextSpecies?.speciesCode, resultName, contextSpecies?.isNotable, resultSciName, resultCanonicalKey);
   const encounterMismatch = Boolean(encounterHint && result && (result.commonName || result.sciName) && !couldBeSpecies(encounterHint, result));
+  const targetHintApplied = Boolean(encounterHint && contextSpecies === encounterHint);
 
   return <View style={styles.container}>
     {!photoUri
@@ -202,17 +204,17 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
       {photoUri && <View style={styles.buttonRow}><Pressable style={[styles.button, styles.flexButton]} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); setEncounterHint(undefined); setSavedPhotoUri(null); onHintConsumed?.(); }}><Text style={styles.buttonText}>Try another</Text></Pressable><Pressable style={[styles.secondaryDark, styles.flexButton]} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Library</Text></Pressable></View>}
       {busy && <ActivityIndicator color="#fff" />}
       {result && !busy && <View style={styles.result}>
-        <Bird3DPreview commonName={resultName} rarity={resultRarity} height={118} />
-        <Text style={[styles.rarity, { color: resultRarity === "legendary" ? "#ffd45e" : "#bde8c9" }]}>{resultRarity.toUpperCase()} ENCOUNTER</Text>
+        {(result.isBird || contextSpecies) ? <Bird3DPreview commonName={resultName} rarity={resultRarity} height={118} /> : null}
+        {result.isBird || contextSpecies ? <Text style={[styles.rarity, { color: resultRarity === "legendary" ? "#ffd45e" : "#bde8c9" }]}>{resultRarity.toUpperCase()} ENCOUNTER</Text> : null}
         <Text style={styles.resultTitle}>{resultName !== "Unidentified bird" ? resultName : result.provider === "heuristic" ? "Unverified photo" : "Unable to identify as a bird"}</Text>
         {encounterMismatch
           ? <Text style={styles.confidence}>Model suggests {result?.commonName}, not target {encounterHint?.comName}.</Text>
-          : encounterHint?.comName
+          : targetHintApplied
             ? <Text style={styles.confidence}>Using nearby species hint — not model-verified</Text>
             : result.isBird
             ? <><Text style={styles.scientific}>{resultSciName ?? "Scientific name unknown"}</Text><Text style={styles.confidence}>{result.provider === "heuristic" ? "Unverified identification" : `${Math.round(result.confidence * 100)}% confidence`}</Text></>
             : <Text style={styles.confidence}>No species identified. You can save this as an unidentified photo.</Text>}
-        <Pressable disabled={saving || savedPhotoUri === photoUri} style={[styles.button, (saving || savedPhotoUri === photoUri) && styles.disabledButton]} onPress={() => void addToCollection()}><Text style={styles.buttonText}>{savedPhotoUri === photoUri ? "Added to collection" : encounterHint?.comName || result.isBird ? "Add to collection" : "Save unidentified photo"}</Text></Pressable>
+        <Pressable disabled={saving || savedPhotoUri === photoUri} style={[styles.button, (saving || savedPhotoUri === photoUri) && styles.disabledButton]} onPress={() => void addToCollection()}><Text style={styles.buttonText}>{savedPhotoUri === photoUri ? "Added to collection" : targetHintApplied || result.isBird ? "Add to collection" : "Save unidentified photo"}</Text></Pressable>
       </View>}
       {confirmation && <Text style={styles.confirmation}>✓ {confirmation}</Text>}
       {notice && <Text style={styles.notice}>{notice}</Text>}

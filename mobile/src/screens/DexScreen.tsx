@@ -38,7 +38,7 @@ export function DexScreen() {
 
   const entries = useMemo(() => buildSpeciesDex(captures, seenSpecies), [captures, seenSpecies]);
   const progress = levelForXp(xp);
-  const capturedSpecies = entries.filter((entry) => entry.capturedCount > 0).length;
+  const capturedSpecies = entries.filter((entry) => entry.capturedCount > 0 && entry.identified !== false).length;
   const totalCaptured = entries.reduce((total, entry) => total + entry.capturedCount, 0);
 
   if (loading) return <View style={styles.center}><Text>Loading your Bird-dex…</Text></View>;
