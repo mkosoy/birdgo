@@ -195,14 +195,11 @@ app.post("/api/identify", async (request, response) => {
       huggingfaceModel: process.env.HF_BIRD_MODEL,
       geminiModel: process.env.GEMINI_BIRD_MODEL,
     });
-    const [canonicalResult, referenceImage] = await Promise.all([
-      canonicalizeSpecies([{
-        commonName: identification.commonName ?? undefined,
-        sciName: identification.sciName,
-      }], token),
-      fetchSpeciesReferenceImage(identification.sciName, identification.commonName).catch(() => undefined),
-    ]);
-    const [canonical] = canonicalResult;
+    const [canonical] = await canonicalizeSpecies([{
+      commonName: identification.commonName ?? undefined,
+      sciName: identification.sciName,
+    }], token);
+    const referenceImage = await fetchSpeciesReferenceImage(canonical?.canonicalSciName ?? identification.sciName, identification.commonName).catch(() => undefined);
     response.json({
       ...identification,
       canonicalKey: canonical?.canonicalKey,
