@@ -118,7 +118,7 @@ function derivedCaptureEvents(captures: CaptureRecord[]): XpEvent[] {
       seenKeys.add(alias);
       counts.set(alias, (counts.get(alias) ?? 0) + 1);
     });
-    const xp = capture.xpAwarded ?? xpForCapture(capture, isNewSpecies, priorCaptureCount);
+    const xp = capture.xpAwarded ?? xpForCapture(capture, isNewSpecies, priorCaptureCount, false);
     return xp > 0 ? [{ captureId: capture.id, xp }] : [];
   });
 }
