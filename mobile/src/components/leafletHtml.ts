@@ -129,6 +129,7 @@ export function buildLeafletHtml(): string {
         if (!element) return;
         element.querySelector('[data-action="capture"]').addEventListener('click', function () {
           postOutward({ type: 'capture', id: bird.id });
+          if (bird.virtual) popup.remove();
         });
         element.querySelector('[data-action="directions"]').addEventListener('click', function () {
           postOutward({ type: 'directions', id: bird.id, latitude: bird.latitude, longitude: bird.longitude, name: bird.comName });

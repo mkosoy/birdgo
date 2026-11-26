@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Coordinates, EbirdObservation } from "../types";
 
 function hash(value: string): number {
@@ -36,7 +37,38 @@ export function observationMarkerId(bird: Pick<EbirdObservation, "speciesCode" |
   return `${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`;
 }
 
-export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation: Coordinates, now = new Date()): EbirdObservation[] {
+const ASSIGNMENTS_KEY = "birdgo.skyfriend-spawn-species-v1";
+
+export function skyfriendCellKey(userLocation: Coordinates, now = new Date()): string {
+  const cellSize = 0.004;
+  const gridLat = `${Math.floor((userLocation.latitude + 90) / cellSize)}`;
+  const gridLng = `${Math.floor((userLocation.longitude + 180) / cellSize)}`;
+  return `${gridLat}:${gridLng}:${now.toISOString().slice(0, 10)}`;
+}
+
+async function readAssignments(): Promise<Record<string, string[]>> {
+  const raw = await AsyncStorage.getItem(ASSIGNMENTS_KEY);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, string[]>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export async function loadSkyfriendSpecies(cellKey: string): Promise<string[]> {
+  return (await readAssignments())[cellKey] ?? [];
+}
+
+export async function saveSkyfriendSpecies(cellKey: string, speciesCodes: string[]): Promise<void> {
+  const assignments = await readAssignments();
+  assignments[cellKey] = speciesCodes;
+  const entries = Object.entries(assignments).slice(-100);
+  await AsyncStorage.setItem(ASSIGNMENTS_KEY, JSON.stringify(Object.fromEntries(entries)));
+}
+
+export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation: Coordinates, now = new Date(), preferredSpecies: (string | undefined)[] = []): EbirdObservation[] {
   const nearbyRealCount = realBirds.filter((bird) => !bird.virtual && distanceKm(bird, userLocation) <= 0.35).length;
   const targetCount = Math.max(0, Math.min(4, 4 - nearbyRealCount));
   if (!targetCount) return [];
@@ -53,31 +85,26 @@ export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation
   const pool = [...speciesPool.values()];
   if (!pool.length) return [];
 
-  const cellSize = 0.004;
-  const gridLat = `${Math.floor((userLocation.latitude + 90) / cellSize)}`;
-  const gridLng = `${Math.floor((userLocation.longitude + 180) / cellSize)}`;
-  const day = now.toISOString().slice(0, 10);
-  const totalWeight = pool.reduce((total, entry) => total + entry.weight, 0);
+  const cellKey = skyfriendCellKey(userLocation, now);
+  const [gridLat, gridLng, day] = cellKey.split(":");
   const usedSpecies = new Set<string>();
   const spawns: EbirdObservation[] = [];
 
   for (let index = 0; index < targetCount && usedSpecies.size < pool.length; index += 1) {
     const seed = `${gridLat}:${gridLng}:${day}:${index}`;
-    let ticket = (hash(`${seed}:species`) % 1000) / 1000 * totalWeight;
-    let selected = pool[0];
-    for (const entry of pool) {
-      ticket -= entry.weight;
-      if (ticket <= 0) {
-        selected = entry;
-        break;
-      }
-    }
-    if (usedSpecies.has(selected.bird.speciesCode)) {
-      selected = pool.find((entry) => !usedSpecies.has(entry.bird.speciesCode)) ?? selected;
-    }
+    const preferredCode = preferredSpecies[index];
+    const preferred = preferredCode ? pool.find((entry) => entry.bird.speciesCode === preferredCode && !usedSpecies.has(entry.bird.speciesCode)) : undefined;
+    const selected = preferred ?? pool
+      .filter((entry) => !usedSpecies.has(entry.bird.speciesCode))
+      .map((entry) => ({
+        entry,
+        score: (hash(`${seed}:${entry.bird.speciesCode}`) / 4294967295) * (entry.bird.isNotable ? 0.42 : 1),
+      }))
+      .sort((left, right) => right.score - left.score)[0]?.entry;
+    if (!selected) continue;
     usedSpecies.add(selected.bird.speciesCode);
     const bearing = hash(`${seed}:bearing`) % 360;
-    const distance = 70 + (hash(`${seed}:distance`) % 260);
+    const distance = 45 + (hash(`${seed}:distance`) % 115);
     const coordinates = destination(userLocation, bearing, distance);
     const locId = `skyfriend-${gridLat}-${gridLng}-${day}-${selected.bird.speciesCode}-${index}`;
     spawns.push({

@@ -603,7 +603,7 @@ export function buildMapLibreHtml(): string {
         }).filter(function (entry) {
           return entry.distance != null;
         }).sort(function (left, right) {
-          return left.distance - right.distance;
+          return (left.distance + (left.bird.virtual ? 0.12 : 0)) - (right.distance + (right.bird.virtual ? 0.12 : 0));
         });
       }
 
@@ -980,7 +980,7 @@ export function buildMapLibreHtml(): string {
             snapToastAction = function () { capture(closest.bird.id); };
           } else if (closest && closest.distance * 1000 <= 180) {
             var nearbyName = closest.bird.comName || closest.bird.sciName || 'Bird';
-            snapToastCopy.textContent = (compactToast() ? '' : 'Nearby ') + nearbyName + ' · ' + fmtDist(closest.distance);
+            snapToastCopy.textContent = (compactToast() && !closest.bird.virtual ? '' : closest.bird.virtual ? 'Skyfriend ' : 'Nearby ') + nearbyName + ' · ' + fmtDist(closest.distance);
             snapToastGo.textContent = 'Go';
             setToast(true);
             snapToastAction = function () { startTrack(closest.bird); };
@@ -1212,6 +1212,7 @@ export function buildMapLibreHtml(): string {
         if (!element) return;
         element.querySelector('[data-action="capture"]').addEventListener('click', function () {
           postOutward({ type: 'capture', id: bird.id });
+          if (bird.virtual) popup.remove();
         });
         element.querySelector('[data-action="directions"]').addEventListener('click', function () {
           postOutward({ type: 'directions', id: bird.id, latitude: bird.latitude, longitude: bird.longitude, name: bird.comName });
