@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,8 +21,9 @@ function AppTabs() {
   const [captureHint, setCaptureHint] = useState<SeenSpecies | undefined>();
   const [targetCapture, setTargetCapture] = useState<{ speciesCode?: string; commonName: string; sciName?: string | null; encounterId?: string; timestamp: number } | undefined>();
   const insets = useSafeAreaInsets();
+  const navigationRef = useNavigationContainerRef<Tabs>();
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Tab.Navigator screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: "#2f7d5b",
@@ -43,7 +44,9 @@ function AppTabs() {
         <Tab.Screen
           name="Capture"
           options={{ tabBarLabel: "Snap" }}
-          listeners={{ tabPress: () => setCaptureHint(undefined) }}
+          listeners={{ tabPress: () => {
+            if (navigationRef.getCurrentRoute()?.name !== "Capture") setCaptureHint(undefined);
+          } }}
         >
           {() => <CaptureScreen hint={captureHint} onHintConsumed={() => setCaptureHint(undefined)} onCaptureSaved={(capture) => setTargetCapture({ ...capture, timestamp: Date.now() })} />}
         </Tab.Screen>
