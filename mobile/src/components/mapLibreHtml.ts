@@ -1565,11 +1565,18 @@ export function buildMapLibreHtml(): string {
           var popupElement = currentPopup.getElement && currentPopup.getElement();
           var captureCopy = popupElement && popupElement.querySelector('[data-capture-copy]');
           if (freshPopupBird && captureCopy) {
-            captureCopy.textContent = freshPopupBird.captureCount
-              ? 'Already collected ×' + freshPopupBird.captureCount + ' — recaptures still earn XP.'
-              : 'Not collected yet — capture it to add it to your Bird-dex.';
+            if (freshPopupBird.virtual) {
+              var freshDistance = haversineKm(lastUserLocation, freshPopupBird);
+              captureCopy.textContent = freshDistance != null && freshDistance > 0.06
+                ? 'A habitat-plausible Skyfriend. Move within 60m to collect it for your virtual field guide — it never counts as a real bird.'
+                : 'Close enough! Collecting this Skyfriend builds your virtual field guide — it never counts as a real bird.';
+            } else {
+              captureCopy.textContent = freshPopupBird.captureCount
+                ? 'Already collected ×' + freshPopupBird.captureCount + ' — recaptures still earn XP.'
+                : 'Not collected yet — capture it to add it to your Bird-dex.';
+            }
             var captureButton = popupElement.querySelector('[data-action="capture"]');
-            if (captureButton) captureButton.textContent = freshPopupBird.captureCount ? 'Recapture' : 'Capture';
+            if (captureButton) captureButton.textContent = freshPopupBird.virtual ? 'Collect' : freshPopupBird.captureCount ? 'Recapture' : 'Capture';
           }
         }
         refreshUi();
