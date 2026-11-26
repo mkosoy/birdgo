@@ -28,8 +28,9 @@ function stableHash(value: string): number {
 }
 
 export function speciesKey(speciesCode?: string, commonName?: string): string {
-  if (speciesCode?.trim()) return speciesCode.trim().toLowerCase();
-  return (commonName?.trim().toLowerCase() || "unidentified bird").replace(/\s+/g, " ");
+  const normalizedName = commonName?.trim().toLowerCase().replace(/\s+/g, " ");
+  if (normalizedName) return normalizedName;
+  return speciesCode?.trim().toLowerCase() || "unidentified bird";
 }
 
 export function rarityForSpecies(speciesCode?: string, commonName?: string, isNotable?: boolean): BirdRarity {

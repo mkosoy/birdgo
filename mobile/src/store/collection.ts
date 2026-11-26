@@ -73,13 +73,11 @@ export function captureMatchesSpecies(
   speciesCode?: string,
   commonName?: string,
 ): boolean {
-  const normalizedName = commonName?.trim().toLowerCase();
-  if (capture.speciesCode && speciesCode) return capture.speciesCode === speciesCode;
-  return Boolean(
-    normalizedName
-    && typeof capture.commonName === "string"
-    && capture.commonName.trim().toLowerCase() === normalizedName,
-  );
+  const normalizedName = commonName?.trim().toLowerCase().replace(/\s+/g, " ");
+  if (normalizedName && typeof capture.commonName === "string") {
+    return capture.commonName.trim().toLowerCase().replace(/\s+/g, " ") === normalizedName;
+  }
+  return Boolean(capture.speciesCode && speciesCode && capture.speciesCode === speciesCode);
 }
 
 export async function releaseSpecies(speciesCode?: string, commonName?: string): Promise<void> {
