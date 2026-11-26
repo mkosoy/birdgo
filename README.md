@@ -107,7 +107,7 @@ The repository's `vercel.json` builds the backend and Expo web export, serves `m
 Configure these Vercel environment variables:
 
 - `EBIRD_API_TOKEN` — required
-- `BIRD_ID_PROVIDER` — optional; defaults to `heuristic`
+- `BIRD_ID_PROVIDER` — optional; when unset, the backend uses Gemini/Hugging Face/OpenAI if a matching key is configured, otherwise `heuristic`
 - `HUGGINGFACE_API_KEY` — optional free provider key
 - `GEMINI_API_KEY` — optional free provider key
 - `OPENAI_API_KEY` — optional paid provider key
@@ -121,7 +121,7 @@ The backend supports four providers:
 
 - **Heuristic** (default, no key): deterministic offline fallback using nearby species hints.
 - **Hugging Face** (free tier): image classification using the configured Hugging Face model. Get a token at <https://huggingface.co/settings/tokens>.
-- **Gemini** (free tier): real photo identification with Gemini 2.5 Flash (`gemini-2.5-flash`). Set `BIRD_ID_PROVIDER=gemini` and `GEMINI_API_KEY` to enable it. Get a key at <https://aistudio.google.com/app/apikey>.
+- **Gemini** (free tier): real photo identification with Gemini 2.5 Flash (`gemini-2.5-flash`). It is enabled by `GEMINI_API_KEY` when no explicit provider is set, or by `BIRD_ID_PROVIDER=gemini`. Get a key at <https://aistudio.google.com/app/apikey>.
 - **OpenAI** (paid): OpenAI vision using `gpt-4o-mini`.
 
 Every provider returns:
