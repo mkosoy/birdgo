@@ -135,7 +135,7 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
         rarity,
         verified,
       });
-      const firstBonus = (record.xpAwarded ?? 0) > xpForCapture({ rarity, verified }, false) ? " First species bonus!" : "";
+      const firstBonus = (record.xpAwarded ?? 0) > xpForCapture({ rarity, verified, speciesCode: contextSpecies?.speciesCode, commonName, sciName: contextSpecies?.sciName ?? result.sciName }, false) ? " First species bonus!" : "";
       setConfirmation(`${commonName} joined your Bird-dex. +${record.xpAwarded ?? 0} XP.${firstBonus}`);
       setSavedPhotoUri(photoUri);
       if (encounterHint) onHintConsumed?.();

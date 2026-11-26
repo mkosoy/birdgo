@@ -43,7 +43,13 @@ export function rarityForSpecies(speciesCode?: string, commonName?: string, isNo
   return roll < 70 ? "rare" : roll < 95 ? "epic" : "legendary";
 }
 
-export function xpForCapture(capture: Pick<CaptureRecord, "rarity" | "verified">, isNewSpecies: boolean): number {
+export function isIdentifiedCapture(capture: Pick<CaptureRecord, "speciesCode" | "commonName" | "sciName">): boolean {
+  const commonName = capture.commonName?.trim().toLowerCase().replace(/\s+/g, " ");
+  return Boolean(capture.speciesCode?.trim() || capture.sciName?.trim() || (commonName && commonName !== "unidentified bird"));
+}
+
+export function xpForCapture(capture: Pick<CaptureRecord, "rarity" | "verified" | "speciesCode" | "commonName" | "sciName">, isNewSpecies: boolean): number {
+  if (!isIdentifiedCapture(capture)) return 10;
   const rarity = capture.rarity ?? "common";
   return RARITY_XP[rarity] + (capture.verified ? 20 : 0) + (isNewSpecies ? 50 : 0);
 }
@@ -79,6 +85,7 @@ export interface SpeciesDexEntry {
   photoUri?: string;
   imageUrl?: string;
   capture?: CaptureRecord;
+  identified?: boolean;
 }
 
 function captureName(capture: CaptureRecord): string {
@@ -109,6 +116,7 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
         lastCapturedAt: timestamp,
         photoUri: capture.photoUri,
         capture,
+        identified: isIdentifiedCapture(capture),
       });
       return;
     }
