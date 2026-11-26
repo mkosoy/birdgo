@@ -447,9 +447,12 @@ export function buildMapLibreHtml(): string {
       function birdGlyph() {
         return '<svg viewBox="0 0 64 64" width="22" height="22" aria-hidden="true"><path d="M12 39c4-13 15-23 29-23 7 0 12 3 14 8l7 3-6 4c-2 9-10 15-20 15-8 0-15-2-24-7z" fill="currentColor"/><circle cx="47" cy="24" r="2.4" fill="#234236"/><path d="M14 39 4 45l13 2z" fill="currentColor" opacity=".82"/></svg>';
       }
+      function safeSvgColor(value, fallback) {
+        return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
+      }
       function personGlyph(profile) {
-        var accent = profile && profile.accentColor ? profile.accentColor : '#ffffff';
-        var accessory = profile && profile.accessory ? profile.accessory : 'cap';
+        var accent = safeSvgColor(profile && profile.accentColor, '#ffffff');
+        var accessory = profile && ['none', 'cap', 'visor', 'hood'].indexOf(profile.accessory) >= 0 ? profile.accessory : 'cap';
         var accessorySvg = '';
         if (accessory === 'cap') accessorySvg = '<path d="M22 15c2-7 7-10 10-10s8 3 10 10l4 2H18z" fill="' + accent + '"/>';
         else if (accessory === 'visor') accessorySvg = '<path d="M20 15h24l5 4H17z" fill="' + accent + '"/>';
