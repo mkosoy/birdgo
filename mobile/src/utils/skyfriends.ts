@@ -38,6 +38,7 @@ export function observationMarkerId(bird: Pick<EbirdObservation, "speciesCode" |
 }
 
 const ASSIGNMENTS_KEY = "birdgo.skyfriend-spawn-species-v1";
+const FLED_KEY = "birdgo.skyfriend-fled-v1";
 const CELL_SIZE_DEGREES = 0.004;
 export const SKYFRIEND_COLLECT_KM = 0.06;
 
@@ -84,6 +85,30 @@ export async function saveSkyfriendSpecies(cellKey: string, speciesCodes: string
     assignments[cellKey] = speciesCodes;
     const entries = Object.entries(assignments).slice(-100);
     await AsyncStorage.setItem(ASSIGNMENTS_KEY, JSON.stringify(Object.fromEntries(entries)));
+  });
+  assignmentWriteQueue = write.catch(() => undefined);
+  return write;
+}
+
+export async function loadSkyfriendFled(): Promise<Record<string, number>> {
+  const raw = await AsyncStorage.getItem(FLED_KEY);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    if (!parsed || typeof parsed !== "object") return {};
+    const now = Date.now();
+    return Object.fromEntries(Object.entries(parsed).filter(([, until]) => typeof until === "number" && until > now));
+  } catch {
+    return {};
+  }
+}
+
+export async function markSkyfriendFled(encounterId: string, until: number): Promise<void> {
+  const write = assignmentWriteQueue.then(async () => {
+    const fled = await loadSkyfriendFled();
+    fled[encounterId] = until;
+    const entries = Object.entries(fled).slice(-100);
+    await AsyncStorage.setItem(FLED_KEY, JSON.stringify(Object.fromEntries(entries)));
   });
   assignmentWriteQueue = write.catch(() => undefined);
   return write;
