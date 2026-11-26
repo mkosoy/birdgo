@@ -53,6 +53,7 @@ export async function fetchInatBirds(
   backDays = 14,
 ): Promise<EbirdObservation[]> {
   const cutoffTime = Date.now() - backDays * 24 * 60 * 60 * 1000;
+  const cutoffDate = new Date(cutoffTime).toISOString().slice(0, 10);
   const startDate = new Date(cutoffTime - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const params = new URLSearchParams({
     taxon_id: "3",
@@ -81,6 +82,7 @@ export async function fetchInatBirds(
     return payload.results.flatMap((observation) => {
       const observedAt = observation.time_observed_at ? Date.parse(observation.time_observed_at) : Number.NaN;
       if (Number.isFinite(observedAt) && observedAt < cutoffTime) return [];
+      if (!Number.isFinite(observedAt) && (!observation.observed_on || observation.observed_on < cutoffDate)) return [];
       const coordinates = coordinatesFor(observation);
       const taxon = observation.taxon;
       if (
