@@ -57,8 +57,8 @@ export function buildMapLibreHtml(): string {
     .nb-row.virtual .nb-thumb { box-shadow: 0 0 0 2px #72e7ff inset; background: linear-gradient(145deg, #ece7ff, #dffaff); }
     .nb-row.virtual .nb-name { color: #4241a0; }
     .nb-row.virtual .nb-go { background: linear-gradient(135deg, #735eea, #27aacb); }
-    .user-marker { position: absolute; width: 36px; height: 36px; background: linear-gradient(#2f8ee8,#175fb4); border: 3px solid white; box-shadow: 0 0 0 2px rgba(40,120,209,.45), 0 4px 10px rgba(0,0,0,.35); }
-    .user-marker::before { content: ''; position: absolute; top: 50%; left: 50%; width: 48px; height: 48px; border-radius: 50%; border: 2px solid rgba(40, 120, 209, 0.55); animation: pulse 1.8s ease-out infinite; }
+    .user-marker { position: absolute; width: 46px; height: 46px; background: linear-gradient(#2f8ee8,#175fb4); border: 3px solid white; box-shadow: 0 0 0 2px rgba(40,120,209,.45), 0 4px 10px rgba(0,0,0,.35); }
+    .user-marker::before { content: ''; position: absolute; top: 50%; left: 50%; width: 60px; height: 60px; border-radius: 50%; border: 2px solid rgba(40, 120, 209, 0.55); animation: pulse 1.8s ease-out infinite; }
     @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(1.45); opacity: 0; } }
     .encounter { width: 242px; max-width: calc(100vw - 88px); line-height: 1.28; color: #26342d; font-size: 13px; }
     .encounter h3 { margin: 0 28px 2px 0; font-size: 17px; line-height: 21px; }
@@ -497,7 +497,7 @@ export function buildMapLibreHtml(): string {
         if (accessory === 'cap') accessorySvg = '<path d="M22 15c2-7 7-10 10-10s8 3 10 10l4 2H18z" fill="' + accent + '"/>';
         else if (accessory === 'visor') accessorySvg = '<path d="M20 15h24l5 4H17z" fill="' + accent + '"/>';
         else if (accessory === 'hood') accessorySvg = '<path d="M20 27c-2-14 4-23 12-23s14 9 12 23c-3-7-6-11-12-11s-9 4-12 11z" fill="' + accent + '" opacity=".95"/>';
-        return '<svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><circle cx="32" cy="18" r="9" fill="#f2c39b"/><circle cx="29" cy="18" r="1.1" fill="#26342d"/><circle cx="35" cy="18" r="1.1" fill="#26342d"/><path d="M29 22q3 2.4 6 0" stroke="#26342d" stroke-width="1.3" fill="none" stroke-linecap="round"/>' + accessorySvg + '<path d="M18 50c2-13 8-20 14-20s12 7 14 20z" fill="' + accent + '"/><path d="M20 34c-5 4-8 9-9 15l8 2c1-6 3-10 6-13zm24 0c5 4 8 9 9 15l-8 2c-1-6-3-10-6-13z" fill="#d8ecff"/></svg>';
+        return '<svg viewBox="0 0 64 64" width="32" height="32" aria-hidden="true"><circle cx="32" cy="18" r="9" fill="#f2c39b"/><circle cx="29" cy="18" r="1.1" fill="#26342d"/><circle cx="35" cy="18" r="1.1" fill="#26342d"/><path d="M29 22q3 2.4 6 0" stroke="#26342d" stroke-width="1.3" fill="none" stroke-linecap="round"/>' + accessorySvg + '<path d="M18 50c2-13 8-20 14-20s12 7 14 20z" fill="' + accent + '"/><path d="M20 34c-5 4-8 9-9 15l8 2c1-6 3-10 6-13zm24 0c5 4 8 9 9 15l-8 2c-1-6-3-10-6-13z" fill="#d8ecff"/></svg>';
       }
       function thumbInnerHtml(bird, emojiFallback) {
         var image = getBirdImage(bird);
@@ -1353,8 +1353,18 @@ export function buildMapLibreHtml(): string {
             if (layer.type === 'line') {
               if (sl === 'transportation') {
                 var roadId = (layer.id || '').toLowerCase();
-                var roadColor = roadId.indexOf('casing') >= 0 ? '#c8d0ba' : roadId.indexOf('motorway') >= 0 || roadId.indexOf('trunk') >= 0 || roadId.indexOf('primary') >= 0 ? '#ffe1a3' : '#fffdf2';
-                map.setPaintProperty(layer.id, 'line-color', roadColor);
+                if (roadId.indexOf('railway') < 0 && roadId.indexOf('ferry') < 0 && roadId.indexOf('cablecar') < 0) {
+                  var casing = roadId.indexOf('casing') >= 0;
+                  var minorRoad = roadId.indexOf('minor') >= 0 || roadId.indexOf('path') >= 0 || roadId.indexOf('service') >= 0 || roadId.indexOf('track') >= 0 || roadId.indexOf('link') >= 0;
+                  var majorRoad = roadId.indexOf('motorway') >= 0 || roadId.indexOf('trunk') >= 0 || roadId.indexOf('primary') >= 0;
+                  var roadColor = casing ? '#c4cbb8' : majorRoad ? '#ffe1a3' : '#f4edda';
+                  var widthStops = minorRoad
+                    ? casing ? [14, 1.4, 18, 4, 20, 7] : [14, 0.8, 18, 3, 20, 5]
+                    : casing ? [8, 1.2, 18, 6, 20, 12] : [8, 0.7, 18, 4.5, 20, 9];
+                  map.setPaintProperty(layer.id, 'line-color', roadColor);
+                  map.setPaintProperty(layer.id, 'line-width', ['interpolate', ['linear'], ['zoom']].concat(widthStops));
+                  map.setPaintProperty(layer.id, 'line-opacity', casing ? (minorRoad ? 0.24 : 0.42) : minorRoad ? 0.58 : 0.82);
+                }
               }
               else if (sl === 'waterway') map.setPaintProperty(layer.id, 'line-color', '#6cc7e8');
             }
