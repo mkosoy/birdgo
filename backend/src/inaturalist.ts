@@ -64,7 +64,7 @@ function normalizeLookupName(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-async function lookupReferenceImage(query: string): Promise<SpeciesReferenceImage | undefined> {
+async function lookupReferenceImage(query: string, allowAliases = true): Promise<SpeciesReferenceImage | undefined> {
   const cacheKey = normalizeLookupName(query);
   const cached = referenceImageCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.image;
@@ -87,7 +87,7 @@ async function lookupReferenceImage(query: string): Promise<SpeciesReferenceImag
     const exact = birdTaxa.find((taxon) =>
       (taxon.name && normalizeLookupName(taxon.name) === normalizedQuery)
       || (taxon.preferred_common_name && normalizeLookupName(taxon.preferred_common_name) === normalizedQuery)
-      || (taxon.matched_term && normalizeLookupName(taxon.matched_term) === normalizedQuery)
+      || (allowAliases && taxon.matched_term && normalizeLookupName(taxon.matched_term) === normalizedQuery)
     );
     const taxon = exact;
     const url = taxon?.default_photo?.medium_url ?? taxon?.default_photo?.url;
@@ -105,16 +105,19 @@ async function lookupReferenceImage(query: string): Promise<SpeciesReferenceImag
 }
 
 export async function fetchSpeciesReferenceImage(scientificName?: string | null, commonName?: string | null): Promise<SpeciesReferenceImage | undefined> {
-  const queries = [...new Set([scientificName, commonName].filter((value): value is string => Boolean(value?.trim())))];
-  for (const query of queries) {
+  if (scientificName?.trim()) {
     try {
-      const image = await lookupReferenceImage(query);
-      if (image) return image;
+      return await lookupReferenceImage(scientificName, false);
     } catch {
-      // Reference imagery is an enhancement; identification should still succeed without it.
+      return undefined;
     }
   }
-  return undefined;
+  if (!commonName?.trim()) return undefined;
+  try {
+    return await lookupReferenceImage(commonName, true);
+  } catch {
+    return undefined;
+  }
 }
 
 export interface BirdAbundance {
