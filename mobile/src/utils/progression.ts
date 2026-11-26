@@ -45,8 +45,8 @@ export function speciesKeyAliases(speciesCode?: string, commonName?: string, sci
   ])];
 }
 
-export function rarityForSpecies(speciesCode?: string, commonName?: string, isNotable?: boolean, sciName?: string | null): BirdRarity {
-  const key = speciesKey(speciesCode, commonName, sciName);
+export function rarityForSpecies(speciesCode?: string, commonName?: string, isNotable?: boolean, sciName?: string | null, canonicalKey?: string | null): BirdRarity {
+  const key = speciesKey(speciesCode, commonName, sciName, canonicalKey);
   if (!key || key === "unidentified bird") return "common";
   const roll = stableHash(key) % 100;
   if (!isNotable) return roll < 75 ? "common" : "uncommon";
@@ -114,7 +114,7 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
         commonName,
         sciName: capture.sciName,
         canonicalKey: capture.canonicalKey,
-        rarity: capture.rarity ?? rarityForSpecies(capture.speciesCode, commonName),
+        rarity: capture.rarity ?? rarityForSpecies(capture.speciesCode, commonName, undefined, capture.sciName, capture.canonicalKey),
         capturedCount: 1,
         seen: true,
         firstCapturedAt: timestamp,
@@ -169,7 +169,7 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
       commonName: species.comName,
       sciName: species.sciName,
       canonicalKey: species.canonicalKey,
-      rarity: rarityForSpecies(species.speciesCode, species.comName, species.isNotable, species.sciName),
+      rarity: rarityForSpecies(species.speciesCode, species.comName, species.isNotable, species.sciName, species.canonicalKey),
       capturedCount: 0,
       seen: true,
       imageUrl: species.imageUrl,

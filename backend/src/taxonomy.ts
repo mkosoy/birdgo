@@ -61,11 +61,19 @@ async function gbifCanonicalize(scientificName: string): Promise<CanonicalSpecie
   if (gbifCache.has(cacheKey)) return gbifCache.get(cacheKey);
   try {
     const params = new URLSearchParams({ name: scientificName, class: "Aves" });
-    const response = await fetch(`https://api.gbif.org/v1/species/match?${params.toString()}`, {
-      headers: { Accept: "application/json" },
-    });
-    if (!response.ok) throw new Error(`GBIF request failed with status ${response.status}`);
-    const match = (await response.json()) as GbifSpeciesMatch;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 7000);
+    let match: GbifSpeciesMatch;
+    try {
+      const response = await fetch(`https://api.gbif.org/v1/species/match?${params.toString()}`, {
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`GBIF request failed with status ${response.status}`);
+      match = (await response.json()) as GbifSpeciesMatch;
+    } finally {
+      clearTimeout(timeout);
+    }
     const canonicalSciName = match.species?.trim() || match.canonicalName?.trim();
     const usageKey = match.acceptedUsageKey ?? match.usageKey;
     const usable = match.class === "Aves"
