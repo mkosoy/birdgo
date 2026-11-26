@@ -30,7 +30,36 @@ interface GbifSpeciesMatch {
 }
 
 let ebirdTaxonomyCache: { expiresAt: number; entries: EbirdTaxonomyEntry[] } | undefined;
+const GBIF_CACHE_LIMIT = 500;
+const GBIF_CONCURRENCY_LIMIT = 8;
+const GBIF_QUEUE_LIMIT = 64;
 const gbifCache = new Map<string, CanonicalSpeciesIdentity | undefined>();
+let gbifSlots = GBIF_CONCURRENCY_LIMIT;
+const gbifSlotWaiters: Array<() => void> = [];
+
+async function acquireGbifSlot(): Promise<boolean> {
+  if (gbifSlots > 0) {
+    gbifSlots -= 1;
+    return true;
+  }
+  if (gbifSlotWaiters.length >= GBIF_QUEUE_LIMIT) return false;
+  await new Promise<void>((resolve) => gbifSlotWaiters.push(resolve));
+  return true;
+}
+
+function releaseGbifSlot(): void {
+  const next = gbifSlotWaiters.shift();
+  if (next) next();
+  else gbifSlots += 1;
+}
+
+function cacheGbifResult(key: string, result: CanonicalSpeciesIdentity | undefined): void {
+  if (!gbifCache.has(key) && gbifCache.size >= GBIF_CACHE_LIMIT) {
+    const oldest = gbifCache.keys().next().value;
+    if (oldest) gbifCache.delete(oldest);
+  }
+  gbifCache.set(key, result);
+}
 
 function normalize(value?: string | null): string {
   return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
@@ -64,6 +93,7 @@ async function gbifCanonicalize(scientificName: string): Promise<CanonicalSpecie
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 7000);
     let match: GbifSpeciesMatch;
+    if (!(await acquireGbifSlot())) throw new Error("GBIF lookup queue is full");
     try {
       const response = await fetch(`https://api.gbif.org/v1/species/match?${params.toString()}`, {
         headers: { Accept: "application/json" },
@@ -73,6 +103,7 @@ async function gbifCanonicalize(scientificName: string): Promise<CanonicalSpecie
       match = (await response.json()) as GbifSpeciesMatch;
     } finally {
       clearTimeout(timeout);
+      releaseGbifSlot();
     }
     const canonicalSciName = match.species?.trim() || match.canonicalName?.trim();
     const usageKey = match.acceptedUsageKey ?? match.usageKey;
@@ -88,10 +119,10 @@ async function gbifCanonicalize(scientificName: string): Promise<CanonicalSpecie
         canonicalKey: usageKey ? `gbif:${usageKey}` : `gbif-name:${normalize(canonicalSciName)}`,
       }
       : undefined;
-    gbifCache.set(cacheKey, result);
+    cacheGbifResult(cacheKey, result);
     return result;
   } catch {
-    gbifCache.set(cacheKey, undefined);
+    cacheGbifResult(cacheKey, undefined);
     return undefined;
   }
 }
