@@ -65,6 +65,19 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     void loadSkyfriendFled().then(setFledSkyfriends).catch(() => undefined);
   }, [refreshCollection, refreshTrainer]));
   useEffect(() => {
+    const now = Date.now();
+    const nextExpiry = Math.min(...Object.values(fledSkyfriends).filter((until) => until > now));
+    if (!Number.isFinite(nextExpiry)) return undefined;
+    const timeout = setTimeout(() => {
+      const expiryNow = Date.now();
+      setFledSkyfriends((current) => {
+        const entries = Object.entries(current).filter(([, until]) => until > expiryNow);
+        return entries.length === Object.keys(current).length ? current : Object.fromEntries(entries);
+      });
+    }, nextExpiry - now + 50);
+    return () => clearTimeout(timeout);
+  }, [fledSkyfriends]);
+  useEffect(() => {
     if (!targetCapture || processedTargetCapture.current === targetCapture.timestamp) return;
     processedTargetCapture.current = targetCapture.timestamp;
     if (!activeTrackTarget) return;
