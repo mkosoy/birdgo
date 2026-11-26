@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import type { EbirdObservation, Coordinates, WeatherAtmosphere } from "../types";
+import type { EbirdObservation, Coordinates, TrainerProfile, WeatherAtmosphere } from "../types";
 import { buildLeafletHtml } from "./leafletHtml";
 import { buildMapLibreHtml } from "./mapLibreHtml";
 import type { BirdMapProps } from "./BirdMap";
@@ -29,7 +29,7 @@ function relativeTime(date?: string): string {
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
-export function BirdMap({ center, userLocation, birds, captureCounts, mode, firstPerson, heading, weather, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange }: BirdMapProps) {
+export function BirdMap({ center, userLocation, birds, captureCounts, mode, firstPerson, heading, weather, trainer, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange }: BirdMapProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
@@ -40,6 +40,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
     center,
     loading,
     weather,
+    trainer,
     userLocation,
     heading,
     firstPerson,
@@ -60,7 +61,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
       virtual: Boolean(bird.virtual),
       captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
     })),
-  }), [birds, captureCounts, center, firstPerson, heading, safeArea, userLocation, weather]);
+  }), [birds, captureCounts, center, firstPerson, heading, safeArea, userLocation, weather, trainer]);
   const dataRef = useRef<typeof data | null>(null);
   useEffect(() => {
     dataRef.current = data;

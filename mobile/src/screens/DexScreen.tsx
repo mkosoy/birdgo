@@ -1,10 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
-import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCollection } from "../hooks/useCollection";
+import { useTrainerProfile } from "../hooks/useTrainerProfile";
 import { captureMatchesSpecies, releaseSpecies } from "../store/collection";
 import { Bird3DPreview } from "../components/Bird3DPreview";
+import { TrainerAvatar } from "../components/TrainerAvatar";
 import { buildSpeciesDex, levelForXp, RARITY_COLORS, type SpeciesDexEntry } from "../utils/progression";
+import type { TrainerAccessory, TrainerProfile } from "../types";
 
 function coordinateLabel(latitude?: number, longitude?: number): string | undefined {
   if (typeof latitude !== "number" || !Number.isFinite(latitude)
@@ -18,6 +21,15 @@ function shortDate(timestamp?: string): string {
   return Number.isNaN(date.getTime()) ? "Date unknown" : date.toLocaleDateString();
 }
 
+const AVATAR_COLORS = ["#2f8ee8", "#2f7d5b", "#7d64f2", "#d97941", "#c94f7c", "#263d78"];
+const ACCENT_COLORS = ["#ffffff", "#ffd766", "#72e7ff", "#65d184", "#f0a6c1", "#d7ccff"];
+const ACCESSORIES: { value: TrainerAccessory; label: string }[] = [
+  { value: "cap", label: "Cap" },
+  { value: "visor", label: "Visor" },
+  { value: "hood", label: "Hood" },
+  { value: "none", label: "None" },
+];
+
 function rarityLabel(entry: SpeciesDexEntry): string {
   return entry.identified === false ? "Unverified" : entry.rarity.charAt(0).toUpperCase() + entry.rarity.slice(1);
 }
@@ -28,6 +40,9 @@ function displayName(entry: SpeciesDexEntry): string {
 
 export function DexScreen() {
   const { captures, seenSpecies, skyfriends, xp, loading, refresh } = useCollection();
+  const { trainer, saveTrainer, refresh: refreshTrainer } = useTrainerProfile();
+  const [customizing, setCustomizing] = useState(false);
+  const [trainerDraft, setTrainerDraft] = useState<TrainerProfile>(trainer);
   const [selected, setSelected] = useState<SpeciesDexEntry>();
   const [pendingRelease, setPendingRelease] = useState<{
     commonName: string;
@@ -38,6 +53,7 @@ export function DexScreen() {
   }>();
   useFocusEffect(useCallback(() => {
     void refresh();
+    void refreshTrainer();
   }, [refresh]));
 
   const entries = useMemo(() => buildSpeciesDex(captures, seenSpecies), [captures, seenSpecies]);
@@ -62,14 +78,17 @@ export function DexScreen() {
 
   const header = <View style={styles.header}>
     <View style={styles.headerTop}>
-      <View>
-        <Text style={styles.levelLabel}>Trainer level</Text>
-        <Text style={styles.level}>{progress.level}</Text>
-      </View>
+      <TrainerAvatar profile={trainer} size={58} />
       <View style={styles.headerStats}>
+        <Text style={styles.trainerName}>{trainer.name}</Text>
         <Text style={styles.stat}>{capturedSpecies} species collected</Text>
         <Text style={styles.stat}>{totalCaptured} total captures</Text>
         <Text style={styles.stat}>{entries.length} species seen nearby</Text>
+      </View>
+      <View style={styles.levelBlock}>
+        <Text style={styles.levelLabel}>Level</Text>
+        <Text style={styles.level}>{progress.level}</Text>
+        <Pressable accessibilityRole="button" style={styles.customizeButton} onPress={() => { setTrainerDraft(trainer); setCustomizing(true); }}><Text style={styles.customizeText}>Customize</Text></Pressable>
       </View>
     </View>
     <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(progress.progress * 100)}%` }]} /></View>
@@ -153,6 +172,28 @@ export function DexScreen() {
         </View>
       </View>
     </Modal>
+    <Modal visible={customizing} transparent animationType="fade" onRequestClose={() => setCustomizing(false)}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <Text style={styles.modalTitle}>Customize trainer</Text>
+            <View style={styles.customizerPreview}><TrainerAvatar profile={trainerDraft} size={82} /><Text style={styles.previewName}>{trainerDraft.name}</Text></View>
+            <Text style={styles.choiceLabel}>Name</Text>
+            <TextInput value={trainerDraft.name} onChangeText={(name) => setTrainerDraft((current) => ({ ...current, name }))} maxLength={24} style={styles.nameInput} placeholder="Trainer name" />
+            <Text style={styles.choiceLabel}>Outfit</Text>
+            <View style={styles.choiceRow}>{AVATAR_COLORS.map((color) => <Pressable key={color} accessibilityLabel={`Outfit color ${color}`} style={[styles.colorChoice, { backgroundColor: color }, trainerDraft.avatarColor === color && styles.choiceSelected]} onPress={() => setTrainerDraft((current) => ({ ...current, avatarColor: color }))} />)}</View>
+            <Text style={styles.choiceLabel}>Accent</Text>
+            <View style={styles.choiceRow}>{ACCENT_COLORS.map((color) => <Pressable key={color} accessibilityLabel={`Accent color ${color}`} style={[styles.colorChoice, { backgroundColor: color }, trainerDraft.accentColor === color && styles.choiceSelected]} onPress={() => setTrainerDraft((current) => ({ ...current, accentColor: color }))} />)}</View>
+            <Text style={styles.choiceLabel}>Gear</Text>
+            <View style={styles.choiceRow}>{ACCESSORIES.map((choice) => <Pressable key={choice.value} style={[styles.accessoryChoice, trainerDraft.accessory === choice.value && styles.accessorySelected]} onPress={() => setTrainerDraft((current) => ({ ...current, accessory: choice.value }))}><Text style={styles.accessoryText}>{choice.label}</Text></Pressable>)}</View>
+            <View style={styles.modalActions}>
+              <Pressable accessibilityRole="button" style={styles.modalKeep} onPress={() => setCustomizing(false)}><Text>Cancel</Text></Pressable>
+              <Pressable accessibilityRole="button" style={styles.saveButton} onPress={() => { void saveTrainer(trainerDraft).then(() => setCustomizing(false)); }}><Text style={styles.saveButtonText}>Save</Text></Pressable>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
     <Modal visible={Boolean(pendingRelease)} transparent animationType="fade" onRequestClose={() => setPendingRelease(undefined)}>
       <View style={styles.modalBackdrop}>
         <View style={styles.modalCard}>
@@ -171,7 +212,24 @@ export function DexScreen() {
 const styles = StyleSheet.create({
   list: { padding: 10, gap: 4, paddingBottom: 28 },
   header: { margin: 5, marginBottom: 12, padding: 16, borderRadius: 18, backgroundColor: "#173c2b", elevation: 3 },
-  headerTop: { flexDirection: "row", alignItems: "center", gap: 16 },
+  headerTop: { flexDirection: "row", alignItems: "center", gap: 12 },
+  trainerName: { color: "#ffffff", fontSize: 17, fontWeight: "900" },
+  levelBlock: { alignItems: "center", gap: 2 },
+  customizeButton: { minHeight: 30, borderRadius: 12, paddingHorizontal: 8, alignItems: "center", justifyContent: "center", backgroundColor: "#2f7d5b" },
+  customizeText: { color: "#dff4e7", fontSize: 10, fontWeight: "900" },
+  customizerPreview: { alignItems: "center", gap: 7, marginVertical: 12 },
+  previewName: { color: "#173c2b", fontSize: 18, fontWeight: "900" },
+  choiceLabel: { color: "#42574b", fontSize: 12, fontWeight: "900", marginTop: 10, marginBottom: 6, textTransform: "uppercase" },
+  nameInput: { minHeight: 44, borderRadius: 10, paddingHorizontal: 12, backgroundColor: "#eef3ef", color: "#173c2b", fontWeight: "700" },
+  choiceRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  colorChoice: { width: 38, height: 38, borderRadius: 19, borderWidth: 3, borderColor: "#d5ded8" },
+  choiceSelected: { borderColor: "#173c2b" },
+  accessoryChoice: { minHeight: 38, borderRadius: 15, paddingHorizontal: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#e8eeea" },
+  accessorySelected: { backgroundColor: "#bde8ca" },
+  accessoryText: { color: "#173c2b", fontWeight: "800", fontSize: 12 },
+  saveButton: { minHeight: 44, minWidth: 90, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: "#2f7d5b" },
+  saveButtonText: { color: "#fff", fontWeight: "800" },
+
   levelLabel: { color: "#a9c9b4", fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 },
   level: { color: "#fff", fontSize: 40, fontWeight: "900", lineHeight: 44 },
   headerStats: { flex: 1, gap: 4 },
