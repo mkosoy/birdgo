@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCollection } from "../hooks/useCollection";
@@ -42,6 +42,7 @@ export function DexScreen() {
   const { captures, seenSpecies, skyfriends, xp, loading, refresh } = useCollection();
   const { trainer, saveTrainer, refresh: refreshTrainer } = useTrainerProfile();
   const [customizing, setCustomizing] = useState(false);
+  const [detailUsesModel, setDetailUsesModel] = useState(false);
   const [trainerDraft, setTrainerDraft] = useState<TrainerProfile>(trainer);
   const [selected, setSelected] = useState<SpeciesDexEntry>();
   const [pendingRelease, setPendingRelease] = useState<{
@@ -52,6 +53,10 @@ export function DexScreen() {
     captureIds: string[];
     photoLabel: string;
   }>();
+  useEffect(() => {
+    setDetailUsesModel(false);
+  }, [selected]);
+
   useFocusEffect(useCallback(() => {
     void refresh();
     void refreshTrainer();
@@ -123,6 +128,7 @@ export function DexScreen() {
         const imageUri = entry.photoUri || entry.imageUrl;
         return <Pressable key={entry.key} style={styles.hallCard} onPress={() => setSelected(entry)}>
           {imageUri ? <Image source={{ uri: imageUri }} style={styles.hallImage} /> : <View style={styles.hallImageEmpty}><Text style={styles.hallBird}>🐦</Text></View>}
+          {!entry.photoUri && entry.imageUrl && imageUri ? <View style={[styles.referenceBadge, styles.hallReferenceBadge]}><Text style={styles.referenceBadgeText}>Reference</Text></View> : null}
           <View style={styles.hallRank}><Text style={styles.hallRankText}>{index + 1}</Text></View>
           <View style={styles.hallCardBody}>
             <Text style={styles.hallName} numberOfLines={2}>{entry.commonName}</Text>
@@ -160,6 +166,7 @@ export function DexScreen() {
         {imageUri
           ? <Image source={{ uri: imageUri }} style={[styles.photo, !captured && styles.lockedPhoto]} />
           : <View style={[styles.photo, styles.noPhoto]}><Text style={styles.noPhotoText}>{captured ? "🐦" : "?"}</Text></View>}
+        {!item.photoUri && item.imageUrl && imageUri ? <View style={styles.referenceBadge}><Text style={styles.referenceBadgeText}>Reference</Text></View> : null}
         {!captured && imageUri && <View style={styles.lockedVeil}><Text style={styles.question}>?</Text></View>}
         <View style={[styles.rarityChip, { backgroundColor: item.identified === false ? "#68746d" : RARITY_COLORS[item.rarity] }]}><Text style={styles.rarityChipText}>{rarityLabel(item)}</Text></View>
       </View>
@@ -182,12 +189,26 @@ export function DexScreen() {
       data={entries}
       keyExtractor={(item) => item.key}
       numColumns={2}
-      ListHeaderComponent={<View>{header}{hallOfFameArea}{skyfriendArea}</View>}
+      ListHeaderComponent={header}
+      ListFooterComponent={<View>{hallOfFameArea}{skyfriendArea}</View>}
       renderItem={renderCard}
     />;
 
   const selectedCapture = selected?.capture;
   const coordinates = coordinateLabel(selectedCapture?.location?.latitude, selectedCapture?.location?.longitude);
+  const detailImageUri = selectedCapture?.photoUri || (selected?.identified !== false ? selected?.imageUrl : undefined);
+  const showDetailImage = Boolean(detailImageUri && !detailUsesModel);
+  const detailUsesReferenceImage = Boolean(detailImageUri && !selectedCapture?.photoUri);
+  const detailPhotoLabel = selectedCapture?.photoUri ? "your photo" : "species photo";
+  const detailCopy = selected?.identified === false
+    ? "This photo is kept as an unverified observation record and does not count as a collected species."
+    : selectedCapture && !selectedCapture.photoUri && !selectedCapture.verified
+      ? "Logged by the honor system without a photo. The species reference image is shown only as identification context; add a real photo to strengthen this personal record."
+      : detailUsesModel
+        ? "The 3D bird is a stylized encounter model. Switch back to the real photo/reference for the observation record."
+        : selectedCapture?.photoUri
+          ? "This is your real observation photo. A stylized 3D encounter model is also available."
+          : "This species reference image is identification context; your encounter record remains primary.";
 
   return <View style={styles.screen}>
     {content}
@@ -195,7 +216,12 @@ export function DexScreen() {
       <View style={styles.modalBackdrop}>
         <View style={styles.detailCard}>
           <ScrollView showsVerticalScrollIndicator={false}>
-            {selected && selected.identified !== false ? <Bird3DPreview commonName={selected.commonName} rarity={selected.rarity} height={190} /> : null}
+            {showDetailImage && detailImageUri
+              ? <View style={styles.detailHeroWrap}><Image source={{ uri: detailImageUri }} style={styles.detailHeroPhoto} />{detailUsesReferenceImage ? <View style={[styles.referenceBadge, styles.detailReferenceBadge]}><Text style={styles.referenceBadgeText}>Reference</Text></View> : null}</View>
+              : selected && selected.identified !== false ? <Bird3DPreview commonName={selected.commonName} rarity={selected.rarity} height={190} /> : null}
+            {detailImageUri && selected?.identified !== false ? <Pressable accessibilityRole="button" style={styles.visualToggle} onPress={() => setDetailUsesModel((current) => !current)}>
+              <Text style={styles.visualToggleText}>{detailUsesModel ? `View ${detailPhotoLabel}` : "View 3D model"}</Text>
+            </Pressable> : null}
             <Text style={styles.detailTitle}>{selected ? displayName(selected) : ""}</Text>
             <Text style={styles.detailScientific}>{selected?.identified === false ? "Species unknown" : selected?.sciName ?? "Scientific name unknown"}</Text>
             <View style={styles.detailStats}>
@@ -204,8 +230,7 @@ export function DexScreen() {
               {selected?.firstCapturedAt && <Text style={styles.detailStat}>First captured {shortDate(selected.firstCapturedAt)}</Text>}
               {coordinates && <Text style={styles.detailStat}>{coordinates}</Text>}
             </View>
-            {selectedCapture?.photoUri && <Image source={{ uri: selectedCapture.photoUri }} style={styles.detailPhoto} />}
-            <Text style={styles.detailCopy}>{selected?.identified === false ? "This photo is kept as an unverified observation record and does not count as a collected species." : selectedCapture && !selectedCapture.photoUri && !selectedCapture.verified ? "Logged by the honor system without a photo. Add a real photo later to make this a stronger personal record." : "The 3D bird is a stylized encounter model; your photo remains the real observation record."}</Text>
+            <Text style={styles.detailCopy}>{detailCopy}</Text>
             <View style={styles.detailActions}>
               <Pressable accessibilityRole="button" style={styles.modalKeep} onPress={() => setSelected(undefined)}><Text>Close</Text></Pressable>
               {selected?.capturedCount ? <Pressable accessibilityRole="button" style={styles.modalRelease} onPress={() => release(selected)}><Text style={styles.modalReleaseText}>Release</Text></Pressable> : null}
@@ -343,7 +368,14 @@ const styles = StyleSheet.create({
   detailScientific: { color: "#67786d", fontStyle: "italic", textAlign: "center", marginTop: 2 },
   detailStats: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 10 },
   detailStat: { color: "#385144", backgroundColor: "#e7f0e9", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, fontSize: 11, fontWeight: "800", overflow: "hidden" },
-  detailPhoto: { width: "100%", height: 140, borderRadius: 12, marginTop: 12, backgroundColor: "#dce6df" },
+  detailHeroWrap: { position: "relative" },
+  detailHeroPhoto: { width: "100%", height: 190, borderRadius: 16, backgroundColor: "#dce6df", resizeMode: "cover" },
+  referenceBadge: { position: "absolute", right: 6, top: 6, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 3, backgroundColor: "rgba(31, 45, 39, .78)" },
+  referenceBadgeText: { color: "#f1f7f2", fontSize: 8, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.5 },
+  hallReferenceBadge: { top: 63 },
+  detailReferenceBadge: { top: 10, right: 10, paddingHorizontal: 8, paddingVertical: 5 },
+  visualToggle: { alignSelf: "center", marginTop: 8, borderRadius: 15, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: "#edf4ec" },
+  visualToggleText: { color: "#466052", fontSize: 12, fontWeight: "800" },
   detailCopy: { color: "#687a70", fontSize: 11, lineHeight: 15, textAlign: "center", marginTop: 10 },
   detailActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 14 },
   modalCard: { width: "100%", maxWidth: 360, maxHeight: "92%", borderRadius: 16, padding: 20, backgroundColor: "#fff" },
