@@ -18,20 +18,27 @@ export function useWeather(location: Coordinates): WeatherAtmosphere | undefined
   useEffect(() => {
     let active = true;
     const [latitude, longitude] = areaKey.split(":");
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`;
-    fetch(url)
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error("weather unavailable")))
-      .then((data) => {
-        if (!active) return;
-        const current = data?.current_weather;
-        setWeather({
-          condition: conditionForCode(current?.weathercode),
-          temperatureC: typeof current?.temperature === "number" ? current.temperature : undefined,
-          isDay: typeof current?.is_day === "number" ? current.is_day === 1 : undefined,
-        });
-      })
-      .catch(() => { if (active) setWeather(undefined); });
-    return () => { active = false; };
+    const load = () => {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`;
+      fetch(url)
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error("weather unavailable")))
+        .then((data) => {
+          if (!active) return;
+          const current = data?.current_weather;
+          setWeather({
+            condition: conditionForCode(current?.weathercode),
+            temperatureC: typeof current?.temperature === "number" ? current.temperature : undefined,
+            isDay: typeof current?.is_day === "number" ? current.is_day === 1 : undefined,
+          });
+        })
+        .catch(() => { if (active) setWeather(undefined); });
+    };
+    load();
+    const interval = setInterval(load, 10 * 60 * 1000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
   }, [areaKey]);
 
   return weather;
