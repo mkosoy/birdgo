@@ -110,8 +110,9 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   useEffect(() => {
     if (!spawnSpeciesAssignments || !skyfriendSpawns.length) return;
     const speciesCodes = skyfriendSpawns.map((bird) => bird.speciesCode);
-    const changed = speciesCodes.some((speciesCode, index) => spawnSpeciesAssignments[index] !== speciesCode);
-    if (changed) void saveSkyfriendSpecies(skyfriendCell, speciesCodes).catch(() => undefined);
+    const mergedCodes = speciesCodes.map((speciesCode, index) => spawnSpeciesAssignments[index] ?? speciesCode);
+    const changed = mergedCodes.some((speciesCode, index) => spawnSpeciesAssignments[index] !== speciesCode);
+    if (changed) void saveSkyfriendSpecies(skyfriendCell, mergedCodes).catch(() => undefined);
   }, [skyfriendCell, skyfriendSpawns, spawnSpeciesAssignments]);
   const collectedSkyfriendIds = useMemo(() => new Set(skyfriends.map((record) => record.encounterId).filter(Boolean)), [skyfriends]);
   const activeSkyfriendSpawns = useMemo(
