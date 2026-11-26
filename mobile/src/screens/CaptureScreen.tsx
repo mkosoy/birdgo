@@ -11,7 +11,7 @@ import { useCollection } from "../hooks/useCollection";
 import type { Coordinates } from "../types";
 import type { SeenSpecies } from "../types";
 import { Bird3DPreview } from "../components/Bird3DPreview";
-import { rarityForSpecies, speciesKey } from "../utils/progression";
+import { rarityForSpecies, xpForCapture } from "../utils/progression";
 
 type Props = { hint?: SeenSpecies; onHintConsumed?: () => void };
 
@@ -25,7 +25,7 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
   const [busy, setBusy] = useState(false);
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const { saveCapture, captures } = useCollection();
+  const { saveCapture } = useCollection();
   const [encounterHint, setEncounterHint] = useState<SeenSpecies | undefined>(hint);
   const previousHint = useRef<SeenSpecies | undefined>(hint);
 
@@ -86,9 +86,8 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
     const commonName = encounterHint?.comName ?? result.commonName ?? "Unidentified bird";
     const rarity = rarityForSpecies(encounterHint?.speciesCode, commonName, encounterHint?.isNotable);
     const verified = Boolean(!encounterHint?.comName && result.isBird && result.provider !== "heuristic");
-    const isNewSpecies = !captures.some((capture) => speciesKey(capture.speciesCode, capture.commonName) === speciesKey(encounterHint?.speciesCode, commonName));
     const record = await saveCapture({
-      id: `${Date.now()}`,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       speciesCode: encounterHint?.speciesCode,
       commonName,
       sciName: encounterHint?.sciName ?? result.sciName,
@@ -98,7 +97,7 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
       rarity,
       verified,
     });
-    const firstBonus = isNewSpecies ? " First species bonus!" : "";
+    const firstBonus = (record.xpAwarded ?? 0) > xpForCapture({ rarity, verified }, false) ? " First species bonus!" : "";
     setConfirmation(`${commonName} joined your Bird-dex. +${record.xpAwarded ?? 0} XP.${firstBonus}`);
     if (encounterHint) onHintConsumed?.();
   };
