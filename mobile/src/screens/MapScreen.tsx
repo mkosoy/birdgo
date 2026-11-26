@@ -389,6 +389,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
             sciName: bird.sciName,
             canonicalKey: bird.canonicalKey,
             isNotable: Boolean(bird.isNotable),
+            frequency: bird.frequency,
             imageUrl: bird.imageUrl,
             virtual: Boolean(bird.virtual),
           });
