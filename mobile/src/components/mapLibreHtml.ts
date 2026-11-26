@@ -174,6 +174,7 @@ export function buildMapLibreHtml(): string {
       var bearingFrame = null;
       var arrowFrame = null;
       var trackId = null;
+      var currentPopupBirdId = null;
       var routeDistanceM = null;
       var routeGeometryCoordinates = [];
       var routeAlongM = 0;
@@ -542,10 +543,12 @@ export function buildMapLibreHtml(): string {
           .setHTML(popupHtml(bird, lastUserLocation))
           .addTo(map);
         currentPopup = popup;
+        currentPopupBirdId = bird.id;
         postOutward({ type: 'popup', open: true });
         popup.on('close', function () {
           if (currentPopup === popup) {
             currentPopup = null;
+            currentPopupBirdId = null;
             postOutward({ type: 'popup', open: false });
           }
         });
@@ -1159,7 +1162,7 @@ export function buildMapLibreHtml(): string {
           '<div class="stale">Sighting recorded ' + escapeHtml(bird.relativeTime || 'recently') + ' — this is a past observation, not a live location.</div>' +
           '<div class="where">Where to look: ' + escapeHtml(bird.locName || 'No hotspot recorded') + count + '</div>' +
           (distance == null ? '' : '<div class="distance">' + fmtDist(distance) + ' away · ' + etaMin(distance) + ' min walk</div>') +
-          (bird.captureCount ? '<div class="distance">Already collected ×' + bird.captureCount + ' — recaptures still earn XP.</div>' : '<div class="distance">New species capture earns a +50 XP bonus.</div>') +
+          (bird.captureCount ? '<div class="distance" data-capture-copy>Already collected ×' + bird.captureCount + ' — recaptures still earn XP.</div>' : '<div class="distance" data-capture-copy>Not collected yet — capture it to add it to your Bird-dex.</div>') +
           '<div class="field-notes" data-info>How to spot it: Field notes loading…</div>' +
           '<div class="actions"><button data-action="capture">' + (bird.captureCount ? 'Recapture' : 'Capture') + '</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
           '</div>';
@@ -1462,6 +1465,18 @@ export function buildMapLibreHtml(): string {
               .addTo(map);
           } else {
             userMarker.setLngLat([data.userLocation.longitude, data.userLocation.latitude]);
+          }
+        }
+        if (currentPopup && currentPopupBirdId) {
+          var freshPopupBird = (data.markers || []).find(function (entry) { return String(entry.id) === String(currentPopupBirdId); });
+          var popupElement = currentPopup.getElement && currentPopup.getElement();
+          var captureCopy = popupElement && popupElement.querySelector('[data-capture-copy]');
+          if (freshPopupBird && captureCopy) {
+            captureCopy.textContent = freshPopupBird.captureCount
+              ? 'Already collected ×' + freshPopupBird.captureCount + ' — recaptures still earn XP.'
+              : 'Not collected yet — capture it to add it to your Bird-dex.';
+            var captureButton = popupElement.querySelector('[data-action="capture"]');
+            if (captureButton) captureButton.textContent = freshPopupBird.captureCount ? 'Recapture' : 'Capture';
           }
         }
         refreshUi();

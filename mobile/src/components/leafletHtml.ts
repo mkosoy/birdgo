@@ -102,7 +102,7 @@ export function buildLeafletHtml(): string {
           '<div class="stale">Sighting recorded ' + escapeHtml(bird.relativeTime || 'recently') + ' — this is a past observation, not a live location.</div>' +
           '<div class="where">Where to look: ' + escapeHtml(bird.locName || 'No hotspot recorded') + count + '</div>' +
           (distance == null ? '' : '<div class="distance">' + (distance < 1 ? Math.round(distance * 1000) + ' m' : distance.toFixed(1) + ' km') + ' away · ' + Math.max(1, Math.round(distance * 1000 / 81)) + ' min walk</div>') +
-          (bird.captureCount ? '<div class="distance">Already collected ×' + bird.captureCount + ' — recaptures still earn XP.</div>' : '<div class="distance">New species capture earns a +50 XP bonus.</div>') +
+          (bird.captureCount ? '<div class="distance">Already collected ×' + bird.captureCount + ' — recaptures still earn XP.</div>' : '<div class="distance">Not collected yet — capture it to add it to your Bird-dex.</div>') +
           '<div class="field-notes" data-info>How to spot it: Field notes loading…</div>' +
           '<div class="actions"><button data-action="capture">' + (bird.captureCount ? 'Recapture' : 'Capture') + '</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
           '</div>';
