@@ -29,12 +29,13 @@
       ]
     ],
     "ios": {
-      "bundleIdentifier": "com.mkosoy.birdgo",
+      "bundleIdentifier": "Com.mkosoy.birdgo",
       "buildNumber": "1",
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "BirdGo uses your location to find nearby birds.",
-        "NSCameraUsageDescription": "BirdGo uses your camera to identify birds."
+        "NSCameraUsageDescription": "BirdGo uses your camera to identify birds.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "config": {
         "googleMapsApiKey": ""
@@ -43,7 +44,10 @@
     "android": {
       "package": "com.mkosoy.birdgo",
       "versionCode": 1,
-      "permissions": ["ACCESS_FINE_LOCATION", "CAMERA"],
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "CAMERA"
+      ],
       "config": {
         "googleMaps": {
           "apiKey": ""

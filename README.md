@@ -72,17 +72,18 @@ The current 3D bird is a lightweight procedural Three.js encounter model rendere
 
 ## iOS and TestFlight
 
-The Expo config uses the iOS bundle identifier `com.mkosoy.birdgo` and includes an App Store icon. Release builds use the production backend at `https://birdgo.vercel.app`; development builds still use the local backend (`http://10.0.2.2:4000` on the Android emulator and `http://localhost:4000` elsewhere). Build and upload profiles live in `mobile/eas.json`:
+The Expo config uses the iOS bundle identifier `Com.mkosoy.birdgo` and includes an App Store icon. Release builds use the production backend at `https://birdgo.vercel.app`; development builds still use the local backend (`http://10.0.2.2:4000` on the Android emulator and `http://localhost:4000` elsewhere).
+
+TestFlight uses the native Apple path rather than an Expo/EAS account. On a macOS machine with Xcode and CocoaPods, set `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`, and `ASC_PRIVATE_KEY` (the full `.p8` contents), then run:
 
 ```bash
 cd mobile
-npm install
-npx eas login
 npm run build:testflight
-npm run submit:testflight
 ```
 
-Before the first upload, create the App Store Connect app record for `com.mkosoy.birdgo` and configure EAS with Apple App Store Connect credentials. The reusable automation-friendly secrets are an App Store Connect API key (`ASC_KEY_ID`, `ASC_ISSUER_ID`, and private `.p8` contents), plus an Expo access token (`EXPO_TOKEN`) for CI or a macOS Devin builder. Do not commit private key material to this repository.
+The script runs `expo prebuild` locally (no Expo login), archives the generated workspace with `xcodebuild`, uses automatic Xcode Cloud signing with the App Store Connect key, and exports with `destination=upload` directly to TestFlight. `BUILD_NUMBER` can be set explicitly; otherwise a Unix timestamp is used so uploads increase monotonically.
+
+Before the first upload, register the `Com.mkosoy.birdgo` bundle ID and create the App Store Connect app record. The App Store Connect API key needs the App Manager role (or Admin if certificate creation is rejected). Do not commit private key material to this repository.
 
 ## Web development and Vercel
 
