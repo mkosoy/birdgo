@@ -39,7 +39,7 @@ export function observationMarkerId(bird: Pick<EbirdObservation, "speciesCode" |
 
 const ASSIGNMENTS_KEY = "birdgo.skyfriend-spawn-species-v1";
 const FLED_KEY = "birdgo.skyfriend-fled-v1";
-const CELL_SIZE_DEGREES = 0.004;
+const CELL_SIZE_DEGREES = 0.0012;
 export const SKYFRIEND_COLLECT_KM = 0.06;
 
 export function skyfriendCellKey(userLocation: Coordinates, now = new Date()): string {
@@ -115,8 +115,8 @@ export async function markSkyfriendFled(encounterId: string, until: number): Pro
 }
 
 export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation: Coordinates, now = new Date(), preferredSpecies: (string | undefined)[] = [], cellKeyOverride?: string): EbirdObservation[] {
-  const nearbyRealCount = realBirds.filter((bird) => !bird.virtual && distanceKm(bird, userLocation) <= 0.35).length;
-  const targetCount = Math.max(0, Math.min(4, 4 - nearbyRealCount));
+  const nearbyRealCount = realBirds.filter((bird) => !bird.virtual && distanceKm(bird, userLocation) <= 0.12).length;
+  const targetCount = nearbyRealCount ? 0 : 1;
   if (!targetCount) return [];
 
   const speciesPool = new Map<string, { bird: EbirdObservation; weight: number }>();
@@ -158,7 +158,7 @@ export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation
     if (!selected) continue;
     usedSpecies.add(selected.bird.speciesCode);
     const bearing = hash(`${seed}:bearing`) % 360;
-    const distance = 80 + (hash(`${seed}:distance`) % 160);
+    const distance = 20 + (hash(`${seed}:distance`) % 65);
     const anchor = {
       latitude: Number(gridLat) * CELL_SIZE_DEGREES - 90 + CELL_SIZE_DEGREES / 2,
       longitude: Number(gridLng) * CELL_SIZE_DEGREES - 180 + CELL_SIZE_DEGREES / 2,
