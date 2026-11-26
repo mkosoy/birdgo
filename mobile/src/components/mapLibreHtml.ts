@@ -1361,19 +1361,28 @@ export function buildMapLibreHtml(): string {
           if (leftRange !== rightRange) return leftRange - rightRange;
           return markerScore(left) - markerScore(right);
         });
-        var chosen = [];
-        var chosenPoints = [];
-        for (var index = 0; index < sorted.length && chosen.length < maxMarkers; index += 1) {
-          var bird = sorted[index];
+        var edgeMargin = 30;
+        var candidates = sorted.map(function (bird) {
           var isTracked = trackId && String(bird.id) === String(trackId);
           var displayLng = wrappedLongitude(bird.longitude);
           var point = map.project([displayLng, bird.latitude]);
-          if (!isTracked && (point.x < 0 || point.x > viewportWidth || point.y < 0 || point.y > viewportHeight)) continue;
+          var centerVisible = point.x >= 0 && point.x <= viewportWidth && point.y >= 0 && point.y <= viewportHeight;
+          var partiallyVisible = point.x >= -edgeMargin && point.x <= viewportWidth + edgeMargin
+            && point.y >= -edgeMargin && point.y <= viewportHeight + edgeMargin;
+          return { bird: bird, point: point, isTracked: isTracked, centerVisible: centerVisible, partiallyVisible: partiallyVisible };
+        });
+        var ordered = candidates.filter(function (entry) { return entry.isTracked || entry.centerVisible; })
+          .concat(candidates.filter(function (entry) { return !entry.isTracked && !entry.centerVisible && entry.partiallyVisible; }));
+        var chosen = [];
+        var chosenPoints = [];
+        for (var index = 0; index < ordered.length && chosen.length < maxMarkers; index += 1) {
+          var entry = ordered[index];
+          if (!entry.partiallyVisible && !entry.isTracked) continue;
           var crowded = false;
-          if (!isTracked) {
+          if (!entry.isTracked) {
             for (var pointIndex = 0; pointIndex < chosenPoints.length; pointIndex += 1) {
-              var dx = point.x - chosenPoints[pointIndex].x;
-              var dy = point.y - chosenPoints[pointIndex].y;
+              var dx = entry.point.x - chosenPoints[pointIndex].x;
+              var dy = entry.point.y - chosenPoints[pointIndex].y;
               if (Math.sqrt(dx * dx + dy * dy) < minSpacing) {
                 crowded = true;
                 break;
@@ -1381,8 +1390,8 @@ export function buildMapLibreHtml(): string {
             }
           }
           if (crowded) continue;
-          chosen.push(bird);
-          chosenPoints.push(point);
+          chosen.push(entry.bird);
+          chosenPoints.push(entry.point);
         }
         chosen.forEach(function (bird) {
           var element = document.createElement('div');
