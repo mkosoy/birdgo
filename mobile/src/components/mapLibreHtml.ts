@@ -36,14 +36,23 @@ export function buildMapLibreHtml(): string {
     @keyframes snow-fall { from { background-position: 0 -80px, 0 -40px; } to { background-position: 24px 180px, -14px 150px; } }
     @keyframes fog-drift { from { transform: translateX(-6%); } to { transform: translateX(6%); } }
     .bird-marker, .user-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 18px; font-weight: bold; }
-    .bird-marker img { position: absolute; left: 2px; top: 2px; width: 36px; height: 36px; object-fit: cover; border-radius: 50%; }
-    .bird-marker { width: 42px; height: 42px; background: linear-gradient(145deg, #39a874, #23684d); border: 3px solid white; cursor: pointer; box-shadow: 0 3px 9px rgba(0,0,0,.32); }
+    .bird-marker { position: absolute; width: 42px; height: 42px; background: linear-gradient(145deg, #39a874, #23684d); border: 3px solid white; cursor: pointer; box-shadow: 0 3px 9px rgba(0,0,0,.32); }
+    .bird-scale { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transform-origin: center; transition: transform .18s ease-out; }
+    .bird-scale img { position: absolute; left: 2px; top: 2px; width: 36px; height: 36px; object-fit: cover; border-radius: 50%; }
+    .bird-marker.presence-close .bird-scale { transform: scale(1.24); }
+    .bird-marker.presence-near .bird-scale { transform: scale(1.1); }
+    .bird-marker.presence-mid .bird-scale { transform: scale(.92); }
+    .bird-marker.presence-far .bird-scale { transform: scale(.72); }
+    .bird-marker.virtual.presence-close .bird-scale { transform: scale(1.38); }
+    .bird-marker.virtual.presence-near .bird-scale { transform: scale(1.2); }
+    .bird-marker.virtual.presence-mid .bird-scale { transform: scale(1); }
+    .bird-marker.presence-far { opacity: .78; }
     .bird-marker.in-range { box-shadow: 0 0 0 5px rgba(217,157,33,.38), 0 2px 8px rgba(0,0,0,.3); }
     .bird-marker.notable { background: linear-gradient(145deg, #efbd35, #b97d08); border-color: #fff3bd; }
     .bird-marker.captured { background: #61776c; border-color: #a9f0bf; }
     .bird-marker.virtual { background: linear-gradient(145deg, #7d64f2, #28b9d7); border-color: #d9fbff; box-shadow: 0 0 14px rgba(92,220,255,.72), 0 3px 9px rgba(0,0,0,.32); }
-    .bird-marker .caught-badge, .bird-marker .skyfriend-badge { position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; }
-    .bird-marker .skyfriend-badge { background: #72e7ff; color: #273075; }
+    .bird-scale .caught-badge, .bird-scale .skyfriend-badge { position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; }
+    .bird-scale .skyfriend-badge { background: #72e7ff; color: #273075; }
     .skyfriend-tag { display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 10px; background: linear-gradient(135deg, #735eea, #29bedd); color: white; font-size: 10px; font-weight: 900; vertical-align: middle; letter-spacing: .02em; }
     .nb-row.virtual .nb-thumb { box-shadow: 0 0 0 2px #72e7ff inset; background: linear-gradient(145deg, #ece7ff, #dffaff); }
     .nb-row.virtual .nb-name { color: #4241a0; }
@@ -395,6 +404,35 @@ export function buildMapLibreHtml(): string {
         return distance == null ? null : distance * 1000;
       }
 
+      function presencePolygon(center, radiusMeters) {
+        var coordinates = [];
+        var latitudeScale = 111320;
+        var longitudeScale = Math.max(1000, latitudeScale * Math.cos(center.latitude * Math.PI / 180));
+        for (var index = 0; index <= 72; index += 1) {
+          var angle = index / 72 * Math.PI * 2;
+          coordinates.push([
+            center.longitude + Math.sin(angle) * radiusMeters / longitudeScale,
+            center.latitude + Math.cos(angle) * radiusMeters / latitudeScale,
+          ]);
+        }
+        return {
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'Polygon', coordinates: [coordinates] },
+        };
+      }
+
+      function updatePresenceRadius() {
+        if (!lastUserLocation) return;
+        var source;
+        try { source = map.getSource('presence-radius'); } catch (_) { return; }
+        if (!source) return;
+        source.setData({
+          type: 'FeatureCollection',
+          features: [presencePolygon(lastUserLocation, SNAP_M)],
+        });
+      }
+
       function projectPointOnRoute(point, coordinates) {
         if (!point || !Array.isArray(coordinates) || coordinates.length < 2) return null;
         var latRadians = point.latitude * Math.PI / 180;
@@ -469,7 +507,7 @@ export function buildMapLibreHtml(): string {
         return emojiFallback || birdGlyph();
       }
       function markerInnerHtml(bird) {
-        return thumbInnerHtml(bird) + (bird.captureCount ? '<span class="caught-badge">✓</span>' : bird.virtual ? '<span class="skyfriend-badge">✦</span>' : '');
+        return '<span class="bird-scale">' + thumbInnerHtml(bird) + (bird.captureCount ? '<span class="caught-badge">✓</span>' : bird.virtual ? '<span class="skyfriend-badge">✦</span>' : '') + '</span>';
       }
       function refreshBirdMarkerIcons() {
         birdMarkers.forEach(function (marker) {
@@ -589,7 +627,7 @@ export function buildMapLibreHtml(): string {
         map.easeTo({
           center: [target.longitude, target.latitude],
           pitch: 60,
-          zoom: 17,
+          zoom: 17.3,
           bearing: typeof currentHeading === 'number' ? currentHeading : map.getBearing(),
           duration: duration
         });
@@ -1015,7 +1053,8 @@ export function buildMapLibreHtml(): string {
           var closest = nearest[0];
           if (closest && closest.distance * 1000 <= SNAP_M) {
             var closestName = closest.bird.comName || closest.bird.sciName || 'Bird';
-            snapToastCopy.textContent = (compactToast() ? '' : closest.bird.virtual ? 'Collect ' : 'Snap ') + closestName + ' · ' + fmtDist(closest.distance);
+            var closestLabel = (closest.bird.virtual ? 'Skyfriend ' : '') + closestName;
+            snapToastCopy.textContent = (compactToast() ? '' : closest.bird.virtual ? 'Collect ' : 'Snap ') + closestLabel + ' · ' + fmtDist(closest.distance);
             snapToastGo.textContent = closest.bird.virtual ? 'Collect' : 'Snap';
             setToast(true);
             snapToastAction = function () { capture(closest.bird.id); };
@@ -1098,7 +1137,7 @@ export function buildMapLibreHtml(): string {
           map.easeTo({
             center: [lastUserLocation.longitude, lastUserLocation.latitude],
             pitch: 60,
-            zoom: 17,
+            zoom: 17.3,
             duration: 600
           });
           setTimeout(function () { programmatic = false; }, 700);
@@ -1321,6 +1360,37 @@ export function buildMapLibreHtml(): string {
             }
           } catch (_) {}
         });
+        if (!map.getSource('presence-radius')) {
+          map.addSource('presence-radius', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+          });
+        }
+        if (!map.getLayer('presence-radius-fill')) {
+          map.addLayer({
+            id: 'presence-radius-fill',
+            type: 'fill',
+            source: 'presence-radius',
+            paint: {
+              'fill-color': '#f2cf5b',
+              'fill-opacity': 0.12
+            }
+          });
+        }
+        if (!map.getLayer('presence-radius-line')) {
+          map.addLayer({
+            id: 'presence-radius-line',
+            type: 'line',
+            source: 'presence-radius',
+            paint: {
+              'line-color': '#f6d66d',
+              'line-width': 2,
+              'line-opacity': 0.52,
+              'line-dasharray': [2, 2]
+            }
+          });
+        }
+        updatePresenceRadius();
         if (!map.getSource('track-route')) {
           map.addSource('track-route', {
             type: 'geojson',
@@ -1465,7 +1535,8 @@ export function buildMapLibreHtml(): string {
           var element = document.createElement('div');
           var distance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
           var inRange = distance != null && distance <= 0.06;
-          element.className = 'bird-marker' + (bird.virtual ? ' virtual' : '') + (bird.isNotable ? ' notable' : '') + (inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
+          var presenceClass = distance == null ? 'presence-mid' : distance <= 0.06 ? 'presence-close' : distance <= 0.12 ? 'presence-near' : distance <= 0.25 ? 'presence-mid' : 'presence-far';
+          element.className = 'bird-marker ' + presenceClass + (bird.virtual ? ' virtual' : '') + (bird.isNotable ? ' notable' : '') + (inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
           element.innerHTML = markerInnerHtml(bird);
           var marker = new maplibregl.Marker({ element: element })
             .setLngLat([wrappedLongitude(bird.longitude), bird.latitude])
@@ -1619,6 +1690,8 @@ export function buildMapLibreHtml(): string {
           if (!userElement) {
             userElement = document.createElement('div');
             userElement.className = 'user-marker';
+            userElement.style.zIndex = '30';
+            userElement.style.pointerEvents = 'none';
             userElement.innerHTML = personGlyph(data.trainer);
             userMarker = new maplibregl.Marker({ element: userElement })
               .setLngLat([data.userLocation.longitude, data.userLocation.latitude])
@@ -1650,6 +1723,7 @@ export function buildMapLibreHtml(): string {
           }
         }
         refreshUi();
+        updatePresenceRadius();
         if (headingFollow && lastUserLocation) map.setPadding(firstPersonPadding());
       }
 
