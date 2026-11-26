@@ -92,6 +92,41 @@ export interface SpeciesDexEntry {
   capture?: CaptureRecord;
 }
 
+
+
+interface SpeciesIdentityFields {
+  speciesCode?: string;
+  commonName?: string;
+  comName?: string;
+  sciName?: string | null;
+  canonicalKey?: string | null;
+}
+
+function normalizedSpeciesName(value?: string | null): string {
+  return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+}
+
+function isEbirdSpeciesCode(speciesCode?: string): boolean {
+  return Boolean(speciesCode && !speciesCode.startsWith("inat-"));
+}
+
+function speciesIdentitiesMatch(left: SpeciesIdentityFields, right: SpeciesIdentityFields): boolean {
+  const leftCanonical = normalizedSpeciesName(left.canonicalKey);
+  const rightCanonical = normalizedSpeciesName(right.canonicalKey);
+  if (leftCanonical && rightCanonical) return leftCanonical === rightCanonical;
+  if (
+    isEbirdSpeciesCode(left.speciesCode)
+    && isEbirdSpeciesCode(right.speciesCode)
+    && left.speciesCode !== right.speciesCode
+  ) return false;
+  const leftScientific = normalizedSpeciesName(left.sciName);
+  const rightScientific = normalizedSpeciesName(right.sciName);
+  if (leftScientific && leftScientific === rightScientific) return true;
+  const leftCommon = normalizedSpeciesName(left.commonName ?? left.comName);
+  const rightCommon = normalizedSpeciesName(right.commonName ?? right.comName);
+  return Boolean(leftCommon && leftCommon === rightCommon);
+}
+
 function captureName(capture: CaptureRecord): string {
   return typeof capture.commonName === "string" && capture.commonName.trim() ? capture.commonName.trim() : "Unidentified bird";
 }
@@ -105,7 +140,7 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
   captures.forEach((capture) => {
     const commonName = captureName(capture);
     const key = captureKey(capture);
-    const existing = entries.get(key);
+    const existing = entries.get(key) ?? [...entries.values()].find((entry) => speciesIdentitiesMatch(entry, { ...capture, commonName }));
     const timestamp = typeof capture.timestamp === "string" ? capture.timestamp : "";
     if (!existing) {
       entries.set(key, {
@@ -140,21 +175,9 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
     if (!existing.sciName && capture.sciName) existing.sciName = capture.sciName;
     if (!existing.canonicalKey && capture.canonicalKey) existing.canonicalKey = capture.canonicalKey;
   });
-  const normalize = (value?: string | null) => value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
   seenSpecies.forEach((species) => {
     const key = speciesKey(species.speciesCode, species.comName, species.sciName, species.canonicalKey);
-    const existing = entries.get(key) ?? [...entries.values()].find((entry) => {
-      const entryScientific = normalize(entry.sciName);
-      const speciesScientific = normalize(species.sciName);
-      const entryCanonical = normalize(entry.canonicalKey);
-      const speciesCanonical = normalize(species.canonicalKey);
-      if (entryCanonical && speciesCanonical) return entryCanonical === speciesCanonical;
-      const entryIsEbird = entry.speciesCode && !entry.speciesCode.startsWith("inat-");
-      const speciesIsEbird = species.speciesCode && !species.speciesCode.startsWith("inat-");
-      if (entryIsEbird && speciesIsEbird && entry.speciesCode !== species.speciesCode) return false;
-      if (entryScientific && entryScientific === speciesScientific) return true;
-      return normalize(entry.commonName) === normalize(species.comName);
-    });
+    const existing = entries.get(key) ?? [...entries.values()].find((entry) => speciesIdentitiesMatch(entry, species));
     if (existing) {
       existing.seen = true;
       if (!existing.speciesCode && species.speciesCode) existing.speciesCode = species.speciesCode;
