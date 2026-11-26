@@ -118,8 +118,7 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
       : <Image source={{ uri: photoUri }} style={styles.camera} />}
     <View style={[styles.controls, { paddingBottom: insets.bottom + 20 }]}>
       {!photoUri && permission?.granted && <Pressable style={styles.shutter} onPress={() => void takePhoto()}><Text style={styles.shutterText}>●</Text></Pressable>}
-      {photoUri && <Pressable style={styles.button} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); setEncounterHint(undefined); }}><Text style={styles.buttonText}>Try another</Text></Pressable>}
-      {photoUri && <Pressable style={styles.secondaryDark} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Pick from library</Text></Pressable>}
+      {photoUri && <View style={styles.buttonRow}><Pressable style={[styles.button, styles.flexButton]} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); setEncounterHint(undefined); }}><Text style={styles.buttonText}>Try another</Text></Pressable><Pressable style={[styles.secondaryDark, styles.flexButton]} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Library</Text></Pressable></View>}
       {busy && <ActivityIndicator color="#fff" />}
       {result && !busy && <View style={styles.result}>
         <Bird3DPreview commonName={resultName} rarity={resultRarity} height={118} />
@@ -155,6 +154,8 @@ const styles = StyleSheet.create({
   secondaryDark: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, backgroundColor: "#2f7d5b", justifyContent: "center" },
   lightText: { color: "#fff" },
   result: { width: "100%", maxWidth: 390, alignItems: "center", gap: 5 },
+  buttonRow: { flexDirection: "row", gap: 8, width: "100%", maxWidth: 390 },
+  flexButton: { flex: 1, alignItems: "center" },
   rarity: { fontSize: 11, fontWeight: "900", letterSpacing: 1.1 },
   resultTitle: { color: "#fff", fontSize: 21, fontWeight: "700" },
   scientific: { color: "#c9ddce", fontStyle: "italic" },
