@@ -55,6 +55,8 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
       obsDt: bird.obsDt,
       relativeTime: relativeTime(bird.obsDt),
       howMany: bird.howMany,
+      frequency: bird.frequency,
+      reportCount: bird.reportCount,
       speciesCode: bird.speciesCode,
       isNotable: Boolean(bird.isNotable),
       imageUrl: bird.imageUrl,

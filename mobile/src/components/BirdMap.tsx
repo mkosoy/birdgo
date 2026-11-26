@@ -52,6 +52,8 @@ interface LeafletMarker {
   obsDt?: string;
   relativeTime: string;
   howMany?: number;
+  frequency?: number;
+  reportCount?: number;
   speciesCode: string;
   isNotable: boolean;
   imageUrl?: string;
@@ -128,6 +130,8 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       obsDt: bird.obsDt,
       relativeTime: relativeTime(bird.obsDt),
       howMany: bird.howMany,
+      frequency: bird.frequency,
+      reportCount: bird.reportCount,
       speciesCode: bird.speciesCode,
       isNotable: Boolean(bird.isNotable),
       imageUrl: bird.imageUrl,

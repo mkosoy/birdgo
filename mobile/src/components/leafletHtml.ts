@@ -103,6 +103,7 @@ export function buildLeafletHtml(): string {
         var distance = haversineKm(userLocation, bird);
         var count = typeof bird.howMany === 'number' && bird.howMany > 0 ? ' • ×' + bird.howMany : '';
         var virtual = Boolean(bird.virtual);
+        var frequencyCopy = !virtual && typeof bird.reportCount === 'number' && bird.reportCount > 0 ? 'Reported at ' + bird.reportCount + ' location' + (bird.reportCount === 1 ? '' : 's') + ' recently' : '';
         var statusCopy = virtual
           ? 'Virtual learning encounter — habitat-plausible, but not a real sighting.'
           : 'Sighting recorded ' + escapeHtml(bird.relativeTime || 'recently') + ' — this is a past observation, not a live location.';
@@ -118,6 +119,7 @@ export function buildLeafletHtml(): string {
           '<div class="stale">' + statusCopy + '</div>' +
           '<div class="where">Where to look: ' + escapeHtml(virtual ? 'Could occur in this habitat' : bird.locName || 'No hotspot recorded') + count + '</div>' +
           (distance == null ? '' : '<div class="distance">' + (distance < 1 ? Math.round(distance * 1000) + ' m' : distance.toFixed(1) + ' km') + ' away · ' + Math.max(1, Math.round(distance * 1000 / 81)) + ' min walk</div>') +
+          (frequencyCopy ? '<div class="distance">' + frequencyCopy + '</div>' : '') +
           '<div class="distance">' + captureCopy + '</div>' +
           '<div class="field-notes" data-info>How to spot it: Field notes loading…</div>' +
           '<div class="actions"><button data-action="capture">' + actionLabel + '</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +

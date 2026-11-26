@@ -9,7 +9,7 @@ import {
   isSpeciesObservation,
   type EbirdObservation,
 } from "./ebird.js";
-import { fetchInatBirds } from "./inaturalist.js";
+import { fetchInatBirdAbundance, fetchInatBirds } from "./inaturalist.js";
 import { identifyBird, type BirdIdProvider } from "./birdId.js";
 import { canonicalizeSpecies, type SpeciesIdentityInput } from "./taxonomy.js";
 
@@ -99,7 +99,7 @@ app.get("/api/birds/recent", async (request, response) => {
         `/data/obs/geo/recent?lat=${lat}&lng=${lng}&dist=${dist}&back=${back}`,
         token,
       ),
-      fetchInatBirds(lat, lng, dist),
+      fetchInatBirds(lat, lng, dist, back),
     ]);
     if (ebirdResult.status === "rejected" && inatResult.status === "rejected") {
       handleEbirdError(ebirdResult.reason, response);
@@ -112,6 +112,17 @@ app.get("/api/birds/recent", async (request, response) => {
       : [];
     const inatObservations = inatResult.status === "fulfilled" ? inatResult.value : [];
     response.json([...deduplicateObservations(ebirdObservations), ...inatObservations]);
+  } catch (error) {
+    handleEbirdError(error, response);
+  }
+});
+
+app.get("/api/birds/abundance", async (request, response) => {
+  const lat = queryNumber(request, "lat", 37.7749);
+  const lng = queryNumber(request, "lng", -122.4194);
+  const dist = queryNumber(request, "dist", 15);
+  try {
+    response.json(await fetchInatBirdAbundance(lat, lng, dist));
   } catch (error) {
     handleEbirdError(error, response);
   }

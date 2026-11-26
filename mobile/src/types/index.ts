@@ -24,6 +24,7 @@ export interface EbirdObservation extends Coordinates {
   speciesCode: string;
   comName?: string;
   sciName?: string;
+  sourceSciName?: string;
   canonicalKey?: string;
   locId?: string;
   locName?: string;
@@ -33,6 +34,15 @@ export interface EbirdObservation extends Coordinates {
   imageUrl?: string;
   source?: string;
   virtual?: boolean;
+  frequency?: number;
+  reportCount?: number;
+  abundanceCount?: number;
+}
+
+export interface BirdAbundance {
+  scientificName: string;
+  commonName?: string;
+  count: number;
 }
 
 export type BirdRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
@@ -47,6 +57,8 @@ export interface SeenSpecies {
   imageUrl?: string;
   encounterId?: string;
   virtual?: boolean;
+  frequency?: number;
+  abundanceCount?: number;
 }
 
 export interface TaxonomyEntry {

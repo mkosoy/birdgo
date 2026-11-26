@@ -46,11 +46,59 @@ function coordinatesFor(observation: InatObservation): { lat: number; lng: numbe
   return null;
 }
 
+export interface BirdAbundance {
+  scientificName: string;
+  commonName?: string;
+  count: number;
+}
+
+export async function fetchInatBirdAbundance(
+  lat: number,
+  lng: number,
+  radiusKm: number,
+  days = 90,
+): Promise<BirdAbundance[]> {
+  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const params = new URLSearchParams({
+    taxon_id: "3",
+    lat: String(lat),
+    lng: String(lng),
+    radius: String(radiusKm),
+    per_page: "200",
+    d1: startDate,
+  });
+  const results: Array<{ count?: number; taxon?: InatTaxon | null }> = [];
+  for (let page = 1; page <= 3; page += 1) {
+    params.set("page", String(page));
+    const response = await fetch(`https://api.inaturalist.org/v1/observations/species_counts?${params.toString()}`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) throw new Error(`iNaturalist abundance request failed with status ${response.status}`);
+    const payload = (await response.json()) as { results?: Array<{ count?: number; taxon?: InatTaxon | null }> };
+    if (!Array.isArray(payload.results)) throw new Error("iNaturalist abundance response did not include results");
+    results.push(...payload.results);
+    if (payload.results.length < 200) break;
+  }
+  return results.flatMap((result) => {
+    const taxon = result.taxon;
+    if (!taxon?.name || typeof result.count !== "number" || !Number.isFinite(result.count)) return [];
+    return [{
+      scientificName: taxon.name,
+      ...(taxon.preferred_common_name ? { commonName: taxon.preferred_common_name } : {}),
+      count: result.count,
+    }];
+  });
+}
+
 export async function fetchInatBirds(
   lat: number,
   lng: number,
   radiusKm: number,
+  backDays = 14,
 ): Promise<EbirdObservation[]> {
+  const cutoffTime = Date.now() - backDays * 24 * 60 * 60 * 1000;
+  const cutoffDate = new Date(cutoffTime).toISOString().slice(0, 10);
+  const startDate = new Date(cutoffTime - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const params = new URLSearchParams({
     taxon_id: "3",
     lat: String(lat),
@@ -62,6 +110,7 @@ export async function fetchInatBirds(
     photos: "true",
     geo: "true",
     geoprivacy: "open",
+    d1: startDate,
   });
   params.append("rank", "species");
   params.append("rank", "subspecies");
@@ -75,6 +124,9 @@ export async function fetchInatBirds(
     const payload = (await response.json()) as InatResponse;
     if (!Array.isArray(payload.results)) throw new Error("iNaturalist response did not include results");
     return payload.results.flatMap((observation) => {
+      const observedAt = observation.time_observed_at ? Date.parse(observation.time_observed_at) : Number.NaN;
+      if (Number.isFinite(observedAt) && observedAt < cutoffTime) return [];
+      if (!Number.isFinite(observedAt) && (!observation.observed_on || observation.observed_on < cutoffDate)) return [];
       const coordinates = coordinatesFor(observation);
       const taxon = observation.taxon;
       if (

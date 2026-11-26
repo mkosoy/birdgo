@@ -1226,6 +1226,7 @@ export function buildMapLibreHtml(): string {
         var distance = haversineKm(userLocation, bird);
         var count = typeof bird.howMany === 'number' && bird.howMany > 0 ? ' • ×' + bird.howMany : '';
         var virtual = Boolean(bird.virtual);
+        var frequencyCopy = !virtual && typeof bird.reportCount === 'number' && bird.reportCount > 0 ? 'Reported at ' + bird.reportCount + ' location' + (bird.reportCount === 1 ? '' : 's') + ' recently' : '';
         var statusCopy = virtual ? 'Virtual learning encounter' : 'Past sighting · ' + escapeHtml(bird.relativeTime || 'recently');
         var captureCopy = virtual
           ? distance != null && distance > 0.06
@@ -1241,6 +1242,7 @@ export function buildMapLibreHtml(): string {
           '<div class="stale">' + statusCopy + '</div>' +
           '<div class="where">' + escapeHtml(virtual ? 'Could occur in this habitat' : bird.locName || 'No hotspot recorded') + count + '</div>' +
           (distance == null ? '' : '<div class="distance">' + fmtDist(distance) + ' away · ' + etaMin(distance) + ' min walk</div>') +
+          (frequencyCopy ? '<div class="distance">' + frequencyCopy + '</div>' : '') +
           '<div class="distance" data-capture-copy>' + captureCopy + '</div>' +
           '<div class="field-notes" data-info>How to spot it: Field notes loading…</div>' +
           '<div class="actions"><button data-action="capture">' + actionLabel + '</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
