@@ -130,10 +130,14 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
   const normalize = (value?: string | null) => value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
   seenSpecies.forEach((species) => {
     const key = speciesKey(species.speciesCode, species.comName, species.sciName);
-    const existing = entries.get(key) ?? [...entries.values()].find((entry) =>
-      normalize(entry.commonName) === normalize(species.comName)
-      || (normalize(entry.sciName) && normalize(entry.sciName) === normalize(species.sciName))
-    );
+    const existing = entries.get(key) ?? [...entries.values()].find((entry) => {
+      const entryScientific = normalize(entry.sciName);
+      const speciesScientific = normalize(species.sciName);
+      const scientificConflict = Boolean(entryScientific && speciesScientific && entryScientific !== speciesScientific);
+      if (scientificConflict) return false;
+      return normalize(entry.commonName) === normalize(species.comName)
+        || Boolean(entryScientific && entryScientific === speciesScientific);
+    });
     if (existing) {
       existing.seen = true;
       if (!existing.speciesCode && species.speciesCode) existing.speciesCode = species.speciesCode;
