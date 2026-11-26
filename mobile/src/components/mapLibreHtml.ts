@@ -9,6 +9,32 @@ export function buildMapLibreHtml(): string {
     html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }
     body { position: relative; overflow: hidden; }
     #sky-gradient { position: absolute; left: 0; right: 0; top: 0; height: 36%; z-index: 2; pointer-events: none; background: linear-gradient(to bottom, rgba(108,190,238,.9), rgba(153,216,242,.38) 48%, rgba(153,216,242,0)); }
+    #atmosphere-tint { position: absolute; inset: 0; z-index: 1; pointer-events: none; transition: background 700ms; }
+    #weather-orb { position: absolute; top: calc(var(--safe-top) + 112px); right: 18px; z-index: 3; width: 42px; height: 42px; border-radius: 50%; pointer-events: none; background: #ffd766; box-shadow: 0 0 28px rgba(255,214,102,.72); transition: all 700ms; }
+    #weather-particles { position: absolute; inset: 0; z-index: 3; pointer-events: none; opacity: 0; transition: opacity 500ms; }
+    body[data-period="dawn"] #sky-gradient { background: linear-gradient(to bottom, rgba(255,157,118,.78), rgba(119,173,222,.34) 52%, rgba(153,216,242,0)); }
+    body[data-period="dusk"] #sky-gradient { background: linear-gradient(to bottom, rgba(245,126,103,.82), rgba(108,111,190,.38) 52%, rgba(153,216,242,0)); }
+    body[data-period="night"] #sky-gradient { background: linear-gradient(to bottom, rgba(12,24,70,.92), rgba(31,56,111,.42) 52%, rgba(31,56,111,0)); }
+    body[data-period="night"] #atmosphere-tint { background: rgba(5,14,42,.25); }
+    body[data-period="dawn"] #atmosphere-tint, body[data-period="dusk"] #atmosphere-tint { background: rgba(84,48,104,.10); }
+    body[data-period="night"] #weather-orb { background: #e9f3ff; box-shadow: -9px 0 0 #263d78 inset, 0 0 18px rgba(211,231,255,.48); }
+    body[data-weather="cloudy"] #sky-gradient, body[data-weather="fog"] #sky-gradient { background: linear-gradient(to bottom, rgba(140,171,190,.84), rgba(181,202,207,.42) 52%, rgba(181,202,207,0)); }
+    body[data-weather="cloudy"] #atmosphere-tint, body[data-weather="fog"] #atmosphere-tint { background: rgba(111,132,143,.13); }
+    body[data-weather="rain"] #sky-gradient, body[data-weather="storm"] #sky-gradient { background: linear-gradient(to bottom, rgba(73,105,137,.9), rgba(102,139,163,.42) 52%, rgba(102,139,163,0)); }
+    body[data-weather="rain"] #atmosphere-tint, body[data-weather="storm"] #atmosphere-tint { background: rgba(35,65,92,.20); }
+    body[data-weather="snow"] #sky-gradient { background: linear-gradient(to bottom, rgba(177,207,229,.88), rgba(224,238,247,.45) 52%, rgba(224,238,247,0)); }
+    body[data-weather="rain"] #weather-particles, body[data-weather="storm"] #weather-particles { opacity: .24; background: repeating-linear-gradient(112deg, transparent 0 17px, rgba(196,229,255,.5) 18px 19px, transparent 20px 34px); animation: rain-fall .95s linear infinite; }
+    body[data-weather="snow"] #weather-particles { opacity: .55; background-image: radial-gradient(circle, rgba(255,255,255,.95) 1.5px, transparent 2px), radial-gradient(circle, rgba(255,255,255,.75) 1px, transparent 1.6px); background-size: 74px 74px, 43px 43px; animation: snow-fall 8s linear infinite; }
+    body[data-weather="fog"] #weather-particles { opacity: .28; background: linear-gradient(100deg, transparent, rgba(231,239,239,.72), transparent); animation: fog-drift 9s ease-in-out infinite alternate; }
+    body[data-weather="cloudy"] #weather-orb, body[data-weather="fog"] #weather-orb { opacity: .22; }
+    body[data-weather="rain"] #weather-orb, body[data-weather="storm"] #weather-orb, body[data-weather="snow"] #weather-orb { opacity: 0; }
+    body[data-period="night"][data-weather="cloudy"] #sky-gradient, body[data-period="night"][data-weather="fog"] #sky-gradient { background: linear-gradient(to bottom, rgba(23,35,67,.94), rgba(49,70,102,.46) 52%, rgba(49,70,102,0)); }
+    body[data-period="night"][data-weather="rain"] #sky-gradient, body[data-period="night"][data-weather="storm"] #sky-gradient { background: linear-gradient(to bottom, rgba(15,29,54,.95), rgba(35,61,86,.48) 52%, rgba(35,61,86,0)); }
+    body[data-period="night"][data-weather="snow"] #sky-gradient { background: linear-gradient(to bottom, rgba(35,51,88,.94), rgba(70,94,130,.44) 52%, rgba(70,94,130,0)); }
+    body[data-period="night"][data-weather="cloudy"] #atmosphere-tint, body[data-period="night"][data-weather="fog"] #atmosphere-tint, body[data-period="night"][data-weather="rain"] #atmosphere-tint, body[data-period="night"][data-weather="storm"] #atmosphere-tint, body[data-period="night"][data-weather="snow"] #atmosphere-tint { background: rgba(5,14,42,.28); }
+    @keyframes rain-fall { from { background-position: 0 -30px; } to { background-position: -28px 54px; } }
+    @keyframes snow-fall { from { background-position: 0 -80px, 0 -40px; } to { background-position: 24px 180px, -14px 150px; } }
+    @keyframes fog-drift { from { transform: translateX(-6%); } to { transform: translateX(6%); } }
     .bird-marker, .user-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 18px; font-weight: bold; }
     .bird-marker img { position: absolute; left: 2px; top: 2px; width: 36px; height: 36px; object-fit: cover; border-radius: 50%; }
     .bird-marker { width: 42px; height: 42px; background: linear-gradient(145deg, #39a874, #23684d); border: 3px solid white; cursor: pointer; box-shadow: 0 3px 9px rgba(0,0,0,.32); }
@@ -129,7 +155,10 @@ export function buildMapLibreHtml(): string {
 </head>
 <body>
   <div id="map"></div>
+  <div id="atmosphere-tint"></div>
   <div id="sky-gradient"></div>
+  <div id="weather-orb"></div>
+  <div id="weather-particles"></div>
   <div id="track-hud"><div id="track-arrow">⬆</div></div>
   <div id="nearby-panel" class="collapsed peek">
     <div id="nearby-handle" aria-hidden="true"></div>
@@ -1426,9 +1455,21 @@ export function buildMapLibreHtml(): string {
         });
       }
 
+      function applyAtmosphere(weather) {
+        var hour = new Date().getHours();
+        var hasApiDaylight = weather && typeof weather.isDay === 'boolean';
+        var isDay = hasApiDaylight ? weather.isDay : hour >= 6 && hour < 20;
+        var period = hasApiDaylight
+          ? isDay ? (hour < 8 ? 'dawn' : hour >= 17 ? 'dusk' : 'day') : 'night'
+          : !isDay || hour < 6 || hour >= 21 ? 'night' : hour < 8 ? 'dawn' : hour >= 17 ? 'dusk' : 'day';
+        document.body.dataset.period = period;
+        document.body.dataset.weather = weather && weather.condition ? weather.condition : 'clear';
+      }
+
       function render(data) {
         if (!data || !data.center) return;
         applySafeArea(data.safeArea);
+        applyAtmosphere(data.weather);
         var previousLocation = lastUserLocation;
         if (data.userLocation) {
           lastUserLocation = data.userLocation;

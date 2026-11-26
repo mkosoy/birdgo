@@ -3,7 +3,7 @@ import { StyleSheet } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import { buildLeafletHtml } from "./leafletHtml";
 import { buildMapLibreHtml } from "./mapLibreHtml";
-import type { Coordinates, EbirdObservation } from "../types";
+import type { Coordinates, EbirdObservation, WeatherAtmosphere } from "../types";
 import { speciesKey } from "../utils/progression";
 
 export type BirdMapMode = "classic" | "adventure";
@@ -28,6 +28,7 @@ export interface BirdMapProps {
   trackRequest?: Coordinates & { name: string; id?: string };
   stopTrackRequest?: number;
   loading?: boolean;
+  weather?: WeatherAtmosphere;
   safeArea?: SafeAreaInsets;
   onCapture: (bird: EbirdObservation) => void;
   onDirections: (coordinates: Coordinates & { name: string; id?: string }) => void;
@@ -61,6 +62,7 @@ interface LeafletData {
   center: Coordinates;
   userLocation?: Coordinates;
   loading?: boolean;
+  weather?: WeatherAtmosphere;
   heading?: number;
   markers: LeafletMarker[];
   command?: "recenter" | "setView" | "overview" | "nearest" | "track" | "stopTrack";
@@ -94,7 +96,7 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, captureCounts, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange },
+  { center, userLocation, birds, captureCounts, mode, firstPerson, heading, weather, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
@@ -112,6 +114,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     firstPerson,
     safeArea,
     loading,
+    weather,
     markers: birds.map((bird) => ({
       id: markerId(bird),
       latitude: bird.latitude,
@@ -128,7 +131,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       virtual: Boolean(bird.virtual),
       captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
     })),
-  }), [birds, captureCounts, center, firstPerson, heading, safeArea, userLocation]);
+  }), [birds, captureCounts, center, firstPerson, heading, safeArea, userLocation, weather]);
   useEffect(() => {
     dataRef.current = data;
   }, [data]);

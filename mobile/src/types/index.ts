@@ -1,3 +1,11 @@
+export type WeatherCondition = "clear" | "cloudy" | "rain" | "snow" | "fog" | "storm";
+
+export interface WeatherAtmosphere {
+  condition: WeatherCondition;
+  temperatureC?: number;
+  isDay?: boolean;
+}
+
 export interface Coordinates {
   latitude: number;
   longitude: number;

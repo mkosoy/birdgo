@@ -10,6 +10,7 @@ import { BirdMap } from "../components/BirdMap";
 import type { BirdMapMode } from "../components/BirdMap";
 import { useBirds } from "../hooks/useBirds";
 import { useCollection } from "../hooks/useCollection";
+import { useWeather } from "../hooks/useWeather";
 import type { Coordinates, EbirdObservation, SeenSpecies } from "../types";
 import { rarityForSpecies, speciesKeyAliases } from "../utils/progression";
 import { buildSkyfriendSpawns, distanceKm, loadSkyfriendSpecies, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround } from "../utils/skyfriends";
@@ -50,6 +51,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const fallbackActive = useRef(true);
   const [rareDismissed, setRareDismissed] = useState(false);
   const { birds, notable, loading, error, loadedArea, refresh } = useBirds(center.latitude, center.longitude);
+  const weather = useWeather(location);
   const { saveSeen, captures, skyfriends, saveSkyfriend, refresh: refreshCollection } = useCollection();
   const collectingSkyfriends = useRef(new Set<string>());
   const [spawnSpeciesAssignments, setSpawnSpeciesAssignments] = useState<Record<string, string[]> | null>(null);
@@ -361,6 +363,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         birds={mapBirds}
         captureCounts={captureCounts}
         loading={loading}
+        weather={weather}
         mode={mode}
         firstPerson={firstPerson}
         heading={heading}
