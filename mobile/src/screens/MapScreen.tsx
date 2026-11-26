@@ -183,6 +183,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         speciesCode: bird.speciesCode,
         comName: bird.comName,
         sciName: bird.sciName,
+        canonicalKey: bird.canonicalKey,
         isNotable: Boolean(bird.isNotable),
         imageUrl: bird.imageUrl,
       });
