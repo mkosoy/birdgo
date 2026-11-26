@@ -27,14 +27,16 @@ function stableHash(value: string): number {
   return hash >>> 0;
 }
 
-export function speciesKey(speciesCode?: string, commonName?: string): string {
+export function speciesKey(speciesCode?: string, commonName?: string, sciName?: string | null): string {
+  const normalizedScientific = sciName?.trim().toLowerCase().replace(/\s+/g, " ");
+  if (normalizedScientific) return normalizedScientific;
   const normalizedName = commonName?.trim().toLowerCase().replace(/\s+/g, " ");
   if (normalizedName) return normalizedName;
   return speciesCode?.trim().toLowerCase() || "unidentified bird";
 }
 
-export function rarityForSpecies(speciesCode?: string, commonName?: string, isNotable?: boolean): BirdRarity {
-  const key = speciesKey(speciesCode, commonName);
+export function rarityForSpecies(speciesCode?: string, commonName?: string, isNotable?: boolean, sciName?: string | null): BirdRarity {
+  const key = speciesKey(speciesCode, commonName, sciName);
   if (!key || key === "unidentified bird") return "common";
   const roll = stableHash(key) % 100;
   if (!isNotable) return roll < 75 ? "common" : "uncommon";
@@ -84,7 +86,7 @@ function captureName(capture: CaptureRecord): string {
 }
 
 function captureKey(capture: CaptureRecord): string {
-  return speciesKey(capture.speciesCode, captureName(capture));
+  return speciesKey(capture.speciesCode, captureName(capture), capture.sciName);
 }
 
 export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpecies[]): SpeciesDexEntry[] {
@@ -126,7 +128,7 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
     if (!existing.sciName && capture.sciName) existing.sciName = capture.sciName;
   });
   seenSpecies.forEach((species) => {
-    const key = speciesKey(species.speciesCode, species.comName);
+    const key = speciesKey(species.speciesCode, species.comName, species.sciName);
     const existing = entries.get(key);
     if (existing) {
       existing.seen = true;
@@ -140,7 +142,7 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
       speciesCode: species.speciesCode,
       commonName: species.comName,
       sciName: species.sciName,
-      rarity: rarityForSpecies(species.speciesCode, species.comName, species.isNotable),
+      rarity: rarityForSpecies(species.speciesCode, species.comName, species.isNotable, species.sciName),
       capturedCount: 0,
       seen: true,
       imageUrl: species.imageUrl,

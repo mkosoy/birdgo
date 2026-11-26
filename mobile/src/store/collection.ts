@@ -74,7 +74,7 @@ async function writeDiscoveredKeys(keys: Set<string>): Promise<void> {
 }
 
 function captureKey(capture: CaptureRecord): string {
-  return speciesKey(capture.speciesCode, capture.commonName);
+  return speciesKey(capture.speciesCode, capture.commonName, capture.sciName);
 }
 
 function derivedCaptureEvents(captures: CaptureRecord[]): XpEvent[] {
@@ -92,11 +92,12 @@ export async function addCapture(capture: CaptureRecord): Promise<CaptureRecord>
   const captures = await listCaptures();
   const key = captureKey(capture);
   const discovered = await listDiscoveredKeys();
-  const isNewSpecies = !discovered.has(key);
+  const legacyKey = speciesKey(capture.speciesCode, capture.commonName);
+  const isNewSpecies = !discovered.has(key) && !discovered.has(legacyKey);
   const xpAwarded = capture.xpAwarded ?? xpForCapture(capture, isNewSpecies);
   const record = { ...capture, xpAwarded };
   await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify([record, ...captures]));
-  if (isNewSpecies) {
+  if (!discovered.has(key)) {
     discovered.add(key);
     await writeDiscoveredKeys(discovered);
   }

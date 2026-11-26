@@ -123,7 +123,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       speciesCode: bird.speciesCode,
       isNotable: Boolean(bird.isNotable),
       imageUrl: bird.imageUrl,
-      captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
+      captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? 0,
     })),
   }), [birds, captureCounts, center, firstPerson, heading, safeArea, userLocation]);
   useEffect(() => {

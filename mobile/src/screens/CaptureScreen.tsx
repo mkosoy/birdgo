@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions, type CameraType } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import * as FileSystem from "expo-file-system";
+import { useFocusEffect } from "@react-navigation/native";
 import { identifyBird } from "../api";
 import { SF_COORDS } from "../config";
 import { useCollection } from "../hooks/useCollection";
@@ -17,6 +18,11 @@ type Props = { hint?: SeenSpecies; onHintConsumed?: () => void };
 
 function normalizeName(value?: string | null): string {
   return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+}
+
+function couldBeSpecies(species: SeenSpecies, result: { commonName: string | null; sciName: string | null }): boolean {
+  if (!result.commonName && !result.sciName) return true;
+  return sameSpecies(species, result.commonName, result.sciName);
 }
 
 function sameSpecies(species: SeenSpecies, commonName?: string | null, sciName?: string | null): boolean {
@@ -40,9 +46,13 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedPhotoUri, setSavedPhotoUri] = useState<string | null>(null);
-  const { saveCapture, seenSpecies } = useCollection();
+  const { saveCapture, seenSpecies, refresh: refreshCollection } = useCollection();
   const [encounterHint, setEncounterHint] = useState<SeenSpecies | undefined>(hint);
   const previousHint = useRef<SeenSpecies | undefined>(hint);
+
+  useFocusEffect(useCallback(() => {
+    void refreshCollection();
+  }, [refreshCollection]));
 
   useEffect(() => {
     const hintChanged = hint !== previousHint.current;
@@ -93,8 +103,8 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
   };
 
   const speciesContext = () => {
-    const encounterMatches = Boolean(encounterHint && (!result?.commonName || sameSpecies(encounterHint, result.commonName, result.sciName)));
-    const resultMatches = result?.commonName
+    const encounterMatches = Boolean(encounterHint && result && couldBeSpecies(encounterHint, result));
+    const resultMatches = result && (result.commonName || result.sciName)
       ? seenSpecies.find((species) => sameSpecies(species, result.commonName, result.sciName))
       : undefined;
     return encounterMatches ? encounterHint ?? resultMatches : resultMatches;
@@ -110,10 +120,9 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
         location = { latitude: current.coords.latitude, longitude: current.coords.longitude };
       } catch { /* SF fallback is intentional */ }
       const contextSpecies = speciesContext();
-      const encounterMatches = Boolean(encounterHint && (!result.commonName || sameSpecies(encounterHint, result.commonName, result.sciName)));
       const commonName = contextSpecies?.comName ?? result.commonName ?? "Unidentified bird";
-      const rarity = rarityForSpecies(contextSpecies?.speciesCode, commonName, contextSpecies?.isNotable);
-      const verified = Boolean(result.isBird && result.provider !== "heuristic" && (!encounterHint || encounterMatches));
+      const rarity = rarityForSpecies(contextSpecies?.speciesCode, commonName, contextSpecies?.isNotable, contextSpecies?.sciName ?? result.sciName);
+      const verified = Boolean(result.isBird && result.provider !== "heuristic" && (result.commonName || result.sciName));
       const record = await saveCapture({
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         speciesCode: contextSpecies?.speciesCode,
@@ -138,8 +147,8 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
 
   const contextSpecies = speciesContext();
   const resultName = contextSpecies?.comName ?? result?.commonName ?? "Unidentified bird";
-  const resultRarity = rarityForSpecies(contextSpecies?.speciesCode, resultName, contextSpecies?.isNotable);
-  const encounterMismatch = Boolean(encounterHint && result?.commonName && !sameSpecies(encounterHint, result.commonName, result.sciName));
+  const resultRarity = rarityForSpecies(contextSpecies?.speciesCode, resultName, contextSpecies?.isNotable, contextSpecies?.sciName ?? result?.sciName);
+  const encounterMismatch = Boolean(encounterHint && result && (result.commonName || result.sciName) && !couldBeSpecies(encounterHint, result));
 
   return <View style={styles.container}>
     {!photoUri

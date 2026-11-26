@@ -41,7 +41,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
     void refreshCollection();
   }, [refreshCollection]));
   const captureCounts = useMemo(() => captures.reduce<Record<string, number>>((counts, capture) => {
-    const key = speciesKey(capture.speciesCode, capture.commonName);
+    const key = speciesKey(capture.speciesCode, capture.commonName, capture.sciName);
     counts[key] = (counts[key] ?? 0) + 1;
     return counts;
   }, {}), [captures]);
@@ -291,7 +291,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
           <Pressable accessibilityLabel="Back to me" style={styles.actionButton} onPress={() => setRecenterRequest((request) => request + 1)}><Ionicons name="locate" size={27} color="#2878d1" /></Pressable>
         </View>
       )}
-      {mode === "adventure" && nearbyState !== "half" && !popupOpen && (
+      {mode === "adventure" && nearbyState !== "half" && !popupOpen && !tracking && (
         <Pressable accessibilityLabel="Capture a bird" style={[styles.captureButton, { bottom: insets.bottom + 72 }]} onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}>
           <Ionicons name="camera" size={27} color="#fff" />
         </Pressable>
