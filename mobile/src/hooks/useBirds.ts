@@ -26,8 +26,24 @@ export function useBirds(latitude: number, longitude: number) {
       if (currentRequest !== requestId.current) return;
       const notableByKey = new Map(rare.map((bird) => [`${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`, bird]));
       const mergedBirds = [...merged.values()];
-      const notableBirds = [...notableByKey.values()];
-      setBirds(mergedBirds);
+      const reportsBySpecies = new Map<string, number>();
+      const individualsBySpecies = new Map<string, number>();
+      mergedBirds.forEach((bird) => {
+        reportsBySpecies.set(bird.speciesCode, (reportsBySpecies.get(bird.speciesCode) ?? 0) + 1);
+        individualsBySpecies.set(bird.speciesCode, (individualsBySpecies.get(bird.speciesCode) ?? 0) + Math.max(1, bird.howMany ?? 1));
+      });
+      const withFrequency = (bird: EbirdObservation): EbirdObservation => {
+        const reportCount = reportsBySpecies.get(bird.speciesCode) ?? 1;
+        const individuals = individualsBySpecies.get(bird.speciesCode) ?? 1;
+        return {
+          ...bird,
+          frequency: reportCount * 2 + Math.log10(individuals + 1) * 2,
+          reportCount,
+        };
+      };
+      const notableBirds = [...notableByKey.values()].map(withFrequency);
+      const frequencyMergedBirds = mergedBirds.map(withFrequency);
+      setBirds(frequencyMergedBirds);
       setNotable(notableBirds);
       setLoadedArea({ latitude, longitude });
       void (async () => {
@@ -51,7 +67,7 @@ export function useBirds(latitude: number, longitude: number) {
             canonicalKey: identity?.canonicalKey,
           };
         };
-        setBirds(mergedBirds.map(annotate));
+        setBirds(frequencyMergedBirds.map(annotate));
         setNotable(notableBirds.map(annotate));
       })().catch(() => undefined);
     } catch (cause) {

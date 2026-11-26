@@ -119,7 +119,15 @@ export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation
       .filter((entry) => !usedSpecies.has(entry.bird.speciesCode))
       .map((entry) => ({
         entry,
-        score: (hash(`${seed}:${entry.bird.speciesCode}`) / 4294967295) * (entry.bird.isNotable ? 0.42 : 1),
+        score: (hash(`${seed}:${entry.bird.speciesCode}`) / 4294967295) * (entry.bird.isNotable
+          ? 0.22
+          : (entry.bird.frequency ?? 1) >= 9
+            ? 1.15
+            : (entry.bird.frequency ?? 1) >= 6
+              ? 0.9
+              : (entry.bird.frequency ?? 1) >= 3
+                ? 0.55
+                : 0.4),
       }))
       .sort((left, right) => right.score - left.score)[0]?.entry;
     if (!selected) continue;

@@ -323,6 +323,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         canonicalKey: bird.canonicalKey,
         isNotable: Boolean(bird.isNotable),
         imageUrl: bird.imageUrl,
+        frequency: bird.frequency,
       });
     });
     const species = [...unique.values()];
