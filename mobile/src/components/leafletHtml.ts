@@ -215,23 +215,14 @@ export function buildLeafletHtml(): string {
           }
           var point = map.latLngToContainerPoint(latLng);
           var crowded = false;
-          function isCrowded(candidatePoint) {
-            if (String(bird.id) === String(restorePopupId)) return false;
+          if (zoom < 16 && String(bird.id) !== String(restorePopupId)) {
             for (var pointIndex = 0; pointIndex < chosenPoints.length; pointIndex += 1) {
-              var dx = candidatePoint.x - chosenPoints[pointIndex].x;
-              var dy = candidatePoint.y - chosenPoints[pointIndex].y;
-              if (Math.sqrt(dx * dx + dy * dy) < minSpacing) return true;
-            }
-            return false;
-          }
-          crowded = isCrowded(point);
-          if (crowded && coordinateCount > 1 && zoom >= 16) {
-            var originalLatLng = L.latLng(bird.latitude, bird.longitude);
-            var originalPoint = map.latLngToContainerPoint(originalLatLng);
-            if (!isCrowded(originalPoint)) {
-              latLng = originalLatLng;
-              point = originalPoint;
-              crowded = false;
+              var dx = point.x - chosenPoints[pointIndex].x;
+              var dy = point.y - chosenPoints[pointIndex].y;
+              if (Math.sqrt(dx * dx + dy * dy) < minSpacing) {
+                crowded = true;
+                break;
+              }
             }
           }
           if (crowded) return;
