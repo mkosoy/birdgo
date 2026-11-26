@@ -1226,7 +1226,7 @@ export function buildMapLibreHtml(): string {
         var distance = haversineKm(userLocation, bird);
         var count = typeof bird.howMany === 'number' && bird.howMany > 0 ? ' • ×' + bird.howMany : '';
         var virtual = Boolean(bird.virtual);
-        var frequencyCopy = !virtual && typeof bird.reportCount === 'number' && bird.reportCount > 0 ? bird.reportCount + ' recent report' + (bird.reportCount === 1 ? '' : 's') + ' nearby' : '';
+        var frequencyCopy = !virtual && typeof bird.reportCount === 'number' && bird.reportCount > 0 ? 'Reported at ' + bird.reportCount + ' location' + (bird.reportCount === 1 ? '' : 's') + ' recently' : '';
         var statusCopy = virtual ? 'Virtual learning encounter' : 'Past sighting · ' + escapeHtml(bird.relativeTime || 'recently');
         var captureCopy = virtual
           ? distance != null && distance > 0.06

@@ -2,6 +2,40 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { canonicalizeSpecies, fetchNotableBirds, fetchRecentBirds } from "../api";
 import type { Coordinates, EbirdObservation } from "../types";
 
+
+function normalizedIdentity(value?: string | null): string {
+  return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+}
+
+function prevalenceKey(bird: EbirdObservation): string {
+  return normalizedIdentity(bird.canonicalKey) || normalizedIdentity(bird.sciName) || bird.speciesCode.trim().toLowerCase();
+}
+
+function buildPrevalenceAnnotator(allBirds: EbirdObservation[]): (bird: EbirdObservation) => EbirdObservation {
+  const reportsBySpecies = new Map<string, number>();
+  const individualsBySpecies = new Map<string, number>();
+  const countedSightings = new Set<string>();
+  allBirds.forEach((bird) => {
+    const key = prevalenceKey(bird);
+    const locationKey = `${bird.latitude.toFixed(4)}:${bird.longitude.toFixed(4)}`;
+    const sightingKey = `${key}:${locationKey}`;
+    if (countedSightings.has(sightingKey)) return;
+    countedSightings.add(sightingKey);
+    reportsBySpecies.set(key, (reportsBySpecies.get(key) ?? 0) + 1);
+    individualsBySpecies.set(key, (individualsBySpecies.get(key) ?? 0) + Math.max(1, bird.howMany ?? 1));
+  });
+  return (bird) => {
+    const key = prevalenceKey(bird);
+    const reportCount = reportsBySpecies.get(key) ?? 1;
+    const individuals = individualsBySpecies.get(key) ?? 1;
+    return {
+      ...bird,
+      frequency: reportCount * 2 + Math.log10(individuals + 1) * 2,
+      reportCount,
+    };
+  };
+}
+
 export function useBirds(latitude: number, longitude: number) {
   const [birds, setBirds] = useState<EbirdObservation[]>([]);
   const [notable, setNotable] = useState<EbirdObservation[]>([]);
@@ -26,23 +60,9 @@ export function useBirds(latitude: number, longitude: number) {
       if (currentRequest !== requestId.current) return;
       const notableByKey = new Map(rare.map((bird) => [`${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`, bird]));
       const mergedBirds = [...merged.values()];
-      const reportsBySpecies = new Map<string, number>();
-      const individualsBySpecies = new Map<string, number>();
-      mergedBirds.forEach((bird) => {
-        reportsBySpecies.set(bird.speciesCode, (reportsBySpecies.get(bird.speciesCode) ?? 0) + 1);
-        individualsBySpecies.set(bird.speciesCode, (individualsBySpecies.get(bird.speciesCode) ?? 0) + Math.max(1, bird.howMany ?? 1));
-      });
-      const withFrequency = (bird: EbirdObservation): EbirdObservation => {
-        const reportCount = reportsBySpecies.get(bird.speciesCode) ?? 1;
-        const individuals = individualsBySpecies.get(bird.speciesCode) ?? 1;
-        return {
-          ...bird,
-          frequency: reportCount * 2 + Math.log10(individuals + 1) * 2,
-          reportCount,
-        };
-      };
-      const notableBirds = [...notableByKey.values()].map(withFrequency);
-      const frequencyMergedBirds = mergedBirds.map(withFrequency);
+      const annotatePrevalence = buildPrevalenceAnnotator(mergedBirds);
+      const notableBirds = [...notableByKey.values()].map(annotatePrevalence);
+      const frequencyMergedBirds = mergedBirds.map(annotatePrevalence);
       setBirds(frequencyMergedBirds);
       setNotable(notableBirds);
       setLoadedArea({ latitude, longitude });
@@ -67,8 +87,11 @@ export function useBirds(latitude: number, longitude: number) {
             canonicalKey: identity?.canonicalKey,
           };
         };
-        setBirds(frequencyMergedBirds.map(annotate));
-        setNotable(notableBirds.map(annotate));
+        const canonicalMergedBirds = frequencyMergedBirds.map(annotate);
+        const canonicalNotableBirds = notableBirds.map(annotate);
+        const annotateCanonicalPrevalence = buildPrevalenceAnnotator(canonicalMergedBirds);
+        setBirds(canonicalMergedBirds.map(annotateCanonicalPrevalence));
+        setNotable(canonicalNotableBirds.map(annotateCanonicalPrevalence));
       })().catch(() => undefined);
     } catch (cause) {
       if (currentRequest !== requestId.current) return;
