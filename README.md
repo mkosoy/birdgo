@@ -107,10 +107,10 @@ The repository's `vercel.json` builds the backend and Expo web export, serves `m
 Configure these Vercel environment variables:
 
 - `EBIRD_API_TOKEN` — required
-- `BIRD_ID_PROVIDER` — optional; when unset, the backend uses Gemini/Hugging Face/OpenAI if a matching key is configured, otherwise `heuristic`
+- `BIRD_ID_PROVIDER` — optional; when unset, the backend uses Gemini/Hugging Face if a matching key is configured, otherwise `heuristic`; paid OpenAI always requires explicit opt-in
 - `HUGGINGFACE_API_KEY` — optional free provider key
 - `GEMINI_API_KEY` — optional free provider key
-- `OPENAI_API_KEY` — optional paid provider key
+- `OPENAI_API_KEY` — optional paid provider key; requires `BIRD_ID_PROVIDER=openai`
 - `HF_BIRD_MODEL` — optional Hugging Face model override
 
 On web, the API base URL is same-origin, so requests use the deployed `/api` routes.

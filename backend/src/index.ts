@@ -29,9 +29,7 @@ const provider: BirdIdProvider = configuredProviderIsValid
     ? "gemini"
     : process.env.HUGGINGFACE_API_KEY
       ? "huggingface"
-      : process.env.OPENAI_API_KEY
-        ? "openai"
-        : "heuristic";
+      : "heuristic";
 app.use(cors());
 app.use(express.json({ limit: "15mb" }));
 app.use((request, _response, next) => {
@@ -67,6 +65,25 @@ app.get("/api/health", (_request, response) => response.json({
     },
   },
 }));
+
+const IDENTIFY_RATE_WINDOW_MS = 10 * 60 * 1000;
+const IDENTIFY_RATE_LIMIT = 30;
+const identifyRequests = new Map<string, { count: number; resetAt: number }>();
+
+function identifyRateLimited(request: Request): boolean {
+  const forwarded = request.headers["x-forwarded-for"];
+  const ip = (Array.isArray(forwarded) ? forwarded[0] : forwarded)?.split(",")[0]?.trim()
+    || request.socket.remoteAddress
+    || "unknown";
+  const now = Date.now();
+  const current = identifyRequests.get(ip);
+  if (!current || current.resetAt <= now) {
+    identifyRequests.set(ip, { count: 1, resetAt: now + IDENTIFY_RATE_WINDOW_MS });
+    return false;
+  }
+  current.count += 1;
+  return current.count > IDENTIFY_RATE_LIMIT;
+}
 
 app.get("/api/birds/recent", async (request, response) => {
   const lat = queryNumber(request, "lat", 37.7749);
@@ -144,6 +161,10 @@ app.post("/api/species/canonical", async (request, response) => {
 });
 
 app.post("/api/identify", async (request, response) => {
+  if (identifyRateLimited(request)) {
+    response.status(429).json({ error: "Too many identification requests. Try again shortly.", status: 429 });
+    return;
+  }
   const { imageBase64, hints } = request.body as { imageBase64?: unknown; hints?: unknown };
   if (typeof imageBase64 !== "string" || !imageBase64) {
     response.status(400).json({ error: "imageBase64 is required", status: 400 });
