@@ -1172,7 +1172,7 @@ export function buildMapLibreHtml(): string {
           postOutward({ type: 'capture', id: bird.id });
         });
         element.querySelector('[data-action="directions"]').addEventListener('click', function () {
-          postOutward({ type: 'directions', latitude: bird.latitude, longitude: bird.longitude, name: bird.comName });
+          postOutward({ type: 'directions', id: bird.id, latitude: bird.latitude, longitude: bird.longitude, name: bird.comName });
         });
         element.querySelector('[data-action="about"]').addEventListener('click', function () {
           postOutward({ type: 'about', speciesCode: bird.speciesCode, comName: bird.comName });
@@ -1410,7 +1410,8 @@ export function buildMapLibreHtml(): string {
             startTrack(closestEntry.bird);
           }
         } else if (data.command === 'track' && data.trackTarget) {
-          var targetBird = latestMarkers.reduce(function (closest, bird) {
+          var exactBird = data.trackTarget.id ? latestMarkers.find(function (bird) { return String(bird.id) === String(data.trackTarget.id); }) : null;
+          var targetBird = exactBird ? { bird: exactBird } : latestMarkers.reduce(function (closest, bird) {
             var candidateDistance = haversineKm(data.trackTarget, bird);
             if (!closest || candidateDistance < closest.distance) return { bird: bird, distance: candidateDistance };
             return closest;

@@ -115,7 +115,7 @@ export function buildLeafletHtml(): string {
           postOutward({ type: 'capture', id: bird.id });
         });
         element.querySelector('[data-action="directions"]').addEventListener('click', function () {
-          postOutward({ type: 'directions', latitude: bird.latitude, longitude: bird.longitude, name: bird.comName });
+          postOutward({ type: 'directions', id: bird.id, latitude: bird.latitude, longitude: bird.longitude, name: bird.comName });
         });
         element.querySelector('[data-action="about"]').addEventListener('click', function () {
           postOutward({ type: 'about', speciesCode: bird.speciesCode, comName: bird.comName });

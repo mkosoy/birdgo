@@ -76,7 +76,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
         const bird = markerLookup.get(message.id);
         if (bird) onCapture(bird);
       } else if (message.type === "directions" && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name) {
-        onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name });
+        onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id });
       } else if (message.type === "about" && message.speciesCode && message.comName) {
         onAbout({ speciesCode: message.speciesCode, comName: message.comName });
       } else if (message.type === "popup") {
