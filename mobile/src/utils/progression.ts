@@ -140,7 +140,9 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
   captures.forEach((capture) => {
     const commonName = captureName(capture);
     const key = captureKey(capture);
-    const existing = entries.get(key) ?? [...entries.values()].find((entry) => speciesIdentitiesMatch(entry, { ...capture, commonName }));
+    const direct = entries.get(key);
+    const existing = (direct && speciesIdentitiesMatch(direct, { ...capture, commonName }) ? direct : undefined)
+      ?? [...entries.values()].find((entry) => speciesIdentitiesMatch(entry, { ...capture, commonName }));
     const timestamp = typeof capture.timestamp === "string" ? capture.timestamp : "";
     if (!existing) {
       entries.set(key, {
@@ -177,7 +179,9 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
   });
   seenSpecies.forEach((species) => {
     const key = speciesKey(species.speciesCode, species.comName, species.sciName, species.canonicalKey);
-    const existing = entries.get(key) ?? [...entries.values()].find((entry) => speciesIdentitiesMatch(entry, species));
+    const direct = entries.get(key);
+    const existing = (direct && speciesIdentitiesMatch(direct, species) ? direct : undefined)
+      ?? [...entries.values()].find((entry) => speciesIdentitiesMatch(entry, species));
     if (existing) {
       existing.seen = true;
       if (!existing.speciesCode && species.speciesCode) existing.speciesCode = species.speciesCode;
