@@ -1334,6 +1334,73 @@ export function buildMapLibreHtml(): string {
       map.on('rotate', scheduleArrow);
       map.on('pitch', scheduleArrow);
 
+
+      function renderBirdMarkers(markers) {
+        birdMarkers.forEach(function (marker) { marker.remove(); });
+        birdMarkers = [];
+        var zoom = map.getZoom();
+        var minSpacing = zoom >= 15 ? 24 : zoom >= 13 ? 42 : 58;
+        var maxMarkers = zoom >= 15 ? 160 : zoom >= 13 ? 80 : 45;
+        var bounds = map.getBounds();
+        var lonPad = Math.max(0.002, (bounds.getEast() - bounds.getWest()) * 0.12);
+        var latPad = Math.max(0.002, (bounds.getNorth() - bounds.getSouth()) * 0.12);
+        function markerScore(bird) {
+          var distance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
+          return (distance == null ? 999 : distance) - (bird.isNotable ? 0.35 : 0) - (bird.captureCount ? 0.1 : 0);
+        }
+        var sorted = (markers || []).slice().sort(function (left, right) {
+          var leftTracked = trackId && String(left.id) === String(trackId) ? 0 : 1;
+          var rightTracked = trackId && String(right.id) === String(trackId) ? 0 : 1;
+          if (leftTracked !== rightTracked) return leftTracked - rightTracked;
+          var leftRange = lastUserLocation && haversineKm(lastUserLocation, left) != null && haversineKm(lastUserLocation, left) <= 0.18 ? 0 : 1;
+          var rightRange = lastUserLocation && haversineKm(lastUserLocation, right) != null && haversineKm(lastUserLocation, right) <= 0.18 ? 0 : 1;
+          if (leftRange !== rightRange) return leftRange - rightRange;
+          return markerScore(left) - markerScore(right);
+        });
+        var chosen = [];
+        var chosenPoints = [];
+        for (var index = 0; index < sorted.length && chosen.length < maxMarkers; index += 1) {
+          var bird = sorted[index];
+          var isTracked = trackId && String(bird.id) === String(trackId);
+          if (!isTracked && (
+            bird.longitude < bounds.getWest() - lonPad || bird.longitude > bounds.getEast() + lonPad
+            || bird.latitude < bounds.getSouth() - latPad || bird.latitude > bounds.getNorth() + latPad
+          )) continue;
+          var point = map.project([bird.longitude, bird.latitude]);
+          var crowded = false;
+          if (!isTracked) {
+            for (var pointIndex = 0; pointIndex < chosenPoints.length; pointIndex += 1) {
+              var dx = point.x - chosenPoints[pointIndex].x;
+              var dy = point.y - chosenPoints[pointIndex].y;
+              if (Math.sqrt(dx * dx + dy * dy) < minSpacing) {
+                crowded = true;
+                break;
+              }
+            }
+          }
+          if (crowded) continue;
+          chosen.push(bird);
+          chosenPoints.push(point);
+        }
+        chosen.forEach(function (bird) {
+          var element = document.createElement('div');
+          var distance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
+          var inRange = distance != null && distance <= 0.18;
+          element.className = 'bird-marker' + (bird.isNotable ? ' notable' : '') + (inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
+          element.innerHTML = markerInnerHtml(bird);
+          var marker = new maplibregl.Marker({ element: element })
+            .setLngLat([bird.longitude, bird.latitude])
+            .addTo(map);
+          element.style.pointerEvents = 'auto';
+          element.onclick = function (event) {
+            event.stopPropagation();
+            openBirdPopup(bird);
+          };
+          marker._birdgoBird = bird;
+          birdMarkers.push(marker);
+        });
+      }
+
       function render(data) {
         if (!data || !data.center) return;
         applySafeArea(data.safeArea);
@@ -1453,24 +1520,7 @@ export function buildMapLibreHtml(): string {
           }
         }
         if (trackId) updateRoute();
-        birdMarkers.forEach(function (marker) { marker.remove(); });
-        birdMarkers = [];
-        (data.markers || []).forEach(function (bird) {
-          var element = document.createElement('div');
-          var inRange = lastUserLocation && haversineKm(lastUserLocation, bird) != null && haversineKm(lastUserLocation, bird) <= 0.18;
-          element.className = 'bird-marker' + (bird.isNotable ? ' notable' : '') + (inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
-          element.innerHTML = markerInnerHtml(bird);
-          var marker = new maplibregl.Marker({ element: element })
-            .setLngLat([bird.longitude, bird.latitude])
-            .addTo(map);
-          element.style.pointerEvents = 'auto';
-          element.onclick = function (event) {
-            event.stopPropagation();
-            openBirdPopup(bird);
-          };
-          marker._birdgoBird = bird;
-          birdMarkers.push(marker);
-        });
+        renderBirdMarkers(data.markers || []);
         if (data.userLocation) {
           if (!userElement) {
             userElement = document.createElement('div');
@@ -1500,6 +1550,7 @@ export function buildMapLibreHtml(): string {
       }
 
       map.on('moveend', function () {
+        if (latestMarkers.length) renderBirdMarkers(latestMarkers);
         if (!userGesture || programmaticCameraMove || programmatic) {
           programmaticCameraMove = false;
           clearTimeout(moveTimer);
