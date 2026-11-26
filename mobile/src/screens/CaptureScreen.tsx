@@ -27,10 +27,22 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
   const [notice, setNotice] = useState<string | null>(null);
   const { saveCapture, captures } = useCollection();
   const [encounterHint, setEncounterHint] = useState<SeenSpecies | undefined>(hint);
+  const previousHint = useRef<SeenSpecies | undefined>(hint);
 
   useEffect(() => {
-    if (hint) setEncounterHint(hint);
-    else if (!photoUri) setEncounterHint(undefined);
+    const hintChanged = hint !== previousHint.current;
+    previousHint.current = hint;
+    if (hint) {
+      setEncounterHint(hint);
+      if (hintChanged) {
+        setPhotoUri(null);
+        setResult(null);
+        setConfirmation(null);
+        setNotice(null);
+      }
+    } else if (!photoUri) {
+      setEncounterHint(undefined);
+    }
   }, [hint, photoUri]);
 
   const processPhoto = async (uri: string, base64?: string | null) => {
