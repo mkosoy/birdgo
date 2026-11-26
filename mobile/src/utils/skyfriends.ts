@@ -47,6 +47,20 @@ export function skyfriendCellKey(userLocation: Coordinates, now = new Date()): s
   return `${gridLat}:${gridLng}:${now.toISOString().slice(0, 10)}`;
 }
 
+export function skyfriendCellKeysAround(userLocation: Coordinates, now = new Date()): string[] {
+  const day = now.toISOString().slice(0, 10);
+  const centerLat = Math.floor((userLocation.latitude + 90) / CELL_SIZE_DEGREES);
+  const centerLng = Math.floor((userLocation.longitude + 180) / CELL_SIZE_DEGREES);
+  const keys = [`${centerLat}:${centerLng}:${day}`];
+  for (const latOffset of [-1, 0, 1]) {
+    for (const lngOffset of [-1, 0, 1]) {
+      if (!latOffset && !lngOffset) continue;
+      keys.push(`${centerLat + latOffset}:${centerLng + lngOffset}:${day}`);
+    }
+  }
+  return keys;
+}
+
 async function readAssignments(): Promise<Record<string, string[]>> {
   const raw = await AsyncStorage.getItem(ASSIGNMENTS_KEY);
   if (!raw) return {};
@@ -69,7 +83,7 @@ export async function saveSkyfriendSpecies(cellKey: string, speciesCodes: string
   await AsyncStorage.setItem(ASSIGNMENTS_KEY, JSON.stringify(Object.fromEntries(entries)));
 }
 
-export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation: Coordinates, now = new Date(), preferredSpecies: (string | undefined)[] = []): EbirdObservation[] {
+export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation: Coordinates, now = new Date(), preferredSpecies: (string | undefined)[] = [], cellKeyOverride?: string): EbirdObservation[] {
   const nearbyRealCount = realBirds.filter((bird) => !bird.virtual && distanceKm(bird, userLocation) <= 0.35).length;
   const targetCount = Math.max(0, Math.min(4, 4 - nearbyRealCount));
   if (!targetCount) return [];
@@ -86,7 +100,7 @@ export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation
   const pool = [...speciesPool.values()];
   if (!pool.length) return [];
 
-  const cellKey = skyfriendCellKey(userLocation, now);
+  const cellKey = cellKeyOverride ?? skyfriendCellKey(userLocation, now);
   const [gridLat, gridLng, day] = cellKey.split(":");
   const usedSpecies = new Set<string>();
   const spawns: EbirdObservation[] = [];
