@@ -52,7 +52,8 @@ export async function fetchInatBirds(
   radiusKm: number,
   backDays = 14,
 ): Promise<EbirdObservation[]> {
-  const startDate = new Date(Date.now() - backDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const cutoffTime = Date.now() - backDays * 24 * 60 * 60 * 1000;
+  const startDate = new Date(cutoffTime - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const params = new URLSearchParams({
     taxon_id: "3",
     lat: String(lat),
@@ -78,6 +79,8 @@ export async function fetchInatBirds(
     const payload = (await response.json()) as InatResponse;
     if (!Array.isArray(payload.results)) throw new Error("iNaturalist response did not include results");
     return payload.results.flatMap((observation) => {
+      const observedAt = observation.time_observed_at ? Date.parse(observation.time_observed_at) : Number.NaN;
+      if (Number.isFinite(observedAt) && observedAt < cutoffTime) return [];
       const coordinates = coordinatesFor(observation);
       const taxon = observation.taxon;
       if (
