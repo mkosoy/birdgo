@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Coordinates, CaptureRecord, SeenSpecies } from "../types";
-import { speciesKey, xpForCapture } from "../utils/progression";
+import { speciesKey, speciesKeyAliases, xpForCapture } from "../utils/progression";
 
 const CAPTURES_KEY = "birdgo.captures";
 const SEEN_KEY = "birdgo.seen";
@@ -11,6 +11,7 @@ const XP_BANK_KEY = "birdgo.xp-bank";
 const XP_MIGRATION_KEY = "birdgo.xp-migrated-v2";
 const DISCOVERED_KEY = "birdgo.discovered-species";
 const SEEN_SCOPE_KM = 25;
+let seenWriteVersion = 0;
 
 interface XpEvent {
   captureId: string;
@@ -74,7 +75,7 @@ async function writeDiscoveredKeys(keys: Set<string>): Promise<void> {
 }
 
 function captureKey(capture: CaptureRecord): string {
-  return speciesKey(capture.speciesCode, capture.commonName, capture.sciName);
+  return speciesKey(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey);
 }
 
 function derivedCaptureEvents(captures: CaptureRecord[]): XpEvent[] {
@@ -90,17 +91,14 @@ function derivedCaptureEvents(captures: CaptureRecord[]): XpEvent[] {
 
 export async function addCapture(capture: CaptureRecord): Promise<CaptureRecord> {
   const captures = await listCaptures();
-  const key = captureKey(capture);
   const discovered = await listDiscoveredKeys();
-  const legacyKey = speciesKey(capture.speciesCode, capture.commonName);
-  const isNewSpecies = !discovered.has(key) && !discovered.has(legacyKey);
+  const aliases = speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey);
+  const isNewSpecies = !aliases.some((alias) => discovered.has(alias));
   const xpAwarded = capture.xpAwarded ?? xpForCapture(capture, isNewSpecies);
   const record = { ...capture, xpAwarded };
   await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify([record, ...captures]));
-  if (!discovered.has(key)) {
-    discovered.add(key);
-    await writeDiscoveredKeys(discovered);
-  }
+  aliases.forEach((alias) => discovered.add(alias));
+  await writeDiscoveredKeys(discovered);
   const events = await listXpEvents();
   if (!events.some((event) => event.captureId === record.id)) {
     await writeXpEvents([...events, { captureId: record.id, xp: xpAwarded }]);
@@ -119,7 +117,7 @@ export async function getCollectionXp(): Promise<number> {
     const legacyXp = await readNumber(XP_KEY);
     const bankedXp = Math.max(0, legacyXp - derivedXp);
     const discovered = await listDiscoveredKeys();
-    captures.forEach((capture) => discovered.add(captureKey(capture)));
+    captures.forEach((capture) => speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey).forEach((alias) => discovered.add(alias)));
     events = derivedEvents;
     await Promise.all([
       writeXpEvents(events),
@@ -145,20 +143,27 @@ export function captureMatchesSpecies(
   speciesCode?: string,
   commonName?: string,
   sciName?: string | null,
+  canonicalKey?: string | null,
 ): boolean {
   const normalize = (value?: string | null) => value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+  const captureCanonical = normalize(capture.canonicalKey);
+  const targetCanonical = normalize(canonicalKey);
+  const captureIsEbird = capture.speciesCode && !capture.speciesCode.startsWith("inat-");
+  const targetIsEbird = speciesCode && !speciesCode.startsWith("inat-");
+  if (captureIsEbird && targetIsEbird && capture.speciesCode !== speciesCode) return false;
+  if (captureCanonical && targetCanonical) return captureCanonical === targetCanonical;
   const captureScientific = normalize(capture.sciName);
   const targetScientific = normalize(sciName);
-  if (captureScientific && targetScientific) return captureScientific === targetScientific;
+  if (captureScientific && targetScientific && captureScientific === targetScientific) return true;
   const captureName = normalize(capture.commonName);
   const targetName = normalize(commonName);
   if (captureName && targetName && captureName === targetName) return true;
   return Boolean(capture.speciesCode && speciesCode && capture.speciesCode === speciesCode);
 }
 
-export async function releaseSpecies(speciesCode?: string, commonName?: string, sciName?: string | null): Promise<void> {
+export async function releaseSpecies(speciesCode?: string, commonName?: string, sciName?: string | null, canonicalKey?: string | null): Promise<void> {
   const captures = await listCaptures();
-  const remaining = captures.filter((capture) => !captureMatchesSpecies(capture, speciesCode, commonName, sciName));
+  const remaining = captures.filter((capture) => !captureMatchesSpecies(capture, speciesCode, commonName, sciName, canonicalKey));
   await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify(remaining));
 }
 
@@ -168,6 +173,7 @@ export async function listSeenSpecies(): Promise<SeenSpecies[]> {
 }
 
 export async function markSeenSpecies(species: SeenSpecies[], area: Coordinates): Promise<void> {
+  const writeVersion = ++seenWriteVersion;
   const existing = await listSeenSpecies();
   const previousAreaRaw = await AsyncStorage.getItem(SEEN_AREA_KEY);
   const previousArea = previousAreaRaw ? JSON.parse(previousAreaRaw) as Coordinates : undefined;
@@ -179,6 +185,7 @@ export async function markSeenSpecies(species: SeenSpecies[], area: Coordinates)
   );
   const current = new Map(retained.map((item) => [item.speciesCode, item]));
   species.forEach((item) => current.set(item.speciesCode, { ...item, location: area }));
+  if (writeVersion !== seenWriteVersion) return;
   await Promise.all([
     AsyncStorage.setItem(SEEN_KEY, JSON.stringify([...current.values()])),
     AsyncStorage.setItem(SEEN_AREA_KEY, JSON.stringify(area)),

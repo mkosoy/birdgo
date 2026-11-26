@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "./config";
-import type { EbirdObservation, IdentificationResult } from "./types";
+import type { CanonicalSpeciesResult, EbirdObservation, IdentificationResult } from "./types";
 
 interface RawEbirdObservation {
   lat?: number;
@@ -57,5 +57,12 @@ export function identifyBird(imageBase64: string, hints: string[]): Promise<Iden
   return request("/api/identify", {
     method: "POST",
     body: JSON.stringify({ imageBase64, hints }),
+  });
+}
+
+export function canonicalizeSpecies(items: Array<{ speciesCode?: string; comName?: string; commonName?: string; sciName?: string | null }>): Promise<CanonicalSpeciesResult[]> {
+  return request("/api/species/canonical", {
+    method: "POST",
+    body: JSON.stringify({ items }),
   });
 }

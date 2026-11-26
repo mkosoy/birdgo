@@ -27,7 +27,9 @@ function stableHash(value: string): number {
   return hash >>> 0;
 }
 
-export function speciesKey(speciesCode?: string, commonName?: string, sciName?: string | null): string {
+export function speciesKey(speciesCode?: string, commonName?: string, sciName?: string | null, canonicalKey?: string | null): string {
+  const normalizedCanonical = canonicalKey?.trim().toLowerCase().replace(/\s+/g, " ");
+  if (normalizedCanonical) return normalizedCanonical;
   const normalizedScientific = sciName?.trim().toLowerCase().replace(/\s+/g, " ");
   if (normalizedScientific) return normalizedScientific;
   const normalizedName = commonName?.trim().toLowerCase().replace(/\s+/g, " ");
@@ -35,8 +37,16 @@ export function speciesKey(speciesCode?: string, commonName?: string, sciName?: 
   return speciesCode?.trim().toLowerCase() || "unidentified bird";
 }
 
-export function rarityForSpecies(speciesCode?: string, commonName?: string, isNotable?: boolean, sciName?: string | null): BirdRarity {
-  const key = speciesKey(speciesCode, commonName, sciName);
+export function speciesKeyAliases(speciesCode?: string, commonName?: string, sciName?: string | null, canonicalKey?: string | null): string[] {
+  return [...new Set([
+    speciesKey(speciesCode, commonName, sciName, canonicalKey),
+    speciesKey(speciesCode, commonName, sciName),
+    speciesKey(speciesCode, commonName),
+  ])];
+}
+
+export function rarityForSpecies(speciesCode?: string, commonName?: string, isNotable?: boolean, sciName?: string | null, canonicalKey?: string | null): BirdRarity {
+  const key = speciesKey(speciesCode, commonName, sciName, canonicalKey);
   if (!key || key === "unidentified bird") return "common";
   const roll = stableHash(key) % 100;
   if (!isNotable) return roll < 75 ? "common" : "uncommon";
@@ -71,6 +81,7 @@ export interface SpeciesDexEntry {
   speciesCode?: string;
   commonName: string;
   sciName?: string | null;
+  canonicalKey?: string;
   rarity: BirdRarity;
   capturedCount: number;
   seen: boolean;
@@ -81,12 +92,47 @@ export interface SpeciesDexEntry {
   capture?: CaptureRecord;
 }
 
+
+
+interface SpeciesIdentityFields {
+  speciesCode?: string;
+  commonName?: string;
+  comName?: string;
+  sciName?: string | null;
+  canonicalKey?: string | null;
+}
+
+function normalizedSpeciesName(value?: string | null): string {
+  return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+}
+
+function isEbirdSpeciesCode(speciesCode?: string): boolean {
+  return Boolean(speciesCode && !speciesCode.startsWith("inat-"));
+}
+
+function speciesIdentitiesMatch(left: SpeciesIdentityFields, right: SpeciesIdentityFields): boolean {
+  const leftCanonical = normalizedSpeciesName(left.canonicalKey);
+  const rightCanonical = normalizedSpeciesName(right.canonicalKey);
+  if (
+    isEbirdSpeciesCode(left.speciesCode)
+    && isEbirdSpeciesCode(right.speciesCode)
+    && left.speciesCode !== right.speciesCode
+  ) return false;
+  if (leftCanonical && rightCanonical) return leftCanonical === rightCanonical;
+  const leftScientific = normalizedSpeciesName(left.sciName);
+  const rightScientific = normalizedSpeciesName(right.sciName);
+  if (leftScientific && leftScientific === rightScientific) return true;
+  const leftCommon = normalizedSpeciesName(left.commonName ?? left.comName);
+  const rightCommon = normalizedSpeciesName(right.commonName ?? right.comName);
+  return Boolean(leftCommon && leftCommon === rightCommon);
+}
+
 function captureName(capture: CaptureRecord): string {
   return typeof capture.commonName === "string" && capture.commonName.trim() ? capture.commonName.trim() : "Unidentified bird";
 }
 
 function captureKey(capture: CaptureRecord): string {
-  return speciesKey(capture.speciesCode, captureName(capture), capture.sciName);
+  return speciesKey(capture.speciesCode, captureName(capture), capture.sciName, capture.canonicalKey);
 }
 
 export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpecies[]): SpeciesDexEntry[] {
@@ -94,7 +140,9 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
   captures.forEach((capture) => {
     const commonName = captureName(capture);
     const key = captureKey(capture);
-    const existing = entries.get(key);
+    const direct = entries.get(key);
+    const existing = (direct && speciesIdentitiesMatch(direct, { ...capture, commonName }) ? direct : undefined)
+      ?? [...entries.values()].find((entry) => speciesIdentitiesMatch(entry, { ...capture, commonName }));
     const timestamp = typeof capture.timestamp === "string" ? capture.timestamp : "";
     if (!existing) {
       entries.set(key, {
@@ -102,7 +150,8 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
         speciesCode: capture.speciesCode,
         commonName,
         sciName: capture.sciName,
-        rarity: capture.rarity ?? rarityForSpecies(capture.speciesCode, commonName),
+        canonicalKey: capture.canonicalKey,
+        rarity: capture.rarity ?? rarityForSpecies(capture.speciesCode, commonName, undefined, capture.sciName, capture.canonicalKey),
         capturedCount: 1,
         seen: true,
         firstCapturedAt: timestamp,
@@ -126,22 +175,18 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
       }
     }
     if (!existing.sciName && capture.sciName) existing.sciName = capture.sciName;
+    if (!existing.canonicalKey && capture.canonicalKey) existing.canonicalKey = capture.canonicalKey;
   });
-  const normalize = (value?: string | null) => value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
   seenSpecies.forEach((species) => {
-    const key = speciesKey(species.speciesCode, species.comName, species.sciName);
-    const existing = entries.get(key) ?? [...entries.values()].find((entry) => {
-      const entryScientific = normalize(entry.sciName);
-      const speciesScientific = normalize(species.sciName);
-      const scientificConflict = Boolean(entryScientific && speciesScientific && entryScientific !== speciesScientific);
-      if (scientificConflict) return false;
-      return normalize(entry.commonName) === normalize(species.comName)
-        || Boolean(entryScientific && entryScientific === speciesScientific);
-    });
+    const key = speciesKey(species.speciesCode, species.comName, species.sciName, species.canonicalKey);
+    const direct = entries.get(key);
+    const existing = (direct && speciesIdentitiesMatch(direct, species) ? direct : undefined)
+      ?? [...entries.values()].find((entry) => speciesIdentitiesMatch(entry, species));
     if (existing) {
       existing.seen = true;
       if (!existing.speciesCode && species.speciesCode) existing.speciesCode = species.speciesCode;
       if (!existing.sciName && species.sciName) existing.sciName = species.sciName;
+      if (!existing.canonicalKey && species.canonicalKey) existing.canonicalKey = species.canonicalKey;
       if (!existing.imageUrl && species.imageUrl) existing.imageUrl = species.imageUrl;
       return;
     }
@@ -150,7 +195,8 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
       speciesCode: species.speciesCode,
       commonName: species.comName,
       sciName: species.sciName,
-      rarity: rarityForSpecies(species.speciesCode, species.comName, species.isNotable, species.sciName),
+      canonicalKey: species.canonicalKey,
+      rarity: rarityForSpecies(species.speciesCode, species.comName, species.isNotable, species.sciName, species.canonicalKey),
       capturedCount: 0,
       seen: true,
       imageUrl: species.imageUrl,
