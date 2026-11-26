@@ -34,7 +34,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "BirdGo uses your location to find nearby birds.",
-        "NSCameraUsageDescription": "BirdGo uses your camera to identify birds."
+        "NSCameraUsageDescription": "BirdGo uses your camera to identify birds.",
+        "ITSAppUsesNonExemptEncryption": false
       },
       "config": {
         "googleMapsApiKey": ""
