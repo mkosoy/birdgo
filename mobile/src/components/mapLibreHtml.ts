@@ -9,7 +9,7 @@ export function buildMapLibreHtml(): string {
     html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }
     body { position: relative; overflow: hidden; }
     .bird-marker, .user-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 18px; font-weight: bold; }
-    .bird-marker { position: relative; width: 32px; height: 32px; background: #2f7d5b; border: 2px solid white; cursor: pointer; }
+    .bird-marker { width: 32px; height: 32px; background: #2f7d5b; border: 2px solid white; cursor: pointer; }
     .bird-marker.in-range { box-shadow: 0 0 0 5px rgba(217,157,33,.38), 0 2px 8px rgba(0,0,0,.3); }
     .bird-marker.notable { background: #d99d21; }
     .bird-marker.captured { background: #61776c; border-color: #a9f0bf; }
