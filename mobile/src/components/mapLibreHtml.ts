@@ -447,8 +447,17 @@ export function buildMapLibreHtml(): string {
       function birdGlyph() {
         return '<svg viewBox="0 0 64 64" width="22" height="22" aria-hidden="true"><path d="M12 39c4-13 15-23 29-23 7 0 12 3 14 8l7 3-6 4c-2 9-10 15-20 15-8 0-15-2-24-7z" fill="currentColor"/><circle cx="47" cy="24" r="2.4" fill="#234236"/><path d="M14 39 4 45l13 2z" fill="currentColor" opacity=".82"/></svg>';
       }
-      function personGlyph() {
-        return '<svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><circle cx="32" cy="18" r="9" fill="#fff"/><path d="M18 50c2-13 8-20 14-20s12 7 14 20z" fill="#fff"/><path d="M20 34c-5 4-8 9-9 15l8 2c1-6 3-10 6-13zm24 0c5 4 8 9 9 15l-8 2c-1-6-3-10-6-13z" fill="#d8ecff"/></svg>';
+      function safeSvgColor(value, fallback) {
+        return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
+      }
+      function personGlyph(profile) {
+        var accent = safeSvgColor(profile && profile.accentColor, '#ffffff');
+        var accessory = profile && ['none', 'cap', 'visor', 'hood'].indexOf(profile.accessory) >= 0 ? profile.accessory : 'cap';
+        var accessorySvg = '';
+        if (accessory === 'cap') accessorySvg = '<path d="M22 15c2-7 7-10 10-10s8 3 10 10l4 2H18z" fill="' + accent + '"/>';
+        else if (accessory === 'visor') accessorySvg = '<path d="M20 15h24l5 4H17z" fill="' + accent + '"/>';
+        else if (accessory === 'hood') accessorySvg = '<path d="M20 27c-2-14 4-23 12-23s14 9 12 23c-3-7-6-11-12-11s-9 4-12 11z" fill="' + accent + '" opacity=".95"/>';
+        return '<svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><circle cx="32" cy="18" r="9" fill="#f2c39b"/><circle cx="29" cy="18" r="1.1" fill="#26342d"/><circle cx="35" cy="18" r="1.1" fill="#26342d"/><path d="M29 22q3 2.4 6 0" stroke="#26342d" stroke-width="1.3" fill="none" stroke-linecap="round"/>' + accessorySvg + '<path d="M18 50c2-13 8-20 14-20s12 7 14 20z" fill="' + accent + '"/><path d="M20 34c-5 4-8 9-9 15l8 2c1-6 3-10 6-13zm24 0c5 4 8 9 9 15l-8 2c-1-6-3-10-6-13z" fill="#d8ecff"/></svg>';
       }
       function thumbInnerHtml(bird, emojiFallback) {
         var image = getBirdImage(bird);
@@ -1593,13 +1602,16 @@ export function buildMapLibreHtml(): string {
           if (!userElement) {
             userElement = document.createElement('div');
             userElement.className = 'user-marker';
-            userElement.innerHTML = personGlyph();
+            userElement.innerHTML = personGlyph(data.trainer);
             userMarker = new maplibregl.Marker({ element: userElement })
               .setLngLat([data.userLocation.longitude, data.userLocation.latitude])
               .addTo(map);
           } else {
             userMarker.setLngLat([data.userLocation.longitude, data.userLocation.latitude]);
           }
+          var trainerGlyph = personGlyph(data.trainer);
+          if (userElement.innerHTML !== trainerGlyph) userElement.innerHTML = trainerGlyph;
+          if (data.trainer && data.trainer.avatarColor) userElement.style.background = data.trainer.avatarColor;
         }
         if (currentPopup && currentPopupBirdId) {
           var freshPopupBird = (data.markers || []).find(function (entry) { return String(entry.id) === String(currentPopupBirdId); });

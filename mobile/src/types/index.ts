@@ -1,3 +1,12 @@
+export type TrainerAccessory = "none" | "cap" | "visor" | "hood";
+
+export interface TrainerProfile {
+  name: string;
+  avatarColor: string;
+  accentColor: string;
+  accessory: TrainerAccessory;
+}
+
 export type WeatherCondition = "clear" | "cloudy" | "rain" | "snow" | "fog" | "storm";
 
 export interface WeatherAtmosphere {

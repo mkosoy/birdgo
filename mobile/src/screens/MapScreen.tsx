@@ -11,6 +11,7 @@ import type { BirdMapMode } from "../components/BirdMap";
 import { useBirds } from "../hooks/useBirds";
 import { useCollection } from "../hooks/useCollection";
 import { useWeather } from "../hooks/useWeather";
+import { useTrainerProfile } from "../hooks/useTrainerProfile";
 import type { Coordinates, EbirdObservation, SeenSpecies } from "../types";
 import { rarityForSpecies, speciesKeyAliases } from "../utils/progression";
 import { buildSkyfriendSpawns, distanceKm, loadSkyfriendSpecies, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround } from "../utils/skyfriends";
@@ -52,12 +53,14 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const [rareDismissed, setRareDismissed] = useState(false);
   const { birds, notable, loading, error, loadedArea, refresh } = useBirds(center.latitude, center.longitude);
   const weather = useWeather(location);
+  const { trainer, refresh: refreshTrainer } = useTrainerProfile();
   const { saveSeen, captures, skyfriends, saveSkyfriend, refresh: refreshCollection } = useCollection();
   const collectingSkyfriends = useRef(new Set<string>());
   const [spawnSpeciesAssignments, setSpawnSpeciesAssignments] = useState<Record<string, string[]> | null>(null);
   useFocusEffect(useCallback(() => {
     void refreshCollection();
-  }, [refreshCollection]));
+    void refreshTrainer();
+  }, [refreshCollection, refreshTrainer]));
   useEffect(() => {
     if (!targetCapture || processedTargetCapture.current === targetCapture.timestamp) return;
     processedTargetCapture.current = targetCapture.timestamp;
@@ -364,6 +367,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         captureCounts={captureCounts}
         loading={loading}
         weather={weather}
+        trainer={trainer}
         mode={mode}
         firstPerson={firstPerson}
         heading={heading}
