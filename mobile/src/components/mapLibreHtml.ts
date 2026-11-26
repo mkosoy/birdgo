@@ -8,6 +8,7 @@ export function buildMapLibreHtml(): string {
     :root { --safe-top: 0px; --safe-right: 0px; --safe-bottom: 0px; --safe-left: 0px; --bottom-hud: calc(98px + var(--safe-bottom)); --track-stack: 78px; }
     html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }
     body { position: relative; overflow: hidden; }
+    #sky-gradient { position: absolute; left: 0; right: 0; top: 0; height: 36%; z-index: 2; pointer-events: none; background: linear-gradient(to bottom, rgba(108,190,238,.9), rgba(153,216,242,.38) 48%, rgba(153,216,242,0)); }
     .bird-marker, .user-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 18px; font-weight: bold; }
     .bird-marker img { position: absolute; left: 2px; top: 2px; width: 36px; height: 36px; object-fit: cover; border-radius: 50%; }
     .bird-marker { width: 42px; height: 42px; background: linear-gradient(145deg, #39a874, #23684d); border: 3px solid white; cursor: pointer; box-shadow: 0 3px 9px rgba(0,0,0,.32); }
@@ -15,7 +16,7 @@ export function buildMapLibreHtml(): string {
     .bird-marker.notable { background: linear-gradient(145deg, #efbd35, #b97d08); border-color: #fff3bd; }
     .bird-marker.captured { background: #61776c; border-color: #a9f0bf; }
     .bird-marker .caught-badge { position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; }
-    .user-marker { position: absolute; width: 28px; height: 28px; background: #2878d1; border: 3px solid white; box-shadow: 0 0 0 2px #2878d1, 0 3px 9px rgba(0,0,0,.35); }
+    .user-marker { position: absolute; width: 36px; height: 36px; background: linear-gradient(#2f8ee8,#175fb4); border: 3px solid white; box-shadow: 0 0 0 2px rgba(40,120,209,.45), 0 4px 10px rgba(0,0,0,.35); }
     .user-marker::before { content: ''; position: absolute; top: 50%; left: 50%; width: 48px; height: 48px; border-radius: 50%; border: 2px solid rgba(40, 120, 209, 0.55); animation: pulse 1.8s ease-out infinite; }
     @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(1.45); opacity: 0; } }
     .encounter { width: 242px; max-width: calc(100vw - 88px); line-height: 1.28; color: #26342d; font-size: 13px; }
@@ -41,7 +42,10 @@ export function buildMapLibreHtml(): string {
     #map-attribution-copy { display: none; width: 220px; margin-top: 6px; padding: 9px 11px; border-radius: 10px; background: rgba(255,255,255,.96); color: #34453c; box-shadow: 0 2px 10px rgba(0,0,0,.22); font-size: 11px; line-height: 15px; }
     #map-attribution.open #map-attribution-copy { display: block; }
     #nearby-panel { position: absolute; left: 8px; right: 8px; bottom: var(--bottom-hud); z-index: 6; background: rgba(255,255,255,.96); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.25); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; height: 58px; display: flex; flex-direction: column; transition: transform .15s ease; }
-    #nearby-panel.peek { height: 58px; }
+    #nearby-panel.peek { height: 58px; left: auto; width: 136px; }
+    #nearby-panel.peek #rare-toggle, #nearby-panel.peek #sort-toggle { display: none; }
+    #nearby-panel.peek #nearby-header { padding-left: 10px; padding-right: 8px; gap: 5px; }
+    #nearby-panel.peek #nearby-title { font-size: 12px; }
     #nearby-panel.half { height: 44vh; }
     #nearby-header { display: flex; align-items: center; gap: 8px; min-height: 44px; box-sizing: border-box; padding: 6px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
     #nearby-title { font-weight: 800; color: #173c2b; font-size: 14px; flex: 1; }
@@ -119,6 +123,7 @@ export function buildMapLibreHtml(): string {
 </head>
 <body>
   <div id="map"></div>
+  <div id="sky-gradient"></div>
   <div id="track-hud"><div id="track-arrow">⬆</div></div>
   <div id="nearby-panel" class="collapsed peek">
     <div id="nearby-handle" aria-hidden="true"></div>
@@ -406,6 +411,9 @@ export function buildMapLibreHtml(): string {
       var birdImageCache = {};
       function birdGlyph() {
         return '<svg viewBox="0 0 64 64" width="22" height="22" aria-hidden="true"><path d="M12 39c4-13 15-23 29-23 7 0 12 3 14 8l7 3-6 4c-2 9-10 15-20 15-8 0-15-2-24-7z" fill="currentColor"/><circle cx="47" cy="24" r="2.4" fill="#234236"/><path d="M14 39 4 45l13 2z" fill="currentColor" opacity=".82"/></svg>';
+      }
+      function personGlyph() {
+        return '<svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><circle cx="32" cy="18" r="9" fill="#fff"/><path d="M18 50c2-13 8-20 14-20s12 7 14 20z" fill="#fff"/><path d="M20 34c-5 4-8 9-9 15l8 2c1-6 3-10 6-13zm24 0c5 4 8 9 9 15l-8 2c-1-6-3-10-6-13z" fill="#d8ecff"/></svg>';
       }
       function thumbInnerHtml(bird, emojiFallback) {
         var image = getBirdImage(bird);
@@ -1466,6 +1474,7 @@ export function buildMapLibreHtml(): string {
           if (!userElement) {
             userElement = document.createElement('div');
             userElement.className = 'user-marker';
+            userElement.innerHTML = personGlyph();
             userMarker = new maplibregl.Marker({ element: userElement })
               .setLngLat([data.userLocation.longitude, data.userLocation.latitude])
               .addTo(map);

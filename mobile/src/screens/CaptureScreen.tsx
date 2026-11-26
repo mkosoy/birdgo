@@ -153,6 +153,13 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
         </View>
       : <Image source={{ uri: photoUri }} style={styles.camera} />}
     <View style={[styles.controls, { paddingBottom: insets.bottom + 20 }]}>
+      {!photoUri && encounterHint && <View style={styles.targetBanner}>
+        {encounterHint.imageUrl ? <Image source={{ uri: encounterHint.imageUrl }} style={styles.targetImage} /> : null}
+        <View style={styles.targetCopy}>
+          <Text style={styles.targetLabel}>Target encounter</Text>
+          <Text style={styles.targetName}>{encounterHint.comName}</Text>
+        </View>
+      </View>}
       {!photoUri && permission?.granted && <Pressable style={styles.shutter} onPress={() => void takePhoto()}><Text style={styles.shutterText}>●</Text></Pressable>}
       {photoUri && <View style={styles.buttonRow}><Pressable style={[styles.button, styles.flexButton]} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); setEncounterHint(undefined); setSavedPhotoUri(null); onHintConsumed?.(); }}><Text style={styles.buttonText}>Try another</Text></Pressable><Pressable style={[styles.secondaryDark, styles.flexButton]} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Library</Text></Pressable></View>}
       {busy && <ActivityIndicator color="#fff" />}
@@ -199,6 +206,11 @@ const styles = StyleSheet.create({
   resultTitle: { color: "#fff", fontSize: 21, fontWeight: "700" },
   scientific: { color: "#c9ddce", fontStyle: "italic" },
   confidence: { color: "#d7e8da" },
+  targetBanner: { width: "100%", maxWidth: 390, minHeight: 58, borderRadius: 14, backgroundColor: "#1d3529", borderWidth: 1, borderColor: "#3f6a51", flexDirection: "row", alignItems: "center", padding: 8, gap: 10 },
+  targetImage: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#dce6df" },
+  targetCopy: { flex: 1, minWidth: 0 },
+  targetLabel: { color: "#9fc7ad", fontSize: 10, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" },
+  targetName: { color: "#fff", fontSize: 16, fontWeight: "800", marginTop: 1 },
   confirmation: { color: "#bde8c9", fontWeight: "700", textAlign: "center" },
   notice: { color: "#ffd0a8", fontWeight: "700", textAlign: "center" },
 });

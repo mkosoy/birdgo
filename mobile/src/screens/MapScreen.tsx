@@ -291,6 +291,11 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
           <Pressable accessibilityLabel="Back to me" style={styles.actionButton} onPress={() => setRecenterRequest((request) => request + 1)}><Ionicons name="locate" size={27} color="#2878d1" /></Pressable>
         </View>
       )}
+      {mode === "adventure" && nearbyState !== "half" && !popupOpen && (
+        <Pressable accessibilityLabel="Capture a bird" style={[styles.captureButton, { bottom: insets.bottom + 72 }]} onPress={() => { onCapture?.(); navigation.navigate("Capture" as never); }}>
+          <Ionicons name="camera" size={27} color="#fff" />
+        </Pressable>
+      )}
       {mode === "classic" && (
         <Pressable accessibilityLabel="Back to me" style={[styles.actionButton, styles.classicRecenter, { top: insets.top + 112 }]} onPress={() => setRecenterRequest((request) => request + 1)}><Ionicons name="locate" size={27} color="#2878d1" /></Pressable>
       )}
@@ -313,4 +318,5 @@ const styles = StyleSheet.create({
   actionRail: { position: "absolute", right: 14, gap: 10, alignItems: "center" },
   actionButton: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
   classicRecenter: { position: "absolute", right: 16 },
+  captureButton: { position: "absolute", alignSelf: "center", width: 68, height: 68, borderRadius: 34, backgroundColor: "#2f7d5b", alignItems: "center", justifyContent: "center", borderWidth: 5, borderColor: "#fff", elevation: 6, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
 });
