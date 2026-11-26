@@ -6,7 +6,7 @@ import { useTrainerProfile } from "../hooks/useTrainerProfile";
 import { captureMatchesSpecies, releaseSpecies } from "../store/collection";
 import { Bird3DPreview } from "../components/Bird3DPreview";
 import { TrainerAvatar } from "../components/TrainerAvatar";
-import { buildSpeciesDex, levelForXp, RARITY_COLORS, type SpeciesDexEntry } from "../utils/progression";
+import { buildSpeciesDex, levelForXp, RARITY_COLORS, RARITY_ORDER, type SpeciesDexEntry } from "../utils/progression";
 import type { TrainerAccessory, TrainerProfile } from "../types";
 
 function coordinateLabel(latitude?: number, longitude?: number): string | undefined {
@@ -61,6 +61,18 @@ export function DexScreen() {
   const capturedSpecies = entries.filter((entry) => entry.capturedCount > 0 && entry.identified !== false).length;
   const totalCaptured = entries.reduce((total, entry) => total + entry.capturedCount, 0);
   const skyfriendSpecies = new Set(skyfriends.map((record) => record.canonicalKey ?? record.speciesCode ?? record.commonName.toLowerCase())).size;
+  const hallOfFameEntries = useMemo(() => entries
+    .filter((entry) => entry.capturedCount > 0 && entry.identified !== false)
+    .map((entry) => ({
+      entry,
+      score: RARITY_ORDER.indexOf(entry.rarity) * 10
+        + ((entry.bestCapture ?? entry.capture)?.verified ? 4 : 0)
+        + (entry.photoUri ? 2 : 0)
+        + Math.min(3, entry.capturedCount),
+    }))
+    .sort((left, right) => right.score - left.score || left.entry.commonName.localeCompare(right.entry.commonName))
+    .slice(0, 5)
+    .map((item) => item.entry), [entries]);
 
   if (loading) return <View style={styles.center}><Text>Loading your Bird-dex…</Text></View>;
 
@@ -94,6 +106,31 @@ export function DexScreen() {
     <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(progress.progress * 100)}%` }]} /></View>
     <Text style={styles.progressCopy}>{progress.currentLevelXp} / {progress.nextLevelXp} XP to level {progress.level + 1}</Text>
     <Text style={styles.progressHint}>Capture new species for +50 XP. Duplicates still train your collection.</Text>
+  </View>;
+
+  const hallOfFameArea = <View style={styles.hallArea}>
+    <View style={styles.hallHeader}>
+      <View style={styles.skyfriendTitleWrap}>
+        <Text style={styles.hallTitle}>Hall of Fame</Text>
+        <Text style={styles.hallSubtitle}>Real honor-system sightings · your personal best birds</Text>
+      </View>
+      <Text style={styles.hallCount}>{hallOfFameEntries.length}</Text>
+    </View>
+    {hallOfFameEntries.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hallRow}>
+      {hallOfFameEntries.map((entry, index) => {
+        const imageUri = entry.photoUri || entry.imageUrl;
+        return <Pressable key={entry.key} style={styles.hallCard} onPress={() => setSelected(entry)}>
+          {imageUri ? <Image source={{ uri: imageUri }} style={styles.hallImage} /> : <View style={styles.hallImageEmpty}><Text style={styles.hallBird}>🐦</Text></View>}
+          <View style={styles.hallRank}><Text style={styles.hallRankText}>{index + 1}</Text></View>
+          <View style={styles.hallCardBody}>
+            <Text style={styles.hallName} numberOfLines={2}>{entry.commonName}</Text>
+            <Text style={styles.hallMeta}>{rarityLabel(entry)} · {entry.firstCapturedAt ? shortDate(entry.firstCapturedAt) : "Date unknown"}</Text>
+            <Text style={styles.hallScore}>{entry.capture?.verified ? "AI verified" : "Honor record"} · ×{entry.capturedCount}</Text>
+            <Text style={styles.hallReal}>REAL SIGHTING</Text>
+          </View>
+        </Pressable>;
+      })}
+    </ScrollView> : <Text style={styles.hallEmpty}>Capture real birds to build your honor-system Hall of Fame. Skyfriends never appear here.</Text>}
   </View>;
 
   const skyfriendArea = <View style={styles.skyfriendArea}>
@@ -135,7 +172,7 @@ export function DexScreen() {
 
   const content = !entries.length
     ? <ScrollView contentContainerStyle={styles.emptyContent}>
-      <View>{header}{skyfriendArea}</View>
+      <View>{header}{hallOfFameArea}{skyfriendArea}</View>
       <View style={styles.center}><Text style={styles.title}>Your Bird-dex is empty</Text><Text style={styles.copy}>Explore the map and capture your first bird.</Text></View>
     </ScrollView>
     : <FlatList
@@ -143,7 +180,7 @@ export function DexScreen() {
       data={entries}
       keyExtractor={(item) => item.key}
       numColumns={2}
-      ListHeaderComponent={<View>{header}{skyfriendArea}</View>}
+      ListHeaderComponent={<View>{header}{hallOfFameArea}{skyfriendArea}</View>}
       renderItem={renderCard}
     />;
 
@@ -243,6 +280,24 @@ const styles = StyleSheet.create({
   progressFill: { height: "100%", borderRadius: 8, backgroundColor: "#65d184" },
   progressCopy: { color: "#e2f1e7", fontWeight: "800", marginTop: 6, fontSize: 12 },
   progressHint: { color: "#a9c9b4", marginTop: 3, fontSize: 11, lineHeight: 15 },
+  hallArea: { margin: 5, marginBottom: 12, padding: 14, borderRadius: 18, backgroundColor: "#4a3512", elevation: 3 },
+  hallHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  hallTitle: { color: "#fff3c7", fontSize: 21, fontWeight: "900" },
+  hallSubtitle: { color: "#dfc47d", fontSize: 11, fontWeight: "700", marginTop: 2 },
+  hallCount: { color: "#4a3512", backgroundColor: "#ffd766", minWidth: 38, height: 38, borderRadius: 19, textAlign: "center", textAlignVertical: "center", fontSize: 18, fontWeight: "900", overflow: "hidden" },
+  hallRow: { gap: 10, paddingTop: 12, paddingRight: 4 },
+  hallCard: { width: 148, borderRadius: 15, overflow: "hidden", backgroundColor: "#fff8df" },
+  hallImage: { width: "100%", height: 92, backgroundColor: "#d8c585" },
+  hallImageEmpty: { width: "100%", height: 92, alignItems: "center", justifyContent: "center", backgroundColor: "#d8c585" },
+  hallBird: { fontSize: 42 },
+  hallRank: { position: "absolute", left: 7, top: 7, width: 25, height: 25, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: "#d99d21", borderWidth: 2, borderColor: "#fff3c7" },
+  hallRankText: { color: "#fff", fontWeight: "900", fontSize: 12 },
+  hallCardBody: { padding: 9 },
+  hallName: { color: "#3d2d12", fontWeight: "900", fontSize: 13, minHeight: 32 },
+  hallMeta: { color: "#7a6030", fontWeight: "700", fontSize: 10, marginTop: 2 },
+  hallScore: { color: "#5d4820", fontWeight: "800", fontSize: 10, marginTop: 3 },
+  hallReal: { color: "#2f7d5b", fontWeight: "900", fontSize: 9, marginTop: 5 },
+  hallEmpty: { color: "#f1dc9b", fontSize: 12, lineHeight: 17, marginTop: 10 },
   skyfriendArea: { margin: 5, marginBottom: 12, padding: 14, borderRadius: 18, backgroundColor: "#28264f", elevation: 3 },
   skyfriendHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
   skyfriendTitleWrap: { flex: 1 },
