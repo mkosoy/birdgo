@@ -158,16 +158,17 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         const encounterId = observationMarkerId(bird);
         return !collectedSkyfriendIds.has(encounterId) && (fledSkyfriends[encounterId] ?? 0) <= Date.now();
       });
-      const spaced: EbirdObservation[] = [];
-      available.forEach((bird) => {
-        if (spaced.length >= 3) return;
-        if (spaced.every((other) => distanceKm(bird, other) >= 0.07)) spaced.push(bird);
-      });
-      return spaced.sort((left, right) => {
+      const prioritized = available.sort((left, right) => {
         const leftTracked = activeTrackTarget?.id === observationMarkerId(left) ? 0 : 1;
         const rightTracked = activeTrackTarget?.id === observationMarkerId(right) ? 0 : 1;
         return leftTracked - rightTracked;
       });
+      const spaced: EbirdObservation[] = [];
+      prioritized.forEach((bird) => {
+        if (spaced.length >= 3) return;
+        if (activeTrackTarget?.id === observationMarkerId(bird) || spaced.every((other) => distanceKm(bird, other) >= 0.07)) spaced.push(bird);
+      });
+      return spaced;
     },
     [skyfriendSpawns, collectedSkyfriendIds, activeTrackTarget, fledSkyfriends],
   );
