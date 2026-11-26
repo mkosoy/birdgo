@@ -10,6 +10,7 @@ const XP_EVENTS_KEY = "birdgo.xp-events";
 const XP_BANK_KEY = "birdgo.xp-bank";
 const XP_MIGRATION_KEY = "birdgo.xp-migrated-v2";
 const DISCOVERED_KEY = "birdgo.discovered-species";
+const CAPTURE_COUNTS_KEY = "birdgo.species-capture-counts";
 const SKYFRIENDS_KEY = "birdgo.skyfriends-v1";
 const SEEN_SCOPE_KM = 25;
 let seenWriteVersion = 0;
@@ -100,9 +101,22 @@ function captureKey(capture: CaptureRecord): string {
   return speciesKey(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey);
 }
 
-function priorAliasCaptureCount(captures: CaptureRecord[], aliases: string[]): number {
-  const aliasSet = new Set(aliases);
-  return captures.filter((existing) => speciesKeyAliases(existing.speciesCode, existing.commonName, existing.sciName, existing.canonicalKey).some((alias) => aliasSet.has(alias))).length;
+async function readSpeciesCaptureCounts(captures: CaptureRecord[]): Promise<Record<string, number>> {
+  const raw = await AsyncStorage.getItem(CAPTURE_COUNTS_KEY);
+  if (raw) {
+    try { return JSON.parse(raw) as Record<string, number>; } catch { /* rebuild below */ }
+  }
+  const counts: Record<string, number> = {};
+  [...captures].reverse().forEach((capture) => {
+    speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey).forEach((alias) => {
+      counts[alias] = (counts[alias] ?? 0) + 1;
+    });
+  });
+  return counts;
+}
+
+async function writeSpeciesCaptureCounts(counts: Record<string, number>): Promise<void> {
+  await AsyncStorage.setItem(CAPTURE_COUNTS_KEY, JSON.stringify(counts));
 }
 
 function derivedCaptureEvents(captures: CaptureRecord[]): XpEvent[] {
@@ -128,12 +142,16 @@ export async function addCapture(capture: CaptureRecord): Promise<CaptureRecord>
   const discovered = await listDiscoveredKeys();
   const aliases = speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey);
   const isNewSpecies = !aliases.some((alias) => discovered.has(alias));
-  const priorCaptureCount = priorAliasCaptureCount(captures, aliases);
+  const captureCounts = await readSpeciesCaptureCounts(captures);
+  const priorCaptureCount = Math.max(0, ...aliases.map((alias) => captureCounts[alias] ?? 0));
   const xpAwarded = capture.xpAwarded ?? xpForCapture(capture, isNewSpecies, priorCaptureCount);
   const record = { ...capture, xpAwarded };
   await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify([record, ...captures]));
-  aliases.forEach((alias) => discovered.add(alias));
-  await writeDiscoveredKeys(discovered);
+  aliases.forEach((alias) => {
+    discovered.add(alias);
+    captureCounts[alias] = (captureCounts[alias] ?? 0) + 1;
+  });
+  await Promise.all([writeDiscoveredKeys(discovered), writeSpeciesCaptureCounts(captureCounts)]);
   const events = await listXpEvents();
   if (!events.some((event) => event.captureId === record.id)) {
     await writeXpEvents([...events, { captureId: record.id, xp: xpAwarded }]);
