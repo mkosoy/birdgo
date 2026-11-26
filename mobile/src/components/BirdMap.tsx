@@ -27,6 +27,7 @@ export interface BirdMapProps {
   nearestRequest?: number;
   trackRequest?: Coordinates & { name: string; id?: string };
   stopTrackRequest?: number;
+  closePopupRequest?: number;
   loading?: boolean;
   weather?: WeatherAtmosphere;
   trainer?: TrainerProfile;
@@ -69,7 +70,7 @@ interface LeafletData {
   trainer?: TrainerProfile;
   heading?: number;
   markers: LeafletMarker[];
-  command?: "recenter" | "setView" | "overview" | "nearest" | "track" | "stopTrack";
+  command?: "recenter" | "setView" | "overview" | "nearest" | "track" | "stopTrack" | "closePopup";
   trackTarget?: Coordinates & { name: string; id?: string };
   firstPerson?: boolean;
   safeArea?: SafeAreaInsets;
@@ -100,7 +101,7 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, captureCounts, mode, firstPerson, heading, weather, trainer, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange },
+  { center, userLocation, birds, captureCounts, mode, firstPerson, heading, weather, trainer, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, closePopupRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
@@ -228,6 +229,13 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "stopTrack" }))}, '*'); true;`);
     }
   }, [stopTrackRequest]);
+  useEffect(() => {
+    if (!closePopupRequest) return;
+    const latestData = dataRef.current;
+    if (latestData) {
+      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "closePopup" }))}, '*'); true;`);
+    }
+  }, [closePopupRequest]);
 
   const html = mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml();
   return <WebView key={mode} ref={webViewRef} style={styles.map} source={{ html }} onLoadEnd={pushData} onMessage={handleMessage} originWhitelist={["*"]} />;

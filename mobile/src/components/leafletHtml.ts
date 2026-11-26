@@ -165,6 +165,10 @@ export function buildLeafletHtml(): string {
           var target = data.userLocation || data.center;
           markProgrammaticCameraMove();
           map.setView([target.latitude, target.longitude], map.getZoom() < 13 ? 13 : map.getZoom());
+        } else if (data.command === 'closePopup') {
+          popupBirdId = null;
+          restorePopupId = null;
+          map.closePopup();
         }
         markers.clearLayers();
         (data.markers || []).forEach(function (bird) {

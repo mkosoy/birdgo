@@ -1667,6 +1667,8 @@ export function buildMapLibreHtml(): string {
           }
         } else if (data.command === 'stopTrack') {
           stopTrack();
+        } else if (data.command === 'closePopup') {
+          if (currentPopup) currentPopup.remove();
         } else if (data.command === 'track' && data.trackTarget) {
           var exactBird = data.trackTarget.id ? latestMarkers.find(function (bird) { return String(bird.id) === String(data.trackTarget.id); }) : null;
           var targetBird = exactBird ? { bird: exactBird } : latestMarkers.reduce(function (closest, bird) {

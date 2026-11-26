@@ -34,6 +34,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const [overviewRequest, setOverviewRequest] = useState(0);
   const [trackRequest, setTrackRequest] = useState<TrackTarget | undefined>();
   const [stopTrackRequest, setStopTrackRequest] = useState(0);
+  const [closePopupRequest, setClosePopupRequest] = useState(0);
   const processedTargetCapture = useRef(0);
   const [activeTrackTarget, setActiveTrackTargetState] = useState<TrackTarget | undefined>(persistentTrackTarget);
   const setActiveTrackTarget = (target?: TrackTarget) => {
@@ -63,6 +64,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     void refreshCollection();
     void refreshTrainer();
     void loadSkyfriendFled().then(setFledSkyfriends).catch(() => undefined);
+    return () => setClosePopupRequest((request) => request + 1);
   }, [refreshCollection, refreshTrainer]));
   useEffect(() => {
     const now = Date.now();
@@ -417,6 +419,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         overviewRequest={overviewRequest}
         trackRequest={trackRequest}
         stopTrackRequest={stopTrackRequest}
+        closePopupRequest={closePopupRequest}
         onCapture={(bird) => {
           if (bird.virtual) {
             void collectSkyfriend(bird);
