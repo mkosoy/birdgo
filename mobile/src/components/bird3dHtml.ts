@@ -168,7 +168,7 @@ export function buildBird3dHtml(options: Bird3DOptions): string {
         var height = Math.max(1, stage.clientHeight);
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
-        renderer.setSize(width, height, false);
+        renderer.setSize(width, height, true);
       }
       window.addEventListener('resize', resize);
       resize();
