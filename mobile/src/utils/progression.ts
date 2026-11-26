@@ -66,6 +66,23 @@ export function isIdentifiedCapture(capture: Pick<CaptureRecord, "speciesCode" |
   return Boolean(capture.speciesCode?.trim() || capture.sciName?.trim() || (commonName && commonName !== "unidentified bird"));
 }
 
+export interface SpeciesCountGroup {
+  aliases: string[];
+  count: number;
+}
+
+export function applySpeciesCaptureCount(groups: SpeciesCountGroup[], aliases: string[]): { groups: SpeciesCountGroup[]; priorCaptureCount: number } {
+  const uniqueAliases = [...new Set(aliases.filter(Boolean))];
+  const matching = groups.filter((group) => group.aliases.some((alias) => uniqueAliases.includes(alias)));
+  const remaining = groups.filter((group) => !matching.includes(group));
+  const priorCaptureCount = matching.reduce((total, group) => total + group.count, 0);
+  const mergedAliases = [...new Set(matching.flatMap((group) => group.aliases).concat(uniqueAliases))];
+  return {
+    groups: [...remaining, { aliases: mergedAliases, count: priorCaptureCount + 1 }],
+    priorCaptureCount,
+  };
+}
+
 export function xpForCapture(capture: Pick<CaptureRecord, "rarity" | "verified" | "speciesCode" | "commonName" | "sciName">, isNewSpecies: boolean, priorCaptureCount = 0, discountDuplicates = true): number {
   if (!isIdentifiedCapture(capture)) return 0;
   const rarity = capture.rarity ?? "common";

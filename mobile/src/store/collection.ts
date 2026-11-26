@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Coordinates, CaptureRecord, SeenSpecies, SkyfriendRecord } from "../types";
-import { speciesKey, speciesKeyAliases, xpForCapture } from "../utils/progression";
+import { applySpeciesCaptureCount, speciesKey, speciesKeyAliases, xpForCapture, type SpeciesCountGroup } from "../utils/progression";
 
 const CAPTURES_KEY = "birdgo.captures";
 const SEEN_KEY = "birdgo.seen";
@@ -10,7 +10,7 @@ const XP_EVENTS_KEY = "birdgo.xp-events";
 const XP_BANK_KEY = "birdgo.xp-bank";
 const XP_MIGRATION_KEY = "birdgo.xp-migrated-v2";
 const DISCOVERED_KEY = "birdgo.discovered-species";
-const CAPTURE_COUNTS_KEY = "birdgo.species-capture-counts";
+const CAPTURE_COUNTS_KEY = "birdgo.species-capture-count-groups-v1";
 const SKYFRIENDS_KEY = "birdgo.skyfriends-v1";
 const SEEN_SCOPE_KM = 25;
 let seenWriteVersion = 0;
@@ -101,22 +101,25 @@ function captureKey(capture: CaptureRecord): string {
   return speciesKey(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey);
 }
 
-async function readSpeciesCaptureCounts(captures: CaptureRecord[]): Promise<Record<string, number>> {
+async function readSpeciesCaptureCounts(captures: CaptureRecord[]): Promise<SpeciesCountGroup[]> {
   const raw = await AsyncStorage.getItem(CAPTURE_COUNTS_KEY);
   if (raw) {
-    try { return JSON.parse(raw) as Record<string, number>; } catch { /* rebuild below */ }
+    try {
+      const parsed = JSON.parse(raw) as SpeciesCountGroup[];
+      if (Array.isArray(parsed)) {
+        return parsed.filter((group) => group && Array.isArray(group.aliases) && Number.isFinite(group.count));
+      }
+    } catch { /* rebuild below */ }
   }
-  const counts: Record<string, number> = {};
+  let groups: SpeciesCountGroup[] = [];
   [...captures].reverse().forEach((capture) => {
-    speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey).forEach((alias) => {
-      counts[alias] = (counts[alias] ?? 0) + 1;
-    });
+    groups = applySpeciesCaptureCount(groups, speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey)).groups;
   });
-  return counts;
+  return groups;
 }
 
-async function writeSpeciesCaptureCounts(counts: Record<string, number>): Promise<void> {
-  await AsyncStorage.setItem(CAPTURE_COUNTS_KEY, JSON.stringify(counts));
+async function writeSpeciesCaptureCounts(groups: SpeciesCountGroup[]): Promise<void> {
+  await AsyncStorage.setItem(CAPTURE_COUNTS_KEY, JSON.stringify(groups));
 }
 
 function derivedCaptureEvents(captures: CaptureRecord[]): XpEvent[] {
@@ -143,15 +146,13 @@ export async function addCapture(capture: CaptureRecord): Promise<CaptureRecord>
   const aliases = speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey);
   const isNewSpecies = !aliases.some((alias) => discovered.has(alias));
   const captureCounts = await readSpeciesCaptureCounts(captures);
-  const priorCaptureCount = Math.max(0, ...aliases.map((alias) => captureCounts[alias] ?? 0));
+  const countResult = applySpeciesCaptureCount(captureCounts, aliases);
+  const priorCaptureCount = countResult.priorCaptureCount;
   const xpAwarded = capture.xpAwarded ?? xpForCapture(capture, isNewSpecies, priorCaptureCount);
   const record = { ...capture, xpAwarded };
   await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify([record, ...captures]));
-  aliases.forEach((alias) => {
-    discovered.add(alias);
-    captureCounts[alias] = (captureCounts[alias] ?? 0) + 1;
-  });
-  await Promise.all([writeDiscoveredKeys(discovered), writeSpeciesCaptureCounts(captureCounts)]);
+  aliases.forEach((alias) => discovered.add(alias));
+  await Promise.all([writeDiscoveredKeys(discovered), writeSpeciesCaptureCounts(countResult.groups)]);
   const events = await listXpEvents();
   if (!events.some((event) => event.captureId === record.id)) {
     await writeXpEvents([...events, { captureId: record.id, xp: xpAwarded }]);
