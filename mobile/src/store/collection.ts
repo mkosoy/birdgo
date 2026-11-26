@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { Coordinates, CaptureRecord, SeenSpecies } from "../types";
+import type { Coordinates, CaptureRecord, SeenSpecies, SkyfriendRecord } from "../types";
 import { speciesKey, speciesKeyAliases, xpForCapture } from "../utils/progression";
 
 const CAPTURES_KEY = "birdgo.captures";
@@ -10,6 +10,7 @@ const XP_EVENTS_KEY = "birdgo.xp-events";
 const XP_BANK_KEY = "birdgo.xp-bank";
 const XP_MIGRATION_KEY = "birdgo.xp-migrated-v2";
 const DISCOVERED_KEY = "birdgo.discovered-species";
+const SKYFRIENDS_KEY = "birdgo.skyfriends-v1";
 const SEEN_SCOPE_KM = 25;
 let seenWriteVersion = 0;
 
@@ -27,6 +28,27 @@ function distanceKm(first: Coordinates, second: Coordinates): number {
   const a = Math.sin(dLat / 2) ** 2
     + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+
+export async function listSkyfriends(): Promise<SkyfriendRecord[]> {
+  const raw = await AsyncStorage.getItem(SKYFRIENDS_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as SkyfriendRecord[];
+    return Array.isArray(parsed) ? parsed.filter((record) => record && typeof record.id === "string" && typeof record.commonName === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function addSkyfriend(record: SkyfriendRecord): Promise<SkyfriendRecord> {
+  const existing = await listSkyfriends();
+  if (record.encounterId && existing.some((entry) => entry.encounterId === record.encounterId)) {
+    return existing.find((entry) => entry.encounterId === record.encounterId) ?? record;
+  }
+  await AsyncStorage.setItem(SKYFRIENDS_KEY, JSON.stringify([record, ...existing]));
+  return record;
 }
 
 export async function listCaptures(): Promise<CaptureRecord[]> {

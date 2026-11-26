@@ -10,8 +10,9 @@ import { BirdMap } from "../components/BirdMap";
 import type { BirdMapMode } from "../components/BirdMap";
 import { useBirds } from "../hooks/useBirds";
 import { useCollection } from "../hooks/useCollection";
-import type { Coordinates, SeenSpecies } from "../types";
-import { speciesKeyAliases } from "../utils/progression";
+import type { Coordinates, EbirdObservation, SeenSpecies } from "../types";
+import { rarityForSpecies, speciesKeyAliases } from "../utils/progression";
+import { buildSkyfriendSpawns, distanceKm, observationMarkerId } from "../utils/skyfriends";
 
 type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string };
 let persistentTrackTarget: TrackTarget | undefined;
@@ -49,7 +50,8 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const fallbackActive = useRef(true);
   const [rareDismissed, setRareDismissed] = useState(false);
   const { birds, notable, loading, error, loadedArea, refresh } = useBirds(center.latitude, center.longitude);
-  const { saveSeen, captures, refresh: refreshCollection } = useCollection();
+  const { saveSeen, captures, skyfriends, saveSkyfriend, refresh: refreshCollection } = useCollection();
+  const collectingSkyfriends = useRef(new Set<string>());
   useFocusEffect(useCallback(() => {
     void refreshCollection();
   }, [refreshCollection]));
@@ -89,6 +91,46 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     });
     return counts;
   }, {}), [captures]);
+  const skyfriendSpawns = useMemo(() => buildSkyfriendSpawns(birds, location), [birds, location]);
+  const collectedSkyfriendIds = useMemo(() => new Set(skyfriends.map((record) => record.encounterId).filter(Boolean)), [skyfriends]);
+  const activeSkyfriendSpawns = useMemo(
+    () => skyfriendSpawns.filter((bird) => !collectedSkyfriendIds.has(observationMarkerId(bird))),
+    [skyfriendSpawns, collectedSkyfriendIds],
+  );
+  const mapBirds = useMemo(() => [...birds, ...activeSkyfriendSpawns], [birds, activeSkyfriendSpawns]);
+
+  const collectSkyfriend = async (bird: EbirdObservation) => {
+    const encounterId = observationMarkerId(bird);
+    if (collectingSkyfriends.current.has(encounterId)) return;
+    collectingSkyfriends.current.add(encounterId);
+    try {
+      if (distanceKm(location, bird) > 0.18) {
+        setCompletionNotice("Get closer to collect this Skyfriend.");
+        return;
+      }
+      const commonName = bird.comName ?? "Skyfriend";
+      await saveSkyfriend({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        encounterId,
+        speciesCode: bird.speciesCode,
+        commonName,
+        sciName: bird.sciName,
+        canonicalKey: bird.canonicalKey,
+        timestamp: new Date().toISOString(),
+        location: { latitude: bird.latitude, longitude: bird.longitude },
+        rarity: rarityForSpecies(bird.speciesCode, commonName, bird.isNotable, bird.sciName, bird.canonicalKey),
+        imageUrl: bird.imageUrl,
+      });
+      setCompletionNotice(`Skyfriend collected: ${commonName}!`);
+      if (activeTrackTarget?.id === encounterId) {
+        setActiveTrackTarget(undefined);
+        setTracking(false);
+        setStopTrackRequest((request) => request + 1);
+      }
+    } finally {
+      collectingSkyfriends.current.delete(encounterId);
+    }
+  };
   const topMessage = completionNotice
     ? { text: completionNotice, onPress: () => setCompletionNotice(null) }
     : locationNotice
@@ -271,7 +313,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         center={center}
         userLocation={location}
         safeArea={insets}
-        birds={birds}
+        birds={mapBirds}
         captureCounts={captureCounts}
         loading={loading}
         mode={mode}
@@ -283,6 +325,10 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         trackRequest={trackRequest}
         stopTrackRequest={stopTrackRequest}
         onCapture={(bird) => {
+          if (bird.virtual) {
+            void collectSkyfriend(bird);
+            return;
+          }
           onCapture?.({
             speciesCode: bird.speciesCode,
             encounterId: `${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`,
@@ -291,6 +337,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
             canonicalKey: bird.canonicalKey,
             isNotable: Boolean(bird.isNotable),
             imageUrl: bird.imageUrl,
+            virtual: Boolean(bird.virtual),
           });
           navigation.navigate("Capture" as never);
         }}

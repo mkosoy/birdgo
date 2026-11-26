@@ -15,6 +15,7 @@ export interface EbirdObservation extends Coordinates {
   isNotable?: boolean;
   imageUrl?: string;
   source?: string;
+  virtual?: boolean;
 }
 
 export type BirdRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
@@ -28,6 +29,7 @@ export interface SeenSpecies {
   isNotable?: boolean;
   imageUrl?: string;
   encounterId?: string;
+  virtual?: boolean;
 }
 
 export interface TaxonomyEntry {
@@ -58,6 +60,19 @@ export interface IdentificationResult {
   canonicalSciName?: string;
   confidence: number;
   provider: string;
+}
+
+export interface SkyfriendRecord {
+  id: string;
+  encounterId?: string;
+  speciesCode?: string;
+  commonName: string;
+  sciName?: string | null;
+  canonicalKey?: string;
+  timestamp: string;
+  location: Coordinates;
+  rarity?: BirdRarity;
+  imageUrl?: string;
 }
 
 export interface CanonicalSpeciesResult {
