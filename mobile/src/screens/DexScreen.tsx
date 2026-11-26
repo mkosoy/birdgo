@@ -66,7 +66,7 @@ export function DexScreen() {
     .map((entry) => ({
       entry,
       score: RARITY_ORDER.indexOf(entry.rarity) * 10
-        + (entry.capture?.verified ? 4 : 0)
+        + ((entry.bestCapture ?? entry.capture)?.verified ? 4 : 0)
         + (entry.photoUri ? 2 : 0)
         + Math.min(3, entry.capturedCount),
     }))

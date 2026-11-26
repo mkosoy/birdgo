@@ -96,6 +96,7 @@ export interface SpeciesDexEntry {
   photoUri?: string;
   imageUrl?: string;
   capture?: CaptureRecord;
+  bestCapture?: CaptureRecord;
   identified?: boolean;
 }
 
@@ -142,6 +143,11 @@ function captureKey(capture: CaptureRecord): string {
   return speciesKey(capture.speciesCode, captureName(capture), capture.sciName, capture.canonicalKey);
 }
 
+function captureMeritScore(capture: CaptureRecord): number {
+  const rarity = capture.rarity ?? rarityForSpecies(capture.speciesCode, capture.commonName, undefined, capture.sciName, capture.canonicalKey);
+  return RARITY_ORDER.indexOf(rarity) * 10 + (capture.verified ? 4 : 0) + (capture.photoUri ? 2 : 0);
+}
+
 export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpecies[]): SpeciesDexEntry[] {
   const entries = new Map<string, SpeciesDexEntry>();
   captures.forEach((capture) => {
@@ -165,11 +171,17 @@ export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpec
         lastCapturedAt: timestamp,
         photoUri: capture.photoUri,
         capture,
+        bestCapture: capture,
         identified: isIdentifiedCapture(capture),
       });
       return;
     }
     existing.capturedCount += 1;
+    const currentBest = existing.bestCapture ?? existing.capture;
+    if (!currentBest || captureMeritScore(capture) > captureMeritScore(currentBest)) {
+      existing.bestCapture = capture;
+      existing.rarity = capture.rarity ?? rarityForSpecies(capture.speciesCode, capture.commonName, undefined, capture.sciName, capture.canonicalKey);
+    }
     if (!existing.photoUri && capture.photoUri) {
       existing.photoUri = capture.photoUri;
       existing.capture = capture;
