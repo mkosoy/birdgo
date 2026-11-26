@@ -22,6 +22,7 @@ export interface SeenSpecies {
   speciesCode: string;
   comName: string;
   sciName?: string;
+  canonicalKey?: string;
   location?: Coordinates;
   isNotable?: boolean;
   imageUrl?: string;
@@ -38,6 +39,7 @@ export interface CaptureRecord {
   speciesCode?: string;
   commonName: string;
   sciName?: string | null;
+  canonicalKey?: string;
   photoUri: string;
   timestamp: string;
   location: Coordinates;
@@ -50,6 +52,17 @@ export interface IdentificationResult {
   isBird: boolean;
   commonName: string | null;
   sciName: string | null;
+  canonicalKey?: string;
+  canonicalSciName?: string;
   confidence: number;
   provider: string;
+}
+
+export interface CanonicalSpeciesResult {
+  speciesCode?: string;
+  comName?: string;
+  commonName?: string;
+  sciName?: string | null;
+  canonicalKey?: string;
+  canonicalSciName?: string;
 }

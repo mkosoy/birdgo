@@ -11,6 +11,7 @@ import {
 } from "./ebird.js";
 import { fetchInatBirds } from "./inaturalist.js";
 import { identifyBird, type BirdIdProvider } from "./birdId.js";
+import { canonicalizeSpecies, type SpeciesIdentityInput } from "./taxonomy.js";
 
 dotenv.config();
 export const app = express();
@@ -109,6 +110,20 @@ app.get("/api/taxonomy", async (request, response) => {
   }
 });
 
+app.post("/api/species/canonical", async (request, response) => {
+  const items = (request.body as { items?: unknown })?.items;
+  if (!Array.isArray(items)) {
+    response.status(400).json({ error: "items array is required", status: 400 });
+    return;
+  }
+  try {
+    response.json(await canonicalizeSpecies(items as SpeciesIdentityInput[], token));
+  } catch (error) {
+    console.error(error);
+    response.status(502).json({ error: "Species canonicalization failed", status: 502 });
+  }
+});
+
 app.post("/api/identify", async (request, response) => {
   const { imageBase64, hints } = request.body as { imageBase64?: unknown; hints?: unknown };
   if (typeof imageBase64 !== "string" || !imageBase64) {
@@ -119,12 +134,21 @@ app.post("/api/identify", async (request, response) => {
     ? hints.filter((hint): hint is string => typeof hint === "string").map((hint) => hint.trim().slice(0, 120)).filter(Boolean).slice(0, 5)
     : [];
   try {
-    response.json(await identifyBird(imageBase64, validHints, provider, {
+    const identification = await identifyBird(imageBase64, validHints, provider, {
       huggingface: process.env.HUGGINGFACE_API_KEY,
       gemini: process.env.GEMINI_API_KEY,
       openai: process.env.OPENAI_API_KEY,
       huggingfaceModel: process.env.HF_BIRD_MODEL,
-    }));
+    });
+    const [canonical] = await canonicalizeSpecies([{
+      commonName: identification.commonName ?? undefined,
+      sciName: identification.sciName,
+    }], token);
+    response.json({
+      ...identification,
+      canonicalKey: canonical?.canonicalKey,
+      canonicalSciName: canonical?.canonicalSciName,
+    });
   } catch (error) {
     console.error(error);
     response.status(502).json({ error: "Bird identification failed", status: 502 });

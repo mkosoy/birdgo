@@ -20,14 +20,17 @@ function normalizeName(value?: string | null): string {
   return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
 }
 
-function couldBeSpecies(species: SeenSpecies, result: { commonName: string | null; sciName: string | null }): boolean {
+function couldBeSpecies(species: SeenSpecies, result: { commonName: string | null; sciName: string | null; canonicalKey?: string }): boolean {
   if (!result.commonName && !result.sciName) return true;
-  return sameSpecies(species, result.commonName, result.sciName);
+  return sameSpecies(species, result.commonName, result.sciName, result.canonicalKey);
 }
 
-function sameSpecies(species: SeenSpecies, commonName?: string | null, sciName?: string | null): boolean {
+function sameSpecies(species: SeenSpecies, commonName?: string | null, sciName?: string | null, canonicalKey?: string | null): boolean {
   const common = normalizeName(commonName);
   const scientific = normalizeName(sciName);
+  const canonical = normalizeName(canonicalKey);
+  const speciesCanonical = normalizeName(species.canonicalKey);
+  if (canonical && speciesCanonical) return canonical === speciesCanonical;
   return Boolean(
     (common && normalizeName(species.comName) === common)
     || (scientific && normalizeName(species.sciName) === scientific)
@@ -105,7 +108,7 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
   const speciesContext = () => {
     const encounterMatches = Boolean(encounterHint && result && couldBeSpecies(encounterHint, result));
     const resultMatches = result && (result.commonName || result.sciName)
-      ? seenSpecies.find((species) => sameSpecies(species, result.commonName, result.sciName))
+      ? seenSpecies.find((species) => sameSpecies(species, result.commonName, result.sciName, result.canonicalKey))
       : undefined;
     return encounterMatches ? encounterHint ?? resultMatches : resultMatches;
   };
@@ -127,7 +130,8 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         speciesCode: contextSpecies?.speciesCode,
         commonName,
-        sciName: contextSpecies?.sciName ?? result.sciName,
+        sciName: contextSpecies?.sciName ?? result.canonicalSciName ?? result.sciName,
+        canonicalKey: contextSpecies?.canonicalKey ?? result.canonicalKey,
         photoUri,
         timestamp: new Date().toISOString(),
         location,
