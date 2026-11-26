@@ -184,6 +184,7 @@ app.post("/api/identify", async (request, response) => {
       gemini: process.env.GEMINI_API_KEY,
       openai: process.env.OPENAI_API_KEY,
       huggingfaceModel: process.env.HF_BIRD_MODEL,
+      geminiModel: process.env.GEMINI_BIRD_MODEL,
     });
     const [canonical] = await canonicalizeSpecies([{
       commonName: identification.commonName ?? undefined,
