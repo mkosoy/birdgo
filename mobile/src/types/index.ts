@@ -24,6 +24,7 @@ export interface EbirdObservation extends Coordinates {
   speciesCode: string;
   comName?: string;
   sciName?: string;
+  sourceSciName?: string;
   canonicalKey?: string;
   locId?: string;
   locName?: string;

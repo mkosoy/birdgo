@@ -10,18 +10,23 @@ function normalizedIdentity(value?: string | null): string {
 function speciesLevelName(value?: string | null): string {
   const normalized = normalizedIdentity(value);
   const parts = normalized.split(" ").filter(Boolean);
+  if (parts.includes("x") || parts.includes("×")) return normalized;
   return parts.length >= 2 ? parts.slice(0, 2).join(" ") : normalized;
 }
 
 function prevalenceKey(bird: EbirdObservation): string {
-  return speciesLevelName(bird.sciName) || normalizedIdentity(bird.canonicalKey) || bird.speciesCode.trim().toLowerCase();
+  return speciesLevelName(bird.sourceSciName ?? bird.sciName) || normalizedIdentity(bird.canonicalKey) || bird.speciesCode.trim().toLowerCase();
 }
 
 function buildPrevalenceAnnotator(allBirds: EbirdObservation[], abundance: BirdAbundance[] | null = null): (bird: EbirdObservation) => EbirdObservation {
   const reportsBySpecies = new Map<string, number>();
   const individualsBySpecies = new Map<string, number>();
   const countedSightings = new Set<string>();
-  const abundanceBySpecies = new Map((abundance ?? []).map((entry) => [speciesLevelName(entry.scientificName), entry.count]));
+  const abundanceBySpecies = new Map<string, number>();
+  (abundance ?? []).forEach((entry) => {
+    const key = speciesLevelName(entry.scientificName);
+    abundanceBySpecies.set(key, (abundanceBySpecies.get(key) ?? 0) + entry.count);
+  });
   allBirds.forEach((bird) => {
     const key = prevalenceKey(bird);
     const locationKey = `${bird.latitude.toFixed(4)}:${bird.longitude.toFixed(4)}`;
@@ -102,6 +107,7 @@ export function useBirds(latitude: number, longitude: number) {
           return {
             ...bird,
             sciName: identity?.canonicalSciName ?? bird.sciName,
+            sourceSciName: bird.sourceSciName ?? bird.sciName,
             canonicalKey: identity?.canonicalKey ?? canonicalByScientific.get(normalizedIdentity(bird.sciName)),
           };
         };
