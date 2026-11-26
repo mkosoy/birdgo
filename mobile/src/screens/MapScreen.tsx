@@ -38,6 +38,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     setActiveTrackTargetState(target);
   };
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
+  const [completionNotice, setCompletionNotice] = useState<string | null>(null);
   const [popupOpen, setPopupOpen] = useState(false);
   const [toastOpen, setToastOpen] = useState(false);
   const [nearbyState, setNearbyState] = useState<"peek" | "half">("peek");
@@ -66,10 +67,17 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
       ? targetCapture.encounterId === activeTrackTarget.id
       : sameSpecies;
     if (!sameSpecies || !sameEncounter) return;
+    setCompletionNotice(`Encounter complete: ${targetCapture.commonName}!`);
     setActiveTrackTarget(undefined);
     setTracking(false);
     setStopTrackRequest((request) => request + 1);
   }, [targetCapture, activeTrackTarget]);
+
+  useEffect(() => {
+    if (!completionNotice) return;
+    const timeout = setTimeout(() => setCompletionNotice(null), 6000);
+    return () => clearTimeout(timeout);
+  }, [completionNotice]);
 
   useEffect(() => {
     if (isFocused && !wasFocused.current && activeTrackTarget) setTrackRequest({ ...activeTrackTarget });
@@ -80,7 +88,9 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     counts[key] = (counts[key] ?? 0) + 1;
     return counts;
   }, {}), [captures]);
-  const topMessage = locationNotice
+  const topMessage = completionNotice
+    ? { text: completionNotice, onPress: () => setCompletionNotice(null) }
+    : locationNotice
     ? { text: locationNotice, onPress: () => setLocationRetry((request) => request + 1) }
     : error
       ? { text: "Couldn’t load birds. Tap to retry.", onPress: () => void refresh() }

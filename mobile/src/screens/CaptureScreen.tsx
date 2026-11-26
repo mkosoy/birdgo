@@ -152,6 +152,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
   const resultRarity = rarityForSpecies(contextSpecies?.speciesCode, resultName, contextSpecies?.isNotable, contextSpecies?.sciName ?? result?.sciName);
   const encounterMismatch = Boolean(encounterHint && result && (result.commonName || result.sciName) && !couldBeSpecies(encounterHint, result));
   const targetHintApplied = Boolean(encounterHint && contextSpecies === encounterHint);
+  const targetHintUnverified = Boolean(targetHintApplied && (!result?.isBird || result.provider === "heuristic"));
 
   return <View style={styles.container}>
     {!photoUri
@@ -181,7 +182,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
         <Text style={styles.resultTitle}>{resultName !== "Unidentified bird" ? resultName : result.provider === "heuristic" ? "Unverified photo" : "Unable to identify as a bird"}</Text>
         {encounterMismatch
           ? <Text style={styles.confidence}>Model suggests {result?.commonName}, not target {encounterHint?.comName}.</Text>
-          : targetHintApplied
+          : targetHintUnverified
             ? <Text style={styles.confidence}>Using nearby species hint — not model-verified</Text>
             : result.isBird
             ? <><Text style={styles.scientific}>{result.sciName ?? "Scientific name unknown"}</Text><Text style={styles.confidence}>{result.provider === "heuristic" ? "Unverified identification" : `${Math.round(result.confidence * 100)}% confidence`}</Text></>
