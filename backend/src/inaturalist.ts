@@ -87,7 +87,7 @@ async function lookupReferenceImage(query: string): Promise<SpeciesReferenceImag
       (taxon.name && normalizeLookupName(taxon.name) === normalizedQuery)
       || (taxon.preferred_common_name && normalizeLookupName(taxon.preferred_common_name) === normalizedQuery)
     );
-    const taxon = exact ?? birdTaxa[0];
+    const taxon = exact;
     const url = taxon?.default_photo?.medium_url ?? taxon?.default_photo?.url;
     const image = taxon && typeof url === "string" && url
       ? {
