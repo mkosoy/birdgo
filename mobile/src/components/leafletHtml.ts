@@ -54,6 +54,7 @@ export function buildLeafletHtml(): string {
       var lastUserLocation = null;
       var popupBirdId = null;
       var restoringPopup = false;
+      var latestData = null;
       var programmaticCameraMove = false;
       var userGesture = false;
       function markProgrammaticCameraMove() { programmaticCameraMove = true; }
@@ -158,6 +159,7 @@ export function buildLeafletHtml(): string {
 
       function render(data) {
         if (!data || !data.center) return;
+        latestData = Object.assign({}, data, { command: null });
         var restorePopupId = popupBirdId;
         var restoreMarker = null;
         if (data.userLocation) lastUserLocation = data.userLocation;
@@ -165,10 +167,72 @@ export function buildLeafletHtml(): string {
           var target = data.userLocation || data.center;
           markProgrammaticCameraMove();
           map.setView([target.latitude, target.longitude], map.getZoom() < 13 ? 13 : map.getZoom());
+        } else if (data.command === 'closePopup') {
+          popupBirdId = null;
+          restorePopupId = null;
+          map.closePopup();
+        }
+        if (firstData) {
+          markProgrammaticCameraMove();
+          map.setView([data.center.latitude, data.center.longitude], 13);
+          firstData = false;
         }
         markers.clearLayers();
-        (data.markers || []).forEach(function (bird) {
-          var marker = L.marker([bird.latitude, bird.longitude], { icon: markerIcon(bird) });
+        var zoom = map.getZoom();
+        var maxMarkers = zoom >= 15 ? 80 : zoom >= 13 ? 45 : 24;
+        var minSpacing = zoom >= 16 ? 18 : zoom >= 15 ? 24 : zoom >= 13 ? 38 : 48;
+        var visibleBounds = map.getBounds().pad(0.08);
+        var referenceLocation = lastUserLocation || data.center;
+        var sortedBirds = (data.markers || []).slice().sort(function (left, right) {
+          function score(bird) {
+            var distance = haversineKm(referenceLocation, bird);
+            return (distance == null ? 999 : distance) - (bird.isNotable ? 0.35 : 0) - (bird.captureCount ? 0.1 : 0) - (bird.virtual ? 0.05 : 0);
+          }
+          return score(left) - score(right);
+        });
+        var coordinateGroups = {};
+        sortedBirds.forEach(function (bird) {
+          var coordinateKey = bird.latitude.toFixed(5) + ':' + bird.longitude.toFixed(5);
+          bird._birdgoCoordinateIndex = coordinateGroups[coordinateKey] || 0;
+          coordinateGroups[coordinateKey] = bird._birdgoCoordinateIndex + 1;
+        });
+        var chosenBirds = [];
+        var chosenPoints = [];
+        sortedBirds.forEach(function (bird) {
+          if (chosenBirds.length >= maxMarkers && String(bird.id) !== String(restorePopupId)) return;
+          var latLng = L.latLng(bird.latitude, bird.longitude);
+          if (!visibleBounds.contains(latLng) && String(bird.id) !== String(restorePopupId)) return;
+          var coordinateKey = bird.latitude.toFixed(5) + ':' + bird.longitude.toFixed(5);
+          var coordinateCount = coordinateGroups[coordinateKey] || 1;
+          if (coordinateCount > 1 && zoom >= 16) {
+            var centerPoint = map.latLngToContainerPoint(latLng);
+            var angle = (Math.PI * 2 * bird._birdgoCoordinateIndex / coordinateCount) - Math.PI / 2;
+            var radius = Math.max(24, minSpacing + 6);
+            latLng = map.containerPointToLatLng(L.point(
+              centerPoint.x + Math.cos(angle) * radius,
+              centerPoint.y + Math.sin(angle) * radius
+            ));
+          }
+          var point = map.latLngToContainerPoint(latLng);
+          var crowded = false;
+          if (String(bird.id) !== String(restorePopupId)) {
+            for (var pointIndex = 0; pointIndex < chosenPoints.length; pointIndex += 1) {
+              var dx = point.x - chosenPoints[pointIndex].x;
+              var dy = point.y - chosenPoints[pointIndex].y;
+              if (Math.sqrt(dx * dx + dy * dy) < minSpacing) {
+                crowded = true;
+                break;
+              }
+            }
+          }
+          if (crowded) return;
+          bird._birdgoDisplayLatitude = latLng.lat;
+          bird._birdgoDisplayLongitude = latLng.lng;
+          chosenBirds.push(bird);
+          chosenPoints.push(point);
+        });
+        chosenBirds.forEach(function (bird) {
+          var marker = L.marker([bird._birdgoDisplayLatitude || bird.latitude, bird._birdgoDisplayLongitude || bird.longitude], { icon: markerIcon(bird) });
           var popup = L.popup({
             maxWidth: 300,
             maxHeight: Math.max(180, window.innerHeight - 120),
@@ -199,11 +263,6 @@ export function buildLeafletHtml(): string {
           if (userMarker) userMarker.setLatLng(userPoint);
           else userMarker = L.marker(userPoint, { icon: L.divIcon({ className: '', html: '<div class="user-marker"></div>', iconSize: [22, 22], iconAnchor: [11, 11] }), interactive: false }).addTo(map);
         }
-        if (firstData) {
-          markProgrammaticCameraMove();
-          map.setView([data.center.latitude, data.center.longitude], 13);
-          firstData = false;
-        }
       }
 
       map.on('moveend', function () {
@@ -217,6 +276,7 @@ export function buildLeafletHtml(): string {
           var center = map.getCenter();
           postOutward({ type: 'regionChange', latitude: center.lat, longitude: center.lng });
           userGesture = false;
+          if (latestData) render(latestData);
         }, 250);
       });
       map.on('dragstart zoomstart', function (event) {

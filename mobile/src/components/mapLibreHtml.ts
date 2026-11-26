@@ -51,6 +51,7 @@ export function buildMapLibreHtml(): string {
     .bird-marker.notable { background: linear-gradient(145deg, #efbd35, #b97d08); border-color: #fff3bd; }
     .bird-marker.captured { background: #61776c; border-color: #a9f0bf; }
     .bird-marker.virtual { background: linear-gradient(145deg, #7d64f2, #28b9d7); border-color: #d9fbff; box-shadow: 0 0 14px rgba(92,220,255,.72), 0 3px 9px rgba(0,0,0,.32); }
+    .thumb-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
     .bird-scale .caught-badge, .bird-scale .skyfriend-badge { position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; }
     .bird-scale .skyfriend-badge { background: #72e7ff; color: #273075; }
     .skyfriend-tag { display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 10px; background: linear-gradient(135deg, #735eea, #29bedd); color: white; font-size: 10px; font-weight: 900; vertical-align: middle; letter-spacing: .02em; }
@@ -102,8 +103,8 @@ export function buildMapLibreHtml(): string {
     #nearby-panel.tracking { display: none; }
     .nb-row { display: flex; align-items: center; gap: 8px; min-height: 60px; padding: 6px 8px; border-radius: 12px; cursor: pointer; }
     .nb-row:active { background: #f0f5f1; }
-    .nb-thumb { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; flex: none; background: #dbe7df; display: flex; align-items: center; justify-content: center; font-size: 22px; }
-    .nb-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .nb-thumb { position: relative; width: 46px; height: 46px; border-radius: 50%; overflow: hidden; flex: none; background: #dbe7df; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .nb-thumb img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; }
     .nb-info { flex: 1; min-width: 0; }
     .nb-name { font-weight: 700; color: #21362c; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .nb-name .star { color: #d99d21; }
@@ -117,8 +118,8 @@ export function buildMapLibreHtml(): string {
     #track-arrow.rare { color: rgba(217,157,33,.96); }
     #track-card { position: absolute; left: 8px; right: 8px; bottom: var(--bottom-hud); z-index: 8; background: rgba(255,255,255,.97); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.28); padding: 10px; display: none; align-items: center; gap: 8px; pointer-events: auto; font-family: -apple-system, system-ui, sans-serif; }
     #track-card.on { display: flex; }
-    #track-thumb { width: 54px; height: 54px; border-radius: 50%; overflow: hidden; flex: none; background: #dbe7df; display: flex; align-items: center; justify-content: center; font-size: 26px; }
-    #track-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    #track-thumb { position: relative; width: 54px; height: 54px; border-radius: 50%; overflow: hidden; flex: none; background: #dbe7df; display: flex; align-items: center; justify-content: center; font-size: 26px; }
+    #track-thumb img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; }
     #track-meta { flex: 1; min-width: 0; }
     #track-name { font-weight: 800; color: #173c2b; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     #track-dist { color: #2f7d5b; font-weight: 700; font-size: 13px; line-height: 17px; margin-top: 2px; min-width: 0; overflow-wrap: anywhere; }
@@ -205,8 +206,8 @@ export function buildMapLibreHtml(): string {
         container: 'map',
         style: 'https://tiles.openfreemap.org/styles/bright',
         center: [-122.4194, 37.7749],
-        zoom: 13,
-        pitch: 55,
+        zoom: 15.5,
+        pitch: 58,
         bearing: 0,
         attributionControl: false
       });
@@ -504,10 +505,11 @@ export function buildMapLibreHtml(): string {
       }
       function thumbInnerHtml(bird, emojiFallback) {
         var image = getBirdImage(bird);
+        var fallback = emojiFallback || birdGlyph();
         if (typeof image === 'string' && image) {
-          return '<img src="' + escapeHtml(image) + '" alt="" />';
+          return '<span class="thumb-fallback">' + fallback + '</span><img src="' + escapeHtml(image) + '" alt="" onerror="this.remove()" />';
         }
-        return emojiFallback || birdGlyph();
+        return fallback;
       }
       function markerInnerHtml(bird) {
         return '<span class="bird-scale">' + thumbInnerHtml(bird) + (bird.captureCount ? '<span class="caught-badge">✓</span>' : bird.virtual ? '<span class="skyfriend-badge">✦</span>' : '') + '</span>';
@@ -1100,7 +1102,7 @@ export function buildMapLibreHtml(): string {
       }
 
       function nearbyTitleText(count) {
-        return panelState === 'peek' || count == null ? 'Birds nearby' : 'Birds nearby (' + count + ')';
+        return 'Birds nearby';
       }
 
       function updateTrackCard() {
@@ -1463,9 +1465,6 @@ export function buildMapLibreHtml(): string {
             layout: { 'line-cap': 'round', 'line-join': 'round' }
           });
         }
-        map.setPitch(58);
-        map.setZoom(15.5);
-        map.setBearing(0);
         map.resize();
       }
 
@@ -1493,7 +1492,7 @@ export function buildMapLibreHtml(): string {
             programmaticCameraMove = true;
           }
         }, true);
-        if (headingFollow && lastUserLocation) {
+        if (headingFollow && lastUserLocation && !map.isMoving() && map.getZoom() < 16.8) {
           programmatic = true;
           frameUser(lastUserLocation, 350);
           setTimeout(function () { programmatic = false; }, 450);
@@ -1697,6 +1696,8 @@ export function buildMapLibreHtml(): string {
           }
         } else if (data.command === 'stopTrack') {
           stopTrack();
+        } else if (data.command === 'closePopup') {
+          if (currentPopup) currentPopup.remove();
         } else if (data.command === 'track' && data.trackTarget) {
           var exactBird = data.trackTarget.id ? latestMarkers.find(function (bird) { return String(bird.id) === String(data.trackTarget.id); }) : null;
           var targetBird = exactBird ? { bird: exactBird } : latestMarkers.reduce(function (closest, bird) {

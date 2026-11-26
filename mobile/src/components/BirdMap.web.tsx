@@ -29,7 +29,7 @@ function relativeTime(date?: string): string {
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
-export function BirdMap({ center, userLocation, birds, captureCounts, mode, firstPerson, heading, weather, trainer, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange }: BirdMapProps) {
+export function BirdMap({ center, userLocation, birds, captureCounts, mode, firstPerson, heading, weather, trainer, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, closePopupRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange }: BirdMapProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
@@ -151,6 +151,13 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
       iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "stopTrack" }), "*");
     }
   }, [stopTrackRequest]);
+  useEffect(() => {
+    if (!closePopupRequest) return;
+    const latestData = dataRef.current;
+    if (latestData) {
+      iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "closePopup" }), "*");
+    }
+  }, [closePopupRequest]);
 
   const html = mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml();
   const blobUrl = useMemo(() => URL.createObjectURL(new Blob([html], { type: "text/html" })), [html]);
