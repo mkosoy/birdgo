@@ -1028,6 +1028,7 @@ export function buildMapLibreHtml(): string {
       }
 
       function startTrack(bird) {
+        if (currentPopup) currentPopup.remove();
         trackId = bird.id;
         postOutward({ type: 'tracking', open: true });
         follow = true;
