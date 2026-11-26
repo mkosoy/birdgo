@@ -3,6 +3,7 @@ import type { EbirdObservation, Coordinates } from "../types";
 import { buildLeafletHtml } from "./leafletHtml";
 import { buildMapLibreHtml } from "./mapLibreHtml";
 import type { BirdMapProps } from "./BirdMap";
+import { speciesKey } from "../utils/progression";
 
 interface LeafletMessage {
   type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow" | "tracking";
@@ -28,7 +29,7 @@ function relativeTime(date?: string): string {
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
-export function BirdMap({ center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange }: BirdMapProps) {
+export function BirdMap({ center, userLocation, birds, captureCounts, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange }: BirdMapProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
@@ -55,8 +56,9 @@ export function BirdMap({ center, userLocation, birds, mode, firstPerson, headin
       speciesCode: bird.speciesCode,
       isNotable: Boolean(bird.isNotable),
       imageUrl: bird.imageUrl,
+      captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
     })),
-  }), [birds, center, firstPerson, heading, safeArea, userLocation]);
+  }), [birds, captureCounts, center, firstPerson, heading, safeArea, userLocation]);
   const dataRef = useRef<typeof data | null>(null);
   useEffect(() => {
     dataRef.current = data;
@@ -74,7 +76,7 @@ export function BirdMap({ center, userLocation, birds, mode, firstPerson, headin
         const bird = markerLookup.get(message.id);
         if (bird) onCapture(bird);
       } else if (message.type === "directions" && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name) {
-        onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name });
+        onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id });
       } else if (message.type === "about" && message.speciesCode && message.comName) {
         onAbout({ speciesCode: message.speciesCode, comName: message.comName });
       } else if (message.type === "popup") {

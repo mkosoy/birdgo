@@ -4,6 +4,7 @@ import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import { buildLeafletHtml } from "./leafletHtml";
 import { buildMapLibreHtml } from "./mapLibreHtml";
 import type { Coordinates, EbirdObservation } from "../types";
+import { speciesKey } from "../utils/progression";
 
 export type BirdMapMode = "classic" | "adventure";
 export interface SafeAreaInsets {
@@ -17,17 +18,18 @@ export interface BirdMapProps {
   center: Coordinates;
   userLocation?: Coordinates;
   birds: EbirdObservation[];
+  captureCounts?: Record<string, number>;
   mode: BirdMapMode;
   firstPerson: boolean;
   heading?: number;
   recenterRequest?: number;
   overviewRequest?: number;
   nearestRequest?: number;
-  trackRequest?: Coordinates & { name: string };
+  trackRequest?: Coordinates & { name: string; id?: string };
   loading?: boolean;
   safeArea?: SafeAreaInsets;
   onCapture: (bird: EbirdObservation) => void;
-  onDirections: (coordinates: Coordinates & { name: string }) => void;
+  onDirections: (coordinates: Coordinates & { name: string; id?: string }) => void;
   onAbout: (bird: { speciesCode: string; comName: string }) => void;
   onPopupChange?: (open: boolean) => void;
   onToastChange?: (open: boolean) => void;
@@ -50,6 +52,7 @@ interface LeafletMarker {
   speciesCode: string;
   isNotable: boolean;
   imageUrl?: string;
+  captureCount?: number;
 }
 
 interface LeafletData {
@@ -59,7 +62,7 @@ interface LeafletData {
   heading?: number;
   markers: LeafletMarker[];
   command?: "recenter" | "setView" | "overview" | "nearest" | "track";
-  trackTarget?: Coordinates & { name: string };
+  trackTarget?: Coordinates & { name: string; id?: string };
   firstPerson?: boolean;
   safeArea?: SafeAreaInsets;
 }
@@ -89,7 +92,7 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange },
+  { center, userLocation, birds, captureCounts, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
@@ -120,8 +123,9 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       speciesCode: bird.speciesCode,
       isNotable: Boolean(bird.isNotable),
       imageUrl: bird.imageUrl,
+      captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
     })),
-  }), [birds, center, firstPerson, heading, safeArea, userLocation]);
+  }), [birds, captureCounts, center, firstPerson, heading, safeArea, userLocation]);
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
@@ -181,7 +185,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       const bird = markerLookup.get(message.id);
       if (bird) onCapture(bird);
     } else if (message.type === "directions" && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name) {
-      onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name });
+      onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id });
     } else if (message.type === "about" && message.speciesCode && message.comName) {
       onAbout({ speciesCode: message.speciesCode, comName: message.comName });
     } else if (message.type === "popup") {

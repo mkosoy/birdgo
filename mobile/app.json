@@ -4,6 +4,12 @@
     "slug": "birdgo",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0b2b1c"
+    },
     "userInterfaceStyle": "automatic",
     "web": {
       "bundler": "metro"
@@ -23,6 +29,8 @@
       ]
     ],
     "ios": {
+      "bundleIdentifier": "com.mkosoy.birdgo",
+      "buildNumber": "1",
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "BirdGo uses your location to find nearby birds.",
@@ -33,6 +41,8 @@
       }
     },
     "android": {
+      "package": "com.mkosoy.birdgo",
+      "versionCode": 1,
       "permissions": ["ACCESS_FINE_LOCATION", "CAMERA"],
       "config": {
         "googleMaps": {
@@ -41,7 +51,7 @@
       }
     },
     "extra": {
-      "apiBaseUrl": "",
+      "apiBaseUrl": "https://birdgo.vercel.app",
       "googleMapsApiKey": ""
     }
   }

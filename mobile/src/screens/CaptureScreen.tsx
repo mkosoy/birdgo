@@ -1,19 +1,40 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions, type CameraType } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import * as FileSystem from "expo-file-system";
+import { useFocusEffect } from "@react-navigation/native";
 import { identifyBird } from "../api";
 import { SF_COORDS } from "../config";
 import { useCollection } from "../hooks/useCollection";
 import type { Coordinates } from "../types";
 import type { SeenSpecies } from "../types";
+import { Bird3DPreview } from "../components/Bird3DPreview";
+import { rarityForSpecies, xpForCapture } from "../utils/progression";
 
-type Props = { hint?: SeenSpecies };
+type Props = { hint?: SeenSpecies; onHintConsumed?: () => void };
 
-export function CaptureScreen({ hint }: Props) {
+function normalizeName(value?: string | null): string {
+  return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
+}
+
+function couldBeSpecies(species: SeenSpecies, result: { commonName: string | null; sciName: string | null }): boolean {
+  if (!result.commonName && !result.sciName) return true;
+  return sameSpecies(species, result.commonName, result.sciName);
+}
+
+function sameSpecies(species: SeenSpecies, commonName?: string | null, sciName?: string | null): boolean {
+  const common = normalizeName(commonName);
+  const scientific = normalizeName(sciName);
+  return Boolean(
+    (common && normalizeName(species.comName) === common)
+    || (scientific && normalizeName(species.sciName) === scientific)
+  );
+}
+
+export function CaptureScreen({ hint, onHintConsumed }: Props) {
   const insets = useSafeAreaInsets();
   const camera = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -23,12 +44,38 @@ export function CaptureScreen({ hint }: Props) {
   const [busy, setBusy] = useState(false);
   const [confirmation, setConfirmation] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const { saveCapture } = useCollection();
+  const [saving, setSaving] = useState(false);
+  const [savedPhotoUri, setSavedPhotoUri] = useState<string | null>(null);
+  const { saveCapture, seenSpecies, refresh: refreshCollection } = useCollection();
+  const [encounterHint, setEncounterHint] = useState<SeenSpecies | undefined>(hint);
+  const previousHint = useRef<SeenSpecies | undefined>(hint);
+
+  useFocusEffect(useCallback(() => {
+    void refreshCollection();
+  }, [refreshCollection]));
+
+  useEffect(() => {
+    const hintChanged = hint !== previousHint.current;
+    previousHint.current = hint;
+    if (hint) {
+      setEncounterHint(hint);
+      if (hintChanged) {
+        setPhotoUri(null);
+        setResult(null);
+        setConfirmation(null);
+        setNotice(null);
+      }
+    } else if (!photoUri) {
+      setEncounterHint(undefined);
+    }
+  }, [hint, photoUri]);
 
   const processPhoto = async (uri: string, base64?: string | null) => {
+    setEncounterHint(hint);
     setPhotoUri(uri);
     setConfirmation(null);
     setNotice(null);
+    setSavedPhotoUri(null);
     setBusy(true);
     try {
       const encoded = base64 ?? await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
@@ -55,25 +102,53 @@ export function CaptureScreen({ hint }: Props) {
     if (!selected.canceled && selected.assets[0]) await processPhoto(selected.assets[0].uri, selected.assets[0].base64);
   };
 
-  const addToCollection = async () => {
-    if (!result || !photoUri) return;
-    let location: Coordinates = SF_COORDS;
-    try {
-      const current = await Location.getCurrentPositionAsync({});
-      location = { latitude: current.coords.latitude, longitude: current.coords.longitude };
-    } catch { /* SF fallback is intentional */ }
-    await saveCapture({
-      id: `${Date.now()}`,
-      speciesCode: hint?.speciesCode,
-      commonName: hint?.comName ?? result.commonName ?? "Unidentified bird",
-      sciName: result.sciName,
-      photoUri,
-      timestamp: new Date().toISOString(),
-      location,
-    });
-    const message = `${hint?.comName ?? result.commonName ?? "Unidentified bird"} is now in your collection.`;
-    setConfirmation(message);
+  const speciesContext = () => {
+    const encounterMatches = Boolean(encounterHint && result && couldBeSpecies(encounterHint, result));
+    const resultMatches = result && (result.commonName || result.sciName)
+      ? seenSpecies.find((species) => sameSpecies(species, result.commonName, result.sciName))
+      : undefined;
+    return encounterMatches ? encounterHint ?? resultMatches : resultMatches;
   };
+
+  const addToCollection = async () => {
+    if (!result || !photoUri || saving || savedPhotoUri === photoUri) return;
+    setSaving(true);
+    try {
+      let location: Coordinates = SF_COORDS;
+      try {
+        const current = await Location.getCurrentPositionAsync({});
+        location = { latitude: current.coords.latitude, longitude: current.coords.longitude };
+      } catch { /* SF fallback is intentional */ }
+      const contextSpecies = speciesContext();
+      const commonName = contextSpecies?.comName ?? result.commonName ?? "Unidentified bird";
+      const rarity = rarityForSpecies(contextSpecies?.speciesCode, commonName, contextSpecies?.isNotable, contextSpecies?.sciName ?? result.sciName);
+      const verified = Boolean(result.isBird && result.provider !== "heuristic" && (result.commonName || result.sciName));
+      const record = await saveCapture({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        speciesCode: contextSpecies?.speciesCode,
+        commonName,
+        sciName: contextSpecies?.sciName ?? result.sciName,
+        photoUri,
+        timestamp: new Date().toISOString(),
+        location,
+        rarity,
+        verified,
+      });
+      const firstBonus = (record.xpAwarded ?? 0) > xpForCapture({ rarity, verified }, false) ? " First species bonus!" : "";
+      setConfirmation(`${commonName} joined your Bird-dex. +${record.xpAwarded ?? 0} XP.${firstBonus}`);
+      setSavedPhotoUri(photoUri);
+      if (encounterHint) onHintConsumed?.();
+    } catch {
+      setNotice("Could not save this capture. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const contextSpecies = speciesContext();
+  const resultName = contextSpecies?.comName ?? result?.commonName ?? "Unidentified bird";
+  const resultRarity = rarityForSpecies(contextSpecies?.speciesCode, resultName, contextSpecies?.isNotable, contextSpecies?.sciName ?? result?.sciName);
+  const encounterMismatch = Boolean(encounterHint && result && (result.commonName || result.sciName) && !couldBeSpecies(encounterHint, result));
 
   return <View style={styles.container}>
     {!photoUri
@@ -87,18 +162,28 @@ export function CaptureScreen({ hint }: Props) {
         </View>
       : <Image source={{ uri: photoUri }} style={styles.camera} />}
     <View style={[styles.controls, { paddingBottom: insets.bottom + 20 }]}>
+      {!photoUri && encounterHint && <View style={styles.targetBanner}>
+        {encounterHint.imageUrl ? <Image source={{ uri: encounterHint.imageUrl }} style={styles.targetImage} /> : null}
+        <View style={styles.targetCopy}>
+          <Text style={styles.targetLabel}>Target encounter</Text>
+          <Text style={styles.targetName}>{encounterHint.comName}</Text>
+        </View>
+      </View>}
       {!photoUri && permission?.granted && <Pressable style={styles.shutter} onPress={() => void takePhoto()}><Text style={styles.shutterText}>●</Text></Pressable>}
-      {photoUri && <Pressable style={styles.button} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); }}><Text style={styles.buttonText}>Try another</Text></Pressable>}
-      {photoUri && <Pressable style={styles.secondaryDark} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Pick from library</Text></Pressable>}
+      {photoUri && <View style={styles.buttonRow}><Pressable style={[styles.button, styles.flexButton]} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); setEncounterHint(undefined); setSavedPhotoUri(null); onHintConsumed?.(); }}><Text style={styles.buttonText}>Try another</Text></Pressable><Pressable style={[styles.secondaryDark, styles.flexButton]} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Library</Text></Pressable></View>}
       {busy && <ActivityIndicator color="#fff" />}
       {result && !busy && <View style={styles.result}>
-        <Text style={styles.resultTitle}>{hint?.comName ?? (result.isBird ? result.commonName : result.provider === "heuristic" ? "Unverified photo" : "Unable to identify as a bird")}</Text>
-        {hint?.comName
-          ? <Text style={styles.confidence}>Using nearby species hint — not model-verified</Text>
-          : result.isBird
+        <Bird3DPreview commonName={resultName} rarity={resultRarity} height={118} />
+        <Text style={[styles.rarity, { color: resultRarity === "legendary" ? "#ffd45e" : "#bde8c9" }]}>{resultRarity.toUpperCase()} ENCOUNTER</Text>
+        <Text style={styles.resultTitle}>{resultName !== "Unidentified bird" ? resultName : result.provider === "heuristic" ? "Unverified photo" : "Unable to identify as a bird"}</Text>
+        {encounterMismatch
+          ? <Text style={styles.confidence}>Model suggests {result?.commonName}, not target {encounterHint?.comName}.</Text>
+          : encounterHint?.comName
+            ? <Text style={styles.confidence}>Using nearby species hint — not model-verified</Text>
+            : result.isBird
             ? <><Text style={styles.scientific}>{result.sciName ?? "Scientific name unknown"}</Text><Text style={styles.confidence}>{result.provider === "heuristic" ? "Unverified identification" : `${Math.round(result.confidence * 100)}% confidence`}</Text></>
             : <Text style={styles.confidence}>No species identified. You can save this as an unidentified photo.</Text>}
-        <Pressable style={styles.button} onPress={() => void addToCollection()}><Text style={styles.buttonText}>{hint?.comName || result.isBird ? "Add to collection" : "Save unidentified photo"}</Text></Pressable>
+        <Pressable disabled={saving || savedPhotoUri === photoUri} style={[styles.button, (saving || savedPhotoUri === photoUri) && styles.disabledButton]} onPress={() => void addToCollection()}><Text style={styles.buttonText}>{savedPhotoUri === photoUri ? "Added to collection" : encounterHint?.comName || result.isBird ? "Add to collection" : "Save unidentified photo"}</Text></Pressable>
       </View>}
       {confirmation && <Text style={styles.confirmation}>✓ {confirmation}</Text>}
       {notice && <Text style={styles.notice}>{notice}</Text>}
@@ -118,14 +203,23 @@ const styles = StyleSheet.create({
   copy: { textAlign: "center", color: "#c9ddce", lineHeight: 22 },
   button: { minHeight: 44, backgroundColor: "#2f7d5b", paddingHorizontal: 18, paddingVertical: 12, borderRadius: 10, justifyContent: "center" },
   buttonText: { color: "#fff", fontWeight: "700" },
+  disabledButton: { opacity: 0.58 },
   secondary: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, backgroundColor: "#e2eee5", justifyContent: "center" },
   secondaryText: { color: "#173c2b", fontWeight: "700" },
   secondaryDark: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, backgroundColor: "#2f7d5b", justifyContent: "center" },
   lightText: { color: "#fff" },
-  result: { alignItems: "center", gap: 5 },
+  result: { width: "100%", maxWidth: 390, alignItems: "center", gap: 5 },
+  buttonRow: { flexDirection: "row", gap: 8, width: "100%", maxWidth: 390 },
+  flexButton: { flex: 1, alignItems: "center" },
+  rarity: { fontSize: 11, fontWeight: "900", letterSpacing: 1.1 },
   resultTitle: { color: "#fff", fontSize: 21, fontWeight: "700" },
   scientific: { color: "#c9ddce", fontStyle: "italic" },
   confidence: { color: "#d7e8da" },
+  targetBanner: { width: "100%", maxWidth: 390, minHeight: 58, borderRadius: 14, backgroundColor: "#1d3529", borderWidth: 1, borderColor: "#3f6a51", flexDirection: "row", alignItems: "center", padding: 8, gap: 10 },
+  targetImage: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#dce6df" },
+  targetCopy: { flex: 1, minWidth: 0 },
+  targetLabel: { color: "#9fc7ad", fontSize: 10, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" },
+  targetName: { color: "#fff", fontSize: 16, fontWeight: "800", marginTop: 1 },
   confirmation: { color: "#bde8c9", fontWeight: "700", textAlign: "center" },
   notice: { color: "#ffd0a8", fontWeight: "700", textAlign: "center" },
 });

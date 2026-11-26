@@ -27,8 +27,12 @@ interface HuggingFacePrediction {
   score?: unknown;
 }
 
-const IDENTIFICATION_PROMPT =
-  'Is this a bird? If yes, return the most likely species common name and scientific name. Respond as strict JSON {"isBird":boolean,"commonName":string|null,"sciName":string|null,"confidence":number}.';
+function identificationPrompt(hints: string[]): string {
+  const hintText = hints.length
+    ? ` Nearby species hypotheses include: ${hints.slice(0, 5).join(", ")}. Use them only as weak priors; identify what is actually visible.`
+    : "";
+  return `Is this a bird? If yes, return the most likely species common name and scientific name.${hintText} Respond as strict JSON {"isBird":boolean,"commonName":string|null,"sciName":string|null,"confidence":number}.`;
+}
 
 function heuristicIdentify(): BirdIdentification {
   return {
@@ -59,7 +63,7 @@ function imageBytes(imageBase64: string): Uint8Array {
   return Buffer.from(encoded, "base64");
 }
 
-async function openAiIdentify(imageBase64: string, apiKey: string): Promise<BirdIdentification> {
+async function openAiIdentify(imageBase64: string, apiKey: string, hints: string[]): Promise<BirdIdentification> {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -72,7 +76,7 @@ async function openAiIdentify(imageBase64: string, apiKey: string): Promise<Bird
       messages: [{
         role: "user",
         content: [
-          { type: "text", text: IDENTIFICATION_PROMPT },
+          { type: "text", text: identificationPrompt(hints) },
           { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } },
         ],
       }],
@@ -87,7 +91,7 @@ async function openAiIdentify(imageBase64: string, apiKey: string): Promise<Bird
   return parseIdentification(text);
 }
 
-async function geminiIdentify(imageBase64: string, apiKey: string): Promise<BirdIdentification> {
+async function geminiIdentify(imageBase64: string, apiKey: string, hints: string[]): Promise<BirdIdentification> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
@@ -96,7 +100,7 @@ async function geminiIdentify(imageBase64: string, apiKey: string): Promise<Bird
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: IDENTIFICATION_PROMPT },
+            { text: identificationPrompt(hints) },
             { inline_data: { mime_type: "image/jpeg", data: imageBase64.replace(/^data:image\/[^;]+;base64,/, "") } },
           ],
         }],
@@ -162,10 +166,10 @@ export async function identifyBird(
       };
     }
     if (provider === "gemini" && keys.gemini) {
-      return { ...(await geminiIdentify(imageBase64, keys.gemini)), provider: "gemini" };
+      return { ...(await geminiIdentify(imageBase64, keys.gemini, hints)), provider: "gemini" };
     }
     if (provider === "openai" && keys.openai) {
-      return { ...(await openAiIdentify(imageBase64, keys.openai)), provider: "openai" };
+      return { ...(await openAiIdentify(imageBase64, keys.openai, hints)), provider: "openai" };
     }
   } catch (error) {
     console.error(`${provider} bird identification failed; using heuristic fallback`, error);

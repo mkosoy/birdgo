@@ -16,10 +16,15 @@ export interface EbirdObservation extends Coordinates {
   source?: string;
 }
 
+export type BirdRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
+
 export interface SeenSpecies {
   speciesCode: string;
   comName: string;
+  sciName?: string;
   location?: Coordinates;
+  isNotable?: boolean;
+  imageUrl?: string;
 }
 
 export interface TaxonomyEntry {
@@ -36,6 +41,9 @@ export interface CaptureRecord {
   photoUri: string;
   timestamp: string;
   location: Coordinates;
+  rarity?: BirdRarity;
+  verified?: boolean;
+  xpAwarded?: number;
 }
 
 export interface IdentificationResult {

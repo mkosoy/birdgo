@@ -64,6 +64,26 @@ BirdGo uses a Leaflet map rendered from shared HTML:
 
 This is keyless and does not require a Google Maps API key on iOS, Android, or web.
 
+## Collection gameplay and 3D encounters
+
+BirdGo stores a local trainer profile in AsyncStorage. Captures award XP by encounter rarity, model-verified identifications earn a bonus, and first-time species earn a larger discovery bonus. Releasing a species removes its photos but never removes XP already earned. The Bird-dex groups duplicate photos into species entries so duplicates still feel useful instead of cluttering the collection.
+
+The current 3D bird is a lightweight procedural Three.js encounter model rendered inside the app. It is deliberately labeled as stylized rather than species-accurate. Unity should be an offline asset pipeline, not a runtime dependency: use the existing Unity account/editor to author or render higher-quality bird GLB models and sprites, export them into `mobile/assets/birds/`, then load those assets in the existing encounter preview. Embedding the full Unity runtime inside this Expo app would add substantial binary size, native-build complexity, and memory use without improving the map or collection loop.
+
+## iOS and TestFlight
+
+The Expo config uses the iOS bundle identifier `com.mkosoy.birdgo` and includes an App Store icon. Release builds use the production backend at `https://birdgo.vercel.app`; development builds still use the local backend (`http://10.0.2.2:4000` on the Android emulator and `http://localhost:4000` elsewhere). Build and upload profiles live in `mobile/eas.json`:
+
+```bash
+cd mobile
+npm install
+npx eas login
+npm run build:testflight
+npm run submit:testflight
+```
+
+Before the first upload, create the App Store Connect app record for `com.mkosoy.birdgo` and configure EAS with Apple App Store Connect credentials. The reusable automation-friendly secrets are an App Store Connect API key (`ASC_KEY_ID`, `ASC_ISSUER_ID`, and private `.p8` contents), plus an Expo access token (`EXPO_TOKEN`) for CI or a macOS Devin builder. Do not commit private key material to this repository.
+
 ## Web development and Vercel
 
 The Expo web build uses Metro:

@@ -37,7 +37,7 @@ function AppTabs() {
         },
       })}>
         <Tab.Screen name="Map">{() => <MapScreen onCapture={(hint) => { setCaptureHint(hint); }} />}</Tab.Screen>
-        <Tab.Screen name="Capture">{() => <CaptureScreen hint={captureHint} />}</Tab.Screen>
+        <Tab.Screen name="Capture">{() => <CaptureScreen hint={captureHint} onHintConsumed={() => setCaptureHint(undefined)} />}</Tab.Screen>
         <Tab.Screen name="Bird-dex" component={DexScreen} />
       </Tab.Navigator>
     </NavigationContainer>
