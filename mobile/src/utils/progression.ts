@@ -42,7 +42,7 @@ export function speciesKeyAliases(speciesCode?: string, commonName?: string, sci
     speciesKey(speciesCode, commonName, sciName, canonicalKey),
     speciesKey(speciesCode, commonName, sciName),
     speciesKey(speciesCode, commonName),
-  ])];
+  ].filter((key) => key !== "unidentified bird"))];
 }
 
 export function rarityForSpecies(speciesCode?: string, commonName?: string, isNotable?: boolean, sciName?: string | null, canonicalKey?: string | null, frequency?: number, abundanceCount?: number): BirdRarity {
@@ -73,6 +73,7 @@ export interface SpeciesCountGroup {
 
 export function applySpeciesCaptureCount(groups: SpeciesCountGroup[], aliases: string[]): { groups: SpeciesCountGroup[]; priorCaptureCount: number } {
   const uniqueAliases = [...new Set(aliases.filter(Boolean))];
+  if (!uniqueAliases.length) return { groups, priorCaptureCount: 0 };
   const matching = groups.filter((group) => group.aliases.some((alias) => uniqueAliases.includes(alias)));
   const remaining = groups.filter((group) => !matching.includes(group));
   const priorCaptureCount = matching.reduce((total, group) => total + group.count, 0);
