@@ -66,10 +66,13 @@ export function isIdentifiedCapture(capture: Pick<CaptureRecord, "speciesCode" |
   return Boolean(capture.speciesCode?.trim() || capture.sciName?.trim() || (commonName && commonName !== "unidentified bird"));
 }
 
-export function xpForCapture(capture: Pick<CaptureRecord, "rarity" | "verified" | "speciesCode" | "commonName" | "sciName">, isNewSpecies: boolean): number {
+export function xpForCapture(capture: Pick<CaptureRecord, "rarity" | "verified" | "speciesCode" | "commonName" | "sciName">, isNewSpecies: boolean, priorCaptureCount = 0): number {
   if (!isIdentifiedCapture(capture)) return 0;
   const rarity = capture.rarity ?? "common";
-  return RARITY_XP[rarity] + (capture.verified ? 20 : 0) + (isNewSpecies ? 50 : 0);
+  const baseXp = RARITY_XP[rarity] + (capture.verified ? 20 : 0);
+  if (isNewSpecies) return baseXp + 50;
+  const duplicateScale = priorCaptureCount <= 1 ? 0.5 : priorCaptureCount === 2 ? 0.25 : 0.1;
+  return Math.max(5, Math.round(baseXp * duplicateScale));
 }
 
 export function levelForXp(xp: number): { level: number; currentLevelXp: number; nextLevelXp: number; progress: number } {

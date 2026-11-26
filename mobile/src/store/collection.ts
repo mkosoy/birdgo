@@ -100,13 +100,25 @@ function captureKey(capture: CaptureRecord): string {
   return speciesKey(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey);
 }
 
+function priorAliasCaptureCount(captures: CaptureRecord[], aliases: string[]): number {
+  const aliasSet = new Set(aliases);
+  return captures.filter((existing) => speciesKeyAliases(existing.speciesCode, existing.commonName, existing.sciName, existing.canonicalKey).some((alias) => aliasSet.has(alias))).length;
+}
+
 function derivedCaptureEvents(captures: CaptureRecord[]): XpEvent[] {
+  const chronological = [...captures].reverse();
   const seenKeys = new Set<string>();
-  return captures.flatMap((capture) => {
+  const counts = new Map<string, number>();
+  return chronological.flatMap((capture) => {
+    const aliases = speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey);
     const key = captureKey(capture);
     const isNewSpecies = !seenKeys.has(key);
-    seenKeys.add(key);
-    const xp = capture.xpAwarded ?? xpForCapture(capture, isNewSpecies);
+    const priorCaptureCount = Math.max(0, ...aliases.map((alias) => counts.get(alias) ?? 0));
+    aliases.forEach((alias) => {
+      seenKeys.add(alias);
+      counts.set(alias, (counts.get(alias) ?? 0) + 1);
+    });
+    const xp = capture.xpAwarded ?? xpForCapture(capture, isNewSpecies, priorCaptureCount);
     return xp > 0 ? [{ captureId: capture.id, xp }] : [];
   });
 }
@@ -116,7 +128,8 @@ export async function addCapture(capture: CaptureRecord): Promise<CaptureRecord>
   const discovered = await listDiscoveredKeys();
   const aliases = speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey);
   const isNewSpecies = !aliases.some((alias) => discovered.has(alias));
-  const xpAwarded = capture.xpAwarded ?? xpForCapture(capture, isNewSpecies);
+  const priorCaptureCount = priorAliasCaptureCount(captures, aliases);
+  const xpAwarded = capture.xpAwarded ?? xpForCapture(capture, isNewSpecies, priorCaptureCount);
   const record = { ...capture, xpAwarded };
   await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify([record, ...captures]));
   aliases.forEach((alias) => discovered.add(alias));
