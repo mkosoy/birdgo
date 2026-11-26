@@ -76,11 +76,17 @@ export async function loadSkyfriendSpecies(cellKey: string): Promise<string[]> {
   return (await readAssignments())[cellKey] ?? [];
 }
 
+let assignmentWriteQueue: Promise<void> = Promise.resolve();
+
 export async function saveSkyfriendSpecies(cellKey: string, speciesCodes: string[]): Promise<void> {
-  const assignments = await readAssignments();
-  assignments[cellKey] = speciesCodes;
-  const entries = Object.entries(assignments).slice(-100);
-  await AsyncStorage.setItem(ASSIGNMENTS_KEY, JSON.stringify(Object.fromEntries(entries)));
+  const write = assignmentWriteQueue.then(async () => {
+    const assignments = await readAssignments();
+    assignments[cellKey] = speciesCodes;
+    const entries = Object.entries(assignments).slice(-100);
+    await AsyncStorage.setItem(ASSIGNMENTS_KEY, JSON.stringify(Object.fromEntries(entries)));
+  });
+  assignmentWriteQueue = write.catch(() => undefined);
+  return write;
 }
 
 export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation: Coordinates, now = new Date(), preferredSpecies: (string | undefined)[] = [], cellKeyOverride?: string): EbirdObservation[] {
