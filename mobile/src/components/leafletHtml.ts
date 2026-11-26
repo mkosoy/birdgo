@@ -171,7 +171,41 @@ export function buildLeafletHtml(): string {
           map.closePopup();
         }
         markers.clearLayers();
-        (data.markers || []).forEach(function (bird) {
+        var zoom = map.getZoom();
+        var maxMarkers = zoom >= 15 ? 80 : zoom >= 13 ? 45 : 24;
+        var minSpacing = zoom >= 15 ? 28 : zoom >= 13 ? 38 : 48;
+        var visibleBounds = map.getBounds().pad(0.08);
+        var referenceLocation = lastUserLocation || data.center;
+        var sortedBirds = (data.markers || []).slice().sort(function (left, right) {
+          function score(bird) {
+            var distance = haversineKm(referenceLocation, bird);
+            return (distance == null ? 999 : distance) - (bird.isNotable ? 0.35 : 0) - (bird.captureCount ? 0.1 : 0) - (bird.virtual ? 0.05 : 0);
+          }
+          return score(left) - score(right);
+        });
+        var chosenBirds = [];
+        var chosenPoints = [];
+        sortedBirds.forEach(function (bird) {
+          if (chosenBirds.length >= maxMarkers && String(bird.id) !== String(restorePopupId)) return;
+          var latLng = L.latLng(bird.latitude, bird.longitude);
+          if (!visibleBounds.contains(latLng) && String(bird.id) !== String(restorePopupId)) return;
+          var point = map.latLngToContainerPoint(latLng);
+          var crowded = false;
+          if (String(bird.id) !== String(restorePopupId)) {
+            for (var pointIndex = 0; pointIndex < chosenPoints.length; pointIndex += 1) {
+              var dx = point.x - chosenPoints[pointIndex].x;
+              var dy = point.y - chosenPoints[pointIndex].y;
+              if (Math.sqrt(dx * dx + dy * dy) < minSpacing) {
+                crowded = true;
+                break;
+              }
+            }
+          }
+          if (crowded) return;
+          chosenBirds.push(bird);
+          chosenPoints.push(point);
+        });
+        chosenBirds.forEach(function (bird) {
           var marker = L.marker([bird.latitude, bird.longitude], { icon: markerIcon(bird) });
           var popup = L.popup({
             maxWidth: 300,
