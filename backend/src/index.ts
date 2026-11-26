@@ -15,6 +15,7 @@ import { canonicalizeSpecies, type SpeciesIdentityInput } from "./taxonomy.js";
 
 dotenv.config();
 export const app = express();
+if (process.env.VERCEL) app.set("trust proxy", 1);
 const port = Number(process.env.PORT ?? 4000);
 const token = process.env.EBIRD_API_TOKEN;
 const configuredProvider = process.env.BIRD_ID_PROVIDER;
@@ -71,10 +72,7 @@ const IDENTIFY_RATE_LIMIT = 30;
 const identifyRequests = new Map<string, { count: number; resetAt: number }>();
 
 function identifyRateLimited(request: Request): boolean {
-  const forwarded = request.headers["x-forwarded-for"];
-  const ip = (Array.isArray(forwarded) ? forwarded[0] : forwarded)?.split(",")[0]?.trim()
-    || request.socket.remoteAddress
-    || "unknown";
+  const ip = request.ip || request.socket.remoteAddress || "unknown";
   const now = Date.now();
   if (identifyRequests.size > 1000) {
     for (const [key, entry] of identifyRequests) {

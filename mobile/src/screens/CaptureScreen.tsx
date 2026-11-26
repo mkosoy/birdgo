@@ -76,6 +76,7 @@ export function CaptureScreen({ hint, onHintConsumed }: Props) {
   const processPhoto = async (uri: string, base64?: string | null) => {
     setEncounterHint(hint);
     setPhotoUri(uri);
+    setResult(null);
     setConfirmation(null);
     setNotice(null);
     setSavedPhotoUri(null);
