@@ -132,8 +132,15 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   }, [skyfriendSpawnGroups, spawnSpeciesAssignments]);
   const collectedSkyfriendIds = useMemo(() => new Set(skyfriends.map((record) => record.encounterId).filter(Boolean)), [skyfriends]);
   const activeSkyfriendSpawns = useMemo(
-    () => skyfriendSpawns.filter((bird) => !collectedSkyfriendIds.has(observationMarkerId(bird))).slice(0, 4),
-    [skyfriendSpawns, collectedSkyfriendIds],
+    () => skyfriendSpawns
+      .filter((bird) => !collectedSkyfriendIds.has(observationMarkerId(bird)))
+      .sort((left, right) => {
+        const leftTracked = activeTrackTarget?.id === observationMarkerId(left) ? 0 : 1;
+        const rightTracked = activeTrackTarget?.id === observationMarkerId(right) ? 0 : 1;
+        return leftTracked - rightTracked;
+      })
+      .slice(0, 4),
+    [skyfriendSpawns, collectedSkyfriendIds, activeTrackTarget],
   );
   const mapBirds = useMemo(() => [...birds, ...activeSkyfriendSpawns], [birds, activeSkyfriendSpawns]);
 
