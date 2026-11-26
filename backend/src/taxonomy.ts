@@ -21,6 +21,7 @@ interface EbirdTaxonomyEntry {
 interface GbifSpeciesMatch {
   usageKey?: number;
   acceptedUsageKey?: number;
+  speciesKey?: number;
   species?: string;
   canonicalName?: string;
   status?: string;
@@ -122,7 +123,7 @@ async function gbifCanonicalize(scientificName: string): Promise<CanonicalSpecie
       releaseGbifSlot();
     }
     const canonicalSciName = match.species?.trim() || match.canonicalName?.trim();
-    const usageKey = match.acceptedUsageKey ?? match.usageKey;
+    const usageKey = match.speciesKey ?? match.acceptedUsageKey ?? match.usageKey;
     const usable = match.class === "Aves"
       && match.matchType !== "HIGHERRANK"
       && match.matchType !== "NONE"
