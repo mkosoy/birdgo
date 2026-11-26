@@ -1463,7 +1463,7 @@ export function buildMapLibreHtml(): string {
             programmaticCameraMove = true;
           }
         }, true);
-        if (headingFollow && lastUserLocation) {
+        if (headingFollow && lastUserLocation && !map.isMoving() && map.getZoom() < 16.8) {
           programmatic = true;
           frameUser(lastUserLocation, 350);
           setTimeout(function () { programmatic = false; }, 450);
