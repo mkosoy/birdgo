@@ -67,13 +67,19 @@ export async function fetchInatBirdAbundance(
     per_page: "200",
     d1: startDate,
   });
-  const response = await fetch(`https://api.inaturalist.org/v1/observations/species_counts?${params.toString()}`, {
-    headers: { Accept: "application/json" },
-  });
-  if (!response.ok) throw new Error(`iNaturalist abundance request failed with status ${response.status}`);
-  const payload = (await response.json()) as { results?: Array<{ count?: number; taxon?: InatTaxon | null }> };
-  if (!Array.isArray(payload.results)) throw new Error("iNaturalist abundance response did not include results");
-  return payload.results.flatMap((result) => {
+  const results: Array<{ count?: number; taxon?: InatTaxon | null }> = [];
+  for (let page = 1; page <= 3; page += 1) {
+    params.set("page", String(page));
+    const response = await fetch(`https://api.inaturalist.org/v1/observations/species_counts?${params.toString()}`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) throw new Error(`iNaturalist abundance request failed with status ${response.status}`);
+    const payload = (await response.json()) as { results?: Array<{ count?: number; taxon?: InatTaxon | null }> };
+    if (!Array.isArray(payload.results)) throw new Error("iNaturalist abundance response did not include results");
+    results.push(...payload.results);
+    if (payload.results.length < 200) break;
+  }
+  return results.flatMap((result) => {
     const taxon = result.taxon;
     if (!taxon?.name || typeof result.count !== "number" || !Number.isFinite(result.count)) return [];
     return [{
