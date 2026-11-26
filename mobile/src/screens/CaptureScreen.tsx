@@ -14,7 +14,7 @@ import type { SeenSpecies } from "../types";
 import { Bird3DPreview } from "../components/Bird3DPreview";
 import { rarityForSpecies, xpForCapture } from "../utils/progression";
 
-type Props = { hint?: SeenSpecies; onHintConsumed?: () => void; onCaptureSaved?: (capture: { speciesCode?: string; commonName: string; sciName?: string | null }) => void };
+type Props = { hint?: SeenSpecies; onHintConsumed?: () => void; onCaptureSaved?: (capture: { speciesCode?: string; commonName: string; sciName?: string | null; encounterId?: string }) => void };
 
 function normalizeName(value?: string | null): string {
   return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
@@ -136,7 +136,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
         verified,
       });
       const firstBonus = (record.xpAwarded ?? 0) > xpForCapture({ rarity, verified, speciesCode: contextSpecies?.speciesCode, commonName, sciName: contextSpecies?.sciName ?? result.sciName }, false) ? " First species bonus!" : "";
-      onCaptureSaved?.({ speciesCode: contextSpecies?.speciesCode, commonName, sciName: contextSpecies?.sciName ?? result.sciName });
+      onCaptureSaved?.({ speciesCode: contextSpecies?.speciesCode, commonName, sciName: contextSpecies?.sciName ?? result.sciName, encounterId: contextSpecies?.encounterId });
       setConfirmation(`${commonName} joined your Bird-dex. +${record.xpAwarded ?? 0} XP.${firstBonus}`);
       setSavedPhotoUri(photoUri);
       if (encounterHint) onHintConsumed?.();

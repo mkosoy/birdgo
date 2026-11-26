@@ -25,6 +25,7 @@ export interface SeenSpecies {
   location?: Coordinates;
   isNotable?: boolean;
   imageUrl?: string;
+  encounterId?: string;
 }
 
 export interface TaxonomyEntry {

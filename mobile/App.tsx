@@ -18,7 +18,7 @@ export default function App() {
 
 function AppTabs() {
   const [captureHint, setCaptureHint] = useState<SeenSpecies | undefined>();
-  const [targetCapture, setTargetCapture] = useState<{ speciesCode?: string; commonName: string; sciName?: string | null; timestamp: number } | undefined>();
+  const [targetCapture, setTargetCapture] = useState<{ speciesCode?: string; commonName: string; sciName?: string | null; encounterId?: string; timestamp: number } | undefined>();
   const insets = useSafeAreaInsets();
   return (
     <NavigationContainer>

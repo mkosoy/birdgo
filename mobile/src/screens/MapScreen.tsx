@@ -16,7 +16,7 @@ import { speciesKey } from "../utils/progression";
 type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string };
 let persistentTrackTarget: TrackTarget | undefined;
 
-export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: SeenSpecies) => void; targetCapture?: { speciesCode?: string; commonName: string; sciName?: string | null; timestamp: number } }) {
+export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: SeenSpecies) => void; targetCapture?: { speciesCode?: string; commonName: string; sciName?: string | null; encounterId?: string; timestamp: number } }) {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
   const wasFocused = useRef(false);
@@ -62,7 +62,10 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
       (activeTrackTarget.speciesCode && targetCapture.speciesCode && activeTrackTarget.speciesCode === targetCapture.speciesCode)
       || (targetName && captureName && targetName === captureName)
     );
-    if (!sameSpecies) return;
+    const sameEncounter = !targetCapture.encounterId || !activeTrackTarget.id
+      ? sameSpecies
+      : targetCapture.encounterId === activeTrackTarget.id;
+    if (!sameSpecies || !sameEncounter) return;
     setActiveTrackTarget(undefined);
     setTracking(false);
     setStopTrackRequest((request) => request + 1);
@@ -267,6 +270,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         onCapture={(bird) => {
           onCapture?.({
             speciesCode: bird.speciesCode,
+            encounterId: `${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`,
             comName: bird.comName ?? "Unknown bird",
             sciName: bird.sciName,
             isNotable: Boolean(bird.isNotable),
