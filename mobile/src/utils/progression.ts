@@ -1,0 +1,155 @@
+import type { BirdRarity, CaptureRecord, SeenSpecies } from "../types";
+
+export const RARITY_ORDER: BirdRarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
+
+const RARITY_XP: Record<BirdRarity, number> = {
+  common: 25,
+  uncommon: 45,
+  rare: 80,
+  epic: 140,
+  legendary: 250,
+};
+
+export const RARITY_COLORS: Record<BirdRarity, string> = {
+  common: "#6d7f74",
+  uncommon: "#2f7d5b",
+  rare: "#2878d1",
+  epic: "#7b4cc2",
+  legendary: "#d99d21",
+};
+
+function stableHash(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+export function speciesKey(speciesCode?: string, commonName?: string): string {
+  if (speciesCode?.trim()) return speciesCode.trim().toLowerCase();
+  return (commonName?.trim().toLowerCase() || "unidentified bird").replace(/\s+/g, " ");
+}
+
+export function rarityForSpecies(speciesCode?: string, commonName?: string, isNotable?: boolean): BirdRarity {
+  const key = speciesKey(speciesCode, commonName);
+  if (!key || key === "unidentified bird") return "common";
+  const roll = stableHash(key) % 100;
+  let rarity: BirdRarity = roll < 55 ? "common" : roll < 80 ? "uncommon" : roll < 93 ? "rare" : roll < 99 ? "epic" : "legendary";
+  if (isNotable && RARITY_ORDER.indexOf(rarity) < RARITY_ORDER.indexOf("rare")) rarity = "rare";
+  return rarity;
+}
+
+export function xpForCapture(capture: Pick<CaptureRecord, "rarity" | "verified">, isNewSpecies: boolean): number {
+  const rarity = capture.rarity ?? "common";
+  return RARITY_XP[rarity] + (capture.verified ? 20 : 0) + (isNewSpecies ? 50 : 0);
+}
+
+export function levelForXp(xp: number): { level: number; currentLevelXp: number; nextLevelXp: number; progress: number } {
+  let level = 1;
+  let floor = 0;
+  let next = 100;
+  while (xp >= next && level < 50) {
+    floor = next;
+    level += 1;
+    next = floor + level * 100;
+  }
+  const span = next - floor;
+  return {
+    level,
+    currentLevelXp: xp - floor,
+    nextLevelXp: span,
+    progress: Math.min(1, Math.max(0, (xp - floor) / span)),
+  };
+}
+
+export interface SpeciesDexEntry {
+  key: string;
+  speciesCode?: string;
+  commonName: string;
+  sciName?: string | null;
+  rarity: BirdRarity;
+  capturedCount: number;
+  seen: boolean;
+  firstCapturedAt?: string;
+  lastCapturedAt?: string;
+  photoUri?: string;
+  imageUrl?: string;
+  capture?: CaptureRecord;
+}
+
+function captureName(capture: CaptureRecord): string {
+  return typeof capture.commonName === "string" && capture.commonName.trim() ? capture.commonName.trim() : "Unidentified bird";
+}
+
+function captureKey(capture: CaptureRecord): string {
+  return speciesKey(capture.speciesCode, captureName(capture));
+}
+
+export function buildSpeciesDex(captures: CaptureRecord[], seenSpecies: SeenSpecies[]): SpeciesDexEntry[] {
+  const entries = new Map<string, SpeciesDexEntry>();
+  captures.forEach((capture) => {
+    const commonName = captureName(capture);
+    const key = captureKey(capture);
+    const existing = entries.get(key);
+    const timestamp = typeof capture.timestamp === "string" ? capture.timestamp : "";
+    if (!existing) {
+      entries.set(key, {
+        key,
+        speciesCode: capture.speciesCode,
+        commonName,
+        sciName: capture.sciName,
+        rarity: capture.rarity ?? rarityForSpecies(capture.speciesCode, commonName),
+        capturedCount: 1,
+        seen: true,
+        firstCapturedAt: timestamp,
+        lastCapturedAt: timestamp,
+        photoUri: capture.photoUri,
+        capture,
+      });
+      return;
+    }
+    existing.capturedCount += 1;
+    if (!existing.photoUri && capture.photoUri) {
+      existing.photoUri = capture.photoUri;
+      existing.capture = capture;
+    }
+    if (timestamp && (!existing.firstCapturedAt || timestamp < existing.firstCapturedAt)) existing.firstCapturedAt = timestamp;
+    if (timestamp && (!existing.lastCapturedAt || timestamp > existing.lastCapturedAt)) {
+      existing.lastCapturedAt = timestamp;
+      if (capture.photoUri) {
+        existing.photoUri = capture.photoUri;
+        existing.capture = capture;
+      }
+    }
+    if (!existing.sciName && capture.sciName) existing.sciName = capture.sciName;
+  });
+  seenSpecies.forEach((species) => {
+    const key = speciesKey(species.speciesCode, species.comName);
+    const existing = entries.get(key);
+    if (existing) {
+      existing.seen = true;
+      if (!existing.speciesCode && species.speciesCode) existing.speciesCode = species.speciesCode;
+      if (!existing.sciName && species.sciName) existing.sciName = species.sciName;
+      if (!existing.imageUrl && species.imageUrl) existing.imageUrl = species.imageUrl;
+      return;
+    }
+    entries.set(key, {
+      key,
+      speciesCode: species.speciesCode,
+      commonName: species.comName,
+      sciName: species.sciName,
+      rarity: rarityForSpecies(species.speciesCode, species.comName, species.isNotable),
+      capturedCount: 0,
+      seen: true,
+      imageUrl: species.imageUrl,
+    });
+  });
+  return [...entries.values()].sort((left, right) =>
+    Number(right.capturedCount > 0) - Number(left.capturedCount > 0)
+    || RARITY_ORDER.indexOf(right.rarity) - RARITY_ORDER.indexOf(left.rarity)
+    || right.capturedCount - left.capturedCount
+    || left.commonName.localeCompare(right.commonName)
+  );
+}

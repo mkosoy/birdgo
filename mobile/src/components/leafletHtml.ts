@@ -7,8 +7,10 @@ export function buildLeafletHtml(): string {
   <style>
     html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }
     .bird-marker, .user-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 18px; font-weight: bold; }
-    .bird-marker { width: 32px; height: 32px; background: #2f7d5b; border: 2px solid white; }
+    .bird-marker { position: relative; width: 32px; height: 32px; background: #2f7d5b; border: 2px solid white; }
     .bird-marker.notable { background: #d99d21; }
+    .bird-marker.captured { background: #61776c; border-color: #a9f0bf; }
+    .bird-marker .caught-badge { position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; }
     .user-marker { position: relative; width: 22px; height: 22px; background: #2878d1; border: 3px solid white; box-shadow: 0 0 0 2px #2878d1; }
     .user-marker::before { content: ''; position: absolute; top: 50%; left: 50%; width: 42px; height: 42px; border-radius: 50%; border: 2px solid rgba(40, 120, 209, 0.55); animation: pulse 1.8s ease-out infinite; }
     @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(1.45); opacity: 0; } }
@@ -65,10 +67,10 @@ export function buildLeafletHtml(): string {
         else window.postMessage(serialized, '*');
       }
 
-      function markerIcon(isNotable) {
+      function markerIcon(bird) {
         return L.divIcon({
           className: '',
-          html: '<div class="bird-marker' + (isNotable ? ' notable' : '') + '">' + (isNotable ? '★' : '🐦') + '</div>',
+          html: '<div class="bird-marker' + (bird.isNotable ? ' notable' : '') + (bird.captureCount ? ' captured' : '') + '">' + (bird.isNotable ? '★' : '🐦') + (bird.captureCount ? '<span class="caught-badge">✓</span>' : '') + '</div>',
           iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -18]
         });
       }
@@ -100,8 +102,9 @@ export function buildLeafletHtml(): string {
           '<div class="stale">Sighting recorded ' + escapeHtml(bird.relativeTime || 'recently') + ' — this is a past observation, not a live location.</div>' +
           '<div class="where">Where to look: ' + escapeHtml(bird.locName || 'No hotspot recorded') + count + '</div>' +
           (distance == null ? '' : '<div class="distance">' + (distance < 1 ? Math.round(distance * 1000) + ' m' : distance.toFixed(1) + ' km') + ' away · ' + Math.max(1, Math.round(distance * 1000 / 81)) + ' min walk</div>') +
+          (bird.captureCount ? '<div class="distance">Already collected ×' + bird.captureCount + ' — recaptures still earn XP.</div>' : '<div class="distance">New species capture earns a +50 XP bonus.</div>') +
           '<div class="field-notes" data-info>How to spot it: Field notes loading…</div>' +
-          '<div class="actions"><button data-action="capture">Capture</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
+          '<div class="actions"><button data-action="capture">' + (bird.captureCount ? 'Recapture' : 'Capture') + '</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
           '</div>';
       }
 
@@ -146,7 +149,7 @@ export function buildLeafletHtml(): string {
         }
         markers.clearLayers();
         (data.markers || []).forEach(function (bird) {
-          var marker = L.marker([bird.latitude, bird.longitude], { icon: markerIcon(bird.isNotable) });
+          var marker = L.marker([bird.latitude, bird.longitude], { icon: markerIcon(bird) });
           var popup = L.popup({
             maxWidth: 300,
             maxHeight: Math.max(180, window.innerHeight - 120),

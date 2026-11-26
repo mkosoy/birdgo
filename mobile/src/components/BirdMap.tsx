@@ -4,6 +4,7 @@ import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import { buildLeafletHtml } from "./leafletHtml";
 import { buildMapLibreHtml } from "./mapLibreHtml";
 import type { Coordinates, EbirdObservation } from "../types";
+import { speciesKey } from "../utils/progression";
 
 export type BirdMapMode = "classic" | "adventure";
 export interface SafeAreaInsets {
@@ -17,6 +18,7 @@ export interface BirdMapProps {
   center: Coordinates;
   userLocation?: Coordinates;
   birds: EbirdObservation[];
+  captureCounts?: Record<string, number>;
   mode: BirdMapMode;
   firstPerson: boolean;
   heading?: number;
@@ -50,6 +52,7 @@ interface LeafletMarker {
   speciesCode: string;
   isNotable: boolean;
   imageUrl?: string;
+  captureCount?: number;
 }
 
 interface LeafletData {
@@ -89,7 +92,7 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange },
+  { center, userLocation, birds, captureCounts, mode, firstPerson, heading, recenterRequest, overviewRequest, nearestRequest, trackRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
@@ -120,8 +123,9 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       speciesCode: bird.speciesCode,
       isNotable: Boolean(bird.isNotable),
       imageUrl: bird.imageUrl,
+      captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
     })),
-  }), [birds, center, firstPerson, heading, safeArea, userLocation]);
+  }), [birds, captureCounts, center, firstPerson, heading, safeArea, userLocation]);
   useEffect(() => {
     dataRef.current = data;
   }, [data]);

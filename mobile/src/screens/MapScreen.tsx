@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, AppState, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
@@ -10,6 +10,7 @@ import type { BirdMapMode } from "../components/BirdMap";
 import { useBirds } from "../hooks/useBirds";
 import { useCollection } from "../hooks/useCollection";
 import type { Coordinates, SeenSpecies } from "../types";
+import { speciesKey } from "../utils/progression";
 
 export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => void }) {
   const navigation = useNavigation();
@@ -34,7 +35,12 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   const fallbackActive = useRef(true);
   const [rareDismissed, setRareDismissed] = useState(false);
   const { birds, notable, loading, error, loadedArea, refresh } = useBirds(center.latitude, center.longitude);
-  const { saveSeen } = useCollection();
+  const { saveSeen, captures } = useCollection();
+  const captureCounts = useMemo(() => captures.reduce<Record<string, number>>((counts, capture) => {
+    const key = speciesKey(capture.speciesCode, capture.commonName);
+    counts[key] = (counts[key] ?? 0) + 1;
+    return counts;
+  }, {}), [captures]);
   const topMessage = locationNotice
     ? { text: locationNotice, onPress: () => setLocationRetry((request) => request + 1) }
     : error
@@ -166,7 +172,13 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
   useEffect(() => {
     if (!birds.length || !loadedArea) return;
     void saveSeen(
-      birds.flatMap((bird) => bird.comName ? [{ speciesCode: bird.speciesCode, comName: bird.comName }] : []),
+      birds.flatMap((bird) => bird.comName ? [{
+        speciesCode: bird.speciesCode,
+        comName: bird.comName,
+        sciName: bird.sciName,
+        isNotable: Boolean(bird.isNotable),
+        imageUrl: bird.imageUrl,
+      }] : []),
       loadedArea,
     );
   }, [birds, loadedArea, saveSeen]);
@@ -203,6 +215,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         userLocation={location}
         safeArea={insets}
         birds={birds}
+        captureCounts={captureCounts}
         loading={loading}
         mode={mode}
         firstPerson={firstPerson}
@@ -212,7 +225,13 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
         nearestRequest={nearestRequest}
         trackRequest={trackRequest}
         onCapture={(bird) => {
-          onCapture?.({ speciesCode: bird.speciesCode, comName: bird.comName ?? "Unknown bird" });
+          onCapture?.({
+            speciesCode: bird.speciesCode,
+            comName: bird.comName ?? "Unknown bird",
+            sciName: bird.sciName,
+            isNotable: Boolean(bird.isNotable),
+            imageUrl: bird.imageUrl,
+          });
           navigation.navigate("Capture" as never);
         }}
         onDirections={(target) => setTrackRequest(target)}
