@@ -603,7 +603,7 @@ export function buildMapLibreHtml(): string {
         }).filter(function (entry) {
           return entry.distance != null;
         }).sort(function (left, right) {
-          return (left.distance + (left.bird.virtual ? 0.12 : 0)) - (right.distance + (right.bird.virtual ? 0.12 : 0));
+          return left.distance - right.distance;
         });
       }
 
