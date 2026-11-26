@@ -62,9 +62,9 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
       (activeTrackTarget.speciesCode && targetCapture.speciesCode && activeTrackTarget.speciesCode === targetCapture.speciesCode)
       || (targetName && captureName && targetName === captureName)
     );
-    const sameEncounter = !targetCapture.encounterId || !activeTrackTarget.id
-      ? sameSpecies
-      : targetCapture.encounterId === activeTrackTarget.id;
+    const sameEncounter = activeTrackTarget.id
+      ? targetCapture.encounterId === activeTrackTarget.id
+      : sameSpecies;
     if (!sameSpecies || !sameEncounter) return;
     setActiveTrackTarget(undefined);
     setTracking(false);
