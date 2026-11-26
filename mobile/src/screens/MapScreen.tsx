@@ -5,7 +5,6 @@ import * as Notifications from "expo-notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { canonicalizeSpecies } from "../api";
 import { SF_COORDS } from "../config";
 import { BirdMap } from "../components/BirdMap";
 import type { BirdMapMode } from "../components/BirdMap";
@@ -189,26 +188,7 @@ export function MapScreen({ onCapture }: { onCapture?: (hint?: SeenSpecies) => v
       });
     });
     const species = [...unique.values()];
-    let cancelled = false;
-    const persist = async () => {
-      try {
-        const canonical = await canonicalizeSpecies(species.map((item) => ({
-          speciesCode: item.speciesCode,
-          comName: item.comName,
-          sciName: item.sciName,
-        })));
-        if (cancelled) return;
-        await saveSeen(species.map((item, index) => ({
-          ...item,
-          sciName: canonical[index]?.canonicalSciName ?? item.sciName,
-          canonicalKey: canonical[index]?.canonicalKey,
-        })), loadedArea);
-      } catch {
-        if (!cancelled) await saveSeen(species, loadedArea);
-      }
-    };
-    void persist();
-    return () => { cancelled = true; };
+    void saveSeen(species, loadedArea);
   }, [birds, loadedArea, saveSeen]);
 
   useEffect(() => {
