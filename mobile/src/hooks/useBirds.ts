@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchNotableBirds, fetchRecentBirds } from "../api";
+import { canonicalizeSpecies, fetchNotableBirds, fetchRecentBirds } from "../api";
 import type { Coordinates, EbirdObservation } from "../types";
 
 export function useBirds(latitude: number, longitude: number) {
@@ -25,9 +25,35 @@ export function useBirds(latitude: number, longitude: number) {
       }
       if (currentRequest !== requestId.current) return;
       const notableByKey = new Map(rare.map((bird) => [`${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`, bird]));
-      setBirds([...merged.values()]);
-      setNotable([...notableByKey.values()]);
+      const mergedBirds = [...merged.values()];
+      const notableBirds = [...notableByKey.values()];
+      setBirds(mergedBirds);
+      setNotable(notableBirds);
       setLoadedArea({ latitude, longitude });
+      void (async () => {
+        const unique = new Map<string, EbirdObservation>();
+        mergedBirds.forEach((bird) => {
+          if (!unique.has(bird.speciesCode)) unique.set(bird.speciesCode, bird);
+        });
+        const inputs = [...unique.values()];
+        const canonical = await canonicalizeSpecies(inputs.map((bird) => ({
+          speciesCode: bird.speciesCode,
+          comName: bird.comName,
+          sciName: bird.sciName,
+        })));
+        if (currentRequest !== requestId.current) return;
+        const bySpeciesCode = new Map(inputs.map((bird, index) => [bird.speciesCode, canonical[index]]));
+        const annotate = (bird: EbirdObservation): EbirdObservation => {
+          const identity = bySpeciesCode.get(bird.speciesCode);
+          return {
+            ...bird,
+            sciName: identity?.canonicalSciName ?? bird.sciName,
+            canonicalKey: identity?.canonicalKey,
+          };
+        };
+        setBirds(mergedBirds.map(annotate));
+        setNotable(notableBirds.map(annotate));
+      })().catch(() => undefined);
     } catch (cause) {
       if (currentRequest !== requestId.current) return;
       setError(cause instanceof Error ? cause.message : "Could not load nearby birds");

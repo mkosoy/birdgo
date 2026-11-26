@@ -6,7 +6,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import * as FileSystem from "expo-file-system";
 import { useFocusEffect } from "@react-navigation/native";
-import { identifyBird } from "../api";
+import { canonicalizeSpecies, identifyBird } from "../api";
 import { SF_COORDS } from "../config";
 import { useCollection } from "../hooks/useCollection";
 import type { Coordinates } from "../types";
@@ -20,15 +20,18 @@ function normalizeName(value?: string | null): string {
   return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
 }
 
-function couldBeSpecies(species: SeenSpecies, result: { isBird: boolean; commonName: string | null; sciName: string | null }): boolean {
+function couldBeSpecies(species: SeenSpecies, result: { isBird: boolean; commonName: string | null; sciName: string | null; canonicalKey?: string }): boolean {
   if (!result.isBird) return false;
   if (!result.commonName && !result.sciName) return false;
-  return sameSpecies(species, result.commonName, result.sciName);
+  return sameSpecies(species, result.commonName, result.sciName, result.canonicalKey);
 }
 
-function sameSpecies(species: SeenSpecies, commonName?: string | null, sciName?: string | null): boolean {
+function sameSpecies(species: SeenSpecies, commonName?: string | null, sciName?: string | null, canonicalKey?: string | null): boolean {
   const common = normalizeName(commonName);
   const scientific = normalizeName(sciName);
+  const canonical = normalizeName(canonicalKey);
+  const speciesCanonical = normalizeName(species.canonicalKey);
+  if (canonical && speciesCanonical) return canonical === speciesCanonical;
   return Boolean(
     (common && normalizeName(species.comName) === common)
     || (scientific && normalizeName(species.sciName) === scientific)
@@ -74,6 +77,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
   const processPhoto = async (uri: string, base64?: string | null) => {
     setEncounterHint(hint);
     setPhotoUri(uri);
+    setResult(null);
     setConfirmation(null);
     setNotice(null);
     setSavedPhotoUri(null);
@@ -106,7 +110,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
   const speciesContext = () => {
     const encounterMatches = Boolean(encounterHint && result && couldBeSpecies(encounterHint, result));
     const resultMatches = result && (result.commonName || result.sciName)
-      ? seenSpecies.find((species) => sameSpecies(species, result.commonName, result.sciName))
+      ? seenSpecies.find((species) => sameSpecies(species, result.commonName, result.sciName, result.canonicalKey))
       : undefined;
     return encounterMatches ? encounterHint ?? resultMatches : resultMatches;
   };
@@ -120,15 +124,36 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
         const current = await Location.getCurrentPositionAsync({});
         location = { latitude: current.coords.latitude, longitude: current.coords.longitude };
       } catch { /* SF fallback is intentional */ }
-      const contextSpecies = speciesContext();
+      let contextSpecies = speciesContext();
+      if (contextSpecies && !contextSpecies.canonicalKey) {
+        try {
+          const [canonical] = await canonicalizeSpecies([{
+            speciesCode: contextSpecies.speciesCode,
+            comName: contextSpecies.comName,
+            sciName: contextSpecies.sciName,
+          }]);
+          if (canonical?.canonicalKey) {
+            contextSpecies = {
+              ...contextSpecies,
+              sciName: canonical.canonicalSciName ?? contextSpecies.sciName,
+              canonicalKey: canonical.canonicalKey,
+            };
+          }
+        } catch { /* Saving still works with legacy identity fallback. */ }
+      }
       const commonName = contextSpecies?.comName ?? result.commonName ?? "Unidentified bird";
-      const rarity = rarityForSpecies(contextSpecies?.speciesCode, commonName, contextSpecies?.isNotable, contextSpecies?.sciName ?? result.sciName);
+      const canonicalKey = contextSpecies?.canonicalKey ?? result.canonicalKey;
+      const sciName = contextSpecies?.canonicalKey
+        ? contextSpecies.sciName
+        : result.canonicalSciName ?? contextSpecies?.sciName ?? result.sciName;
+      const rarity = rarityForSpecies(contextSpecies?.speciesCode, commonName, contextSpecies?.isNotable, sciName, canonicalKey);
       const verified = Boolean(result.isBird && result.provider !== "heuristic" && (result.commonName || result.sciName));
       const record = await saveCapture({
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         speciesCode: contextSpecies?.speciesCode,
         commonName,
-        sciName: contextSpecies?.sciName ?? result.sciName,
+        sciName,
+        canonicalKey,
         photoUri,
         timestamp: new Date().toISOString(),
         location,
@@ -149,7 +174,11 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
 
   const contextSpecies = speciesContext();
   const resultName = contextSpecies?.comName ?? result?.commonName ?? "Unidentified bird";
-  const resultRarity = rarityForSpecies(contextSpecies?.speciesCode, resultName, contextSpecies?.isNotable, contextSpecies?.sciName ?? result?.sciName);
+  const resultCanonicalKey = contextSpecies?.canonicalKey ?? result?.canonicalKey;
+  const resultSciName = contextSpecies?.canonicalKey
+    ? contextSpecies.sciName
+    : result?.canonicalSciName ?? contextSpecies?.sciName ?? result?.sciName;
+  const resultRarity = rarityForSpecies(contextSpecies?.speciesCode, resultName, contextSpecies?.isNotable, resultSciName, resultCanonicalKey);
   const encounterMismatch = Boolean(encounterHint && result && (result.commonName || result.sciName) && !couldBeSpecies(encounterHint, result));
   const targetHintApplied = Boolean(encounterHint && contextSpecies === encounterHint);
   const targetHintUnverified = Boolean(targetHintApplied && (!result?.isBird || result.provider === "heuristic"));
@@ -185,7 +214,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
           : targetHintUnverified
             ? <Text style={styles.confidence}>Using nearby species hint — not model-verified</Text>
             : result.isBird
-            ? <><Text style={styles.scientific}>{result.sciName ?? "Scientific name unknown"}</Text><Text style={styles.confidence}>{result.provider === "heuristic" ? "Unverified identification" : `${Math.round(result.confidence * 100)}% confidence`}</Text></>
+            ? <><Text style={styles.scientific}>{resultSciName ?? "Scientific name unknown"}</Text><Text style={styles.confidence}>{result.provider === "heuristic" ? "Unverified identification" : `${Math.round(result.confidence * 100)}% confidence`}</Text></>
             : <Text style={styles.confidence}>No species identified. You can save this as an unidentified photo.</Text>}
         <Pressable disabled={saving || savedPhotoUri === photoUri} style={[styles.button, (saving || savedPhotoUri === photoUri) && styles.disabledButton]} onPress={() => void addToCollection()}><Text style={styles.buttonText}>{savedPhotoUri === photoUri ? "Added to collection" : targetHintApplied || result.isBird ? "Add to collection" : "Save unidentified photo"}</Text></Pressable>
       </View>}
