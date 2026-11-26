@@ -125,6 +125,7 @@ export function DexScreen() {
           <View style={styles.hallCardBody}>
             <Text style={styles.hallName} numberOfLines={2}>{entry.commonName}</Text>
             <Text style={styles.hallMeta}>{rarityLabel(entry)} · {entry.firstCapturedAt ? shortDate(entry.firstCapturedAt) : "Date unknown"}</Text>
+            <Text style={styles.hallScore}>{entry.capture?.verified ? "AI verified" : "Honor record"} · ×{entry.capturedCount}</Text>
             <Text style={styles.hallReal}>REAL SIGHTING</Text>
           </View>
         </Pressable>;
@@ -294,6 +295,7 @@ const styles = StyleSheet.create({
   hallCardBody: { padding: 9 },
   hallName: { color: "#3d2d12", fontWeight: "900", fontSize: 13, minHeight: 32 },
   hallMeta: { color: "#7a6030", fontWeight: "700", fontSize: 10, marginTop: 2 },
+  hallScore: { color: "#5d4820", fontWeight: "800", fontSize: 10, marginTop: 3 },
   hallReal: { color: "#2f7d5b", fontWeight: "900", fontSize: 9, marginTop: 5 },
   hallEmpty: { color: "#f1dc9b", fontSize: 12, lineHeight: 17, marginTop: 10 },
   skyfriendArea: { margin: 5, marginBottom: 12, padding: 14, borderRadius: 18, backgroundColor: "#28264f", elevation: 3 },
