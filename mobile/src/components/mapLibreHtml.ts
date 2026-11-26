@@ -249,6 +249,9 @@ export function buildMapLibreHtml(): string {
       var sortMode = 'nearest';
       var birdsLoading = true;
       var panelState = 'peek';
+      var paddingAnimationActive = false;
+      var paddingAnimationToken = 0;
+      var deferredCompassHeading = null;
       var SNAP_M = 60;
       var ARRIVE_M = 30;
       var compassButton = document.getElementById('compass-button');
@@ -562,6 +565,10 @@ export function buildMapLibreHtml(): string {
 
       function updateBearing(heading) {
         if (typeof heading !== 'number' || !headingFollow) return;
+        if (paddingAnimationActive) {
+          deferredCompassHeading = heading;
+          return;
+        }
         var target = (heading + 360) % 360;
         if (typeof currentHeading !== 'number') currentHeading = target;
         else {
@@ -610,8 +617,10 @@ export function buildMapLibreHtml(): string {
         var height = map.getContainer().clientHeight || 600;
         var targetY = height * 0.68;
         if (panelState === 'half' && !nearbyPanel.classList.contains('tracking')) {
-          var nearbyTop = nearbyPanel.getBoundingClientRect().top;
-          if (nearbyTop > 0) targetY = Math.min(targetY, nearbyTop - 24);
+          var sheetRatio = window.innerWidth <= 600 ? 0.46 : 0.44;
+          var safeBottom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom')) || 0;
+          var nearbyTop = height - (height * sheetRatio) - 16 - safeBottom;
+          targetY = Math.min(targetY, nearbyTop - 24);
         }
         if (routePanel.classList.contains('on')) {
           var routeTop = routePanel.getBoundingClientRect().top;
@@ -624,6 +633,21 @@ export function buildMapLibreHtml(): string {
           left: 0,
         };
       }
+      function animateFirstPersonPadding(duration) {
+        var token = ++paddingAnimationToken;
+        paddingAnimationActive = true;
+        map.easeTo({ padding: firstPersonPadding(), duration: duration });
+        setTimeout(function () {
+          if (token !== paddingAnimationToken) return;
+          paddingAnimationActive = false;
+          if (deferredCompassHeading != null) {
+            var heading = deferredCompassHeading;
+            deferredCompassHeading = null;
+            updateBearing(heading);
+          }
+        }, duration + 90);
+      }
+
       function frameUser(target, duration) {
         if (!target || typeof target.latitude !== 'number' || typeof target.longitude !== 'number') return;
         markProgrammaticCameraMove();
@@ -1214,7 +1238,7 @@ export function buildMapLibreHtml(): string {
         nearbyTitle.textContent = nearbyTitleText(lastNearbyCount);
         updateAttributionVisibility();
         scheduleNearbyGeometry();
-        if (headingFollow) map.easeTo({ padding: firstPersonPadding(), duration: 220 });
+        if (headingFollow) animateFirstPersonPadding(220);
       }
       var dragStartY = null;
       nearbyHandle.addEventListener('pointerdown', function (event) {
