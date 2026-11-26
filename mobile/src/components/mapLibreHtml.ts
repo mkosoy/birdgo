@@ -1639,7 +1639,7 @@ export function buildMapLibreHtml(): string {
           }
           if (data.heading != null) updateBearing(data.heading);
         }
-        latestMarkers = data.markers || [];
+        if (Array.isArray(data.markers)) latestMarkers = data.markers;
         birdsLoading = Boolean(data.loading);
         refreshNearby();
         if (firstData) {
@@ -1752,7 +1752,7 @@ export function buildMapLibreHtml(): string {
           }
         }
         if (trackId) updateRoute();
-        renderBirdMarkers(data.markers || []);
+        renderBirdMarkers(latestMarkers);
         if (data.userLocation) {
           if (!userElement) {
             userElement = document.createElement('div');
@@ -1771,7 +1771,7 @@ export function buildMapLibreHtml(): string {
           if (data.trainer && data.trainer.avatarColor) userElement.style.background = data.trainer.avatarColor;
         }
         if (currentPopup && currentPopupBirdId) {
-          var freshPopupBird = (data.markers || []).find(function (entry) { return String(entry.id) === String(currentPopupBirdId); });
+          var freshPopupBird = latestMarkers.find(function (entry) { return String(entry.id) === String(currentPopupBirdId); });
           var popupElement = currentPopup.getElement && currentPopup.getElement();
           var captureCopy = popupElement && popupElement.querySelector('[data-capture-copy]');
           if (freshPopupBird && captureCopy) {
