@@ -33,8 +33,8 @@ export function speciesKey(speciesCode?: string, commonName?: string, sciName?: 
   const normalizedScientific = sciName?.trim().toLowerCase().replace(/\s+/g, " ");
   if (normalizedScientific) return normalizedScientific;
   const normalizedName = commonName?.trim().toLowerCase().replace(/\s+/g, " ");
-  if (normalizedName) return normalizedName;
-  return speciesCode?.trim().toLowerCase() || "unidentified bird";
+  if (normalizedName && normalizedName !== "unidentified bird") return normalizedName;
+  return speciesCode?.trim().toLowerCase() || normalizedName || "unidentified bird";
 }
 
 export function speciesKeyAliases(speciesCode?: string, commonName?: string, sciName?: string | null, canonicalKey?: string | null): string[] {
