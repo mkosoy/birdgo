@@ -95,11 +95,11 @@ export async function addCapture(capture: CaptureRecord): Promise<CaptureRecord>
   const isNewSpecies = !discovered.has(key);
   const xpAwarded = capture.xpAwarded ?? xpForCapture(capture, isNewSpecies);
   const record = { ...capture, xpAwarded };
+  await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify([record, ...captures]));
   if (isNewSpecies) {
     discovered.add(key);
     await writeDiscoveredKeys(discovered);
   }
-  await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify([record, ...captures]));
   const events = await listXpEvents();
   if (!events.some((event) => event.captureId === record.id)) {
     await writeXpEvents([...events, { captureId: record.id, xp: xpAwarded }]);
