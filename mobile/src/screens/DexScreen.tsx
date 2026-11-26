@@ -179,6 +179,7 @@ export function DexScreen() {
             <Text style={styles.modalTitle}>Customize trainer</Text>
             <View style={styles.customizerPreview}><TrainerAvatar profile={trainerDraft} size={82} /><Text style={styles.previewName}>{trainerDraft.name}</Text></View>
             <Text style={styles.choiceLabel}>Name</Text>
+            <Text style={styles.inputHint}>Blank names save as Trainer.</Text>
             <TextInput value={trainerDraft.name} onChangeText={(name) => setTrainerDraft((current) => ({ ...current, name }))} maxLength={24} style={styles.nameInput} placeholder="Trainer name" />
             <Text style={styles.choiceLabel}>Outfit</Text>
             <View style={styles.choiceRow}>{AVATAR_COLORS.map((color) => <Pressable key={color} accessibilityLabel={`Outfit color ${color}`} style={[styles.colorChoice, { backgroundColor: color }, trainerDraft.avatarColor === color && styles.choiceSelected]} onPress={() => setTrainerDraft((current) => ({ ...current, avatarColor: color }))} />)}</View>
@@ -215,16 +216,17 @@ const styles = StyleSheet.create({
   headerTop: { flexDirection: "row", alignItems: "center", gap: 12 },
   trainerName: { color: "#ffffff", fontSize: 17, fontWeight: "900" },
   levelBlock: { alignItems: "center", gap: 2 },
-  customizeButton: { minHeight: 30, borderRadius: 12, paddingHorizontal: 8, alignItems: "center", justifyContent: "center", backgroundColor: "#2f7d5b" },
+  customizeButton: { minHeight: 38, borderRadius: 14, paddingHorizontal: 8, alignItems: "center", justifyContent: "center", backgroundColor: "#2f7d5b" },
   customizeText: { color: "#dff4e7", fontSize: 10, fontWeight: "900" },
   customizerPreview: { alignItems: "center", gap: 7, marginVertical: 12 },
   previewName: { color: "#173c2b", fontSize: 18, fontWeight: "900" },
+  inputHint: { color: "#77867d", fontSize: 10, marginTop: -3, marginBottom: 4 },
   choiceLabel: { color: "#42574b", fontSize: 12, fontWeight: "900", marginTop: 10, marginBottom: 6, textTransform: "uppercase" },
   nameInput: { minHeight: 44, borderRadius: 10, paddingHorizontal: 12, backgroundColor: "#eef3ef", color: "#173c2b", fontWeight: "700" },
   choiceRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  colorChoice: { width: 38, height: 38, borderRadius: 19, borderWidth: 3, borderColor: "#d5ded8" },
+  colorChoice: { width: 44, height: 44, borderRadius: 22, borderWidth: 3, borderColor: "#d5ded8" },
   choiceSelected: { borderColor: "#173c2b" },
-  accessoryChoice: { minHeight: 38, borderRadius: 15, paddingHorizontal: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#e8eeea" },
+  accessoryChoice: { minHeight: 44, borderRadius: 16, paddingHorizontal: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#e8eeea" },
   accessorySelected: { backgroundColor: "#bde8ca" },
   accessoryText: { color: "#173c2b", fontWeight: "800", fontSize: 12 },
   saveButton: { minHeight: 44, minWidth: 90, borderRadius: 8, alignItems: "center", justifyContent: "center", backgroundColor: "#2f7d5b" },
@@ -243,7 +245,7 @@ const styles = StyleSheet.create({
   skyfriendTitleWrap: { flex: 1 },
   skyfriendTitle: { color: "#eaf6ff", fontSize: 21, fontWeight: "900" },
   skyfriendSubtitle: { color: "#a9bde8", fontSize: 11, fontWeight: "700", marginTop: 2 },
-  skyfriendCount: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "#59d6ee" },
+  skyfriendCount: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "#59d6ee" },
   skyfriendCountText: { color: "#1c2454", fontSize: 18, fontWeight: "900" },
   skyfriendRow: { gap: 10, paddingTop: 12, paddingRight: 4 },
   skyfriendCard: { width: 112, padding: 8, borderRadius: 14, backgroundColor: "#383674" },

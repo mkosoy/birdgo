@@ -454,7 +454,7 @@ export function buildMapLibreHtml(): string {
         if (accessory === 'cap') accessorySvg = '<path d="M22 15c2-7 7-10 10-10s8 3 10 10l4 2H18z" fill="' + accent + '"/>';
         else if (accessory === 'visor') accessorySvg = '<path d="M20 15h24l5 4H17z" fill="' + accent + '"/>';
         else if (accessory === 'hood') accessorySvg = '<path d="M20 27c-2-14 4-23 12-23s14 9 12 23c-3-7-6-11-12-11s-9 4-12 11z" fill="' + accent + '" opacity=".95"/>';
-        return '<svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><circle cx="32" cy="18" r="9" fill="#f2c39b"/>' + accessorySvg + '<path d="M18 50c2-13 8-20 14-20s12 7 14 20z" fill="' + accent + '"/><path d="M20 34c-5 4-8 9-9 15l8 2c1-6 3-10 6-13zm24 0c5 4 8 9 9 15l-8 2c-1-6-3-10-6-13z" fill="#d8ecff"/></svg>';
+        return '<svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><circle cx="32" cy="18" r="9" fill="#f2c39b"/><circle cx="29" cy="18" r="1.1" fill="#26342d"/><circle cx="35" cy="18" r="1.1" fill="#26342d"/><path d="M29 22q3 2.4 6 0" stroke="#26342d" stroke-width="1.3" fill="none" stroke-linecap="round"/>' + accessorySvg + '<path d="M18 50c2-13 8-20 14-20s12 7 14 20z" fill="' + accent + '"/><path d="M20 34c-5 4-8 9-9 15l8 2c1-6 3-10 6-13zm24 0c5 4 8 9 9 15l-8 2c-1-6-3-10-6-13z" fill="#d8ecff"/></svg>';
       }
       function thumbInnerHtml(bird, emojiFallback) {
         var image = getBirdImage(bird);
