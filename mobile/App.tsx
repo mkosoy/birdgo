@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -29,18 +30,43 @@ function AppTabs() {
         tabBarLabelStyle: { fontSize: 12, fontWeight: "700", marginBottom: 2 },
         tabBarStyle: { height: 64 + insets.bottom, paddingTop: 6, paddingBottom: insets.bottom + 5, borderTopColor: "#d5e1d8", backgroundColor: "#fff" },
         tabBarIcon: ({ color, focused, size }) => {
+          if (route.name === "Capture") {
+            return <View style={styles.captureTabButton}><Ionicons name="camera" size={27} color="#fff" /></View>;
+          }
           const icon: keyof typeof Ionicons.glyphMap = route.name === "Map"
             ? (focused ? "map" : "map-outline")
-            : route.name === "Capture"
-              ? (focused ? "camera" : "camera-outline")
-              : (focused ? "book" : "book-outline");
+            : (focused ? "book" : "book-outline");
           return <Ionicons name={icon} size={size} color={color} />;
         },
       })}>
         <Tab.Screen name="Map">{() => <MapScreen targetCapture={targetCapture} onCapture={(hint) => { setCaptureHint(hint); }} />}</Tab.Screen>
-        <Tab.Screen name="Capture">{() => <CaptureScreen hint={captureHint} onHintConsumed={() => setCaptureHint(undefined)} onCaptureSaved={(capture) => setTargetCapture({ ...capture, timestamp: Date.now() })} />}</Tab.Screen>
+        <Tab.Screen
+          name="Capture"
+          options={{ tabBarLabel: "Snap" }}
+          listeners={{ tabPress: () => setCaptureHint(undefined) }}
+        >
+          {() => <CaptureScreen hint={captureHint} onHintConsumed={() => setCaptureHint(undefined)} onCaptureSaved={(capture) => setTargetCapture({ ...capture, timestamp: Date.now() })} />}
+        </Tab.Screen>
         <Tab.Screen name="Bird-dex" component={DexScreen} />
       </Tab.Navigator>
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  captureTabButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#2f7d5b",
+    borderWidth: 3,
+    borderColor: "#e6f4ec",
+    shadowColor: "#000",
+    shadowOpacity: 0.22,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+});

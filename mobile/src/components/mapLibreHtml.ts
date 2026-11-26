@@ -5,12 +5,12 @@ export function buildMapLibreHtml(): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
   <style>
-    :root { --safe-top: 0px; --safe-right: 0px; --safe-bottom: 0px; --safe-left: 0px; --bottom-hud: calc(98px + var(--safe-bottom)); --track-stack: 78px; }
+    :root { --safe-top: 0px; --safe-right: 0px; --safe-bottom: 0px; --safe-left: 0px; --bottom-hud: calc(16px + var(--safe-bottom)); --track-stack: 78px; }
     html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }
     body { position: relative; overflow: hidden; }
     #sky-gradient { position: absolute; left: 0; right: 0; top: 0; height: 36%; z-index: 2; pointer-events: none; background: linear-gradient(to bottom, rgba(108,190,238,.9), rgba(153,216,242,.38) 48%, rgba(153,216,242,0)); }
     #atmosphere-tint { position: absolute; inset: 0; z-index: 1; pointer-events: none; transition: background 700ms; }
-    #weather-orb { position: absolute; top: calc(var(--safe-top) + 112px); right: 18px; z-index: 3; width: 42px; height: 42px; border-radius: 50%; pointer-events: none; background: #ffd766; box-shadow: 0 0 28px rgba(255,214,102,.72); transition: all 700ms; }
+    #weather-orb { position: absolute; top: calc(var(--safe-top) + 116px); right: 16px; z-index: 3; width: 30px; height: 30px; border-radius: 50%; pointer-events: none; background: #ffd766; box-shadow: 0 0 20px rgba(255,214,102,.62); transition: all 700ms; }
     #weather-particles { position: absolute; inset: 0; z-index: 3; pointer-events: none; opacity: 0; transition: opacity 500ms; }
     body[data-period="dawn"] #sky-gradient { background: linear-gradient(to bottom, rgba(255,157,118,.78), rgba(119,173,222,.34) 52%, rgba(153,216,242,0)); }
     body[data-period="dusk"] #sky-gradient { background: linear-gradient(to bottom, rgba(245,126,103,.82), rgba(108,111,190,.38) 52%, rgba(153,216,242,0)); }
@@ -69,10 +69,11 @@ export function buildMapLibreHtml(): string {
     .maplibregl-popup-close-button { width: 34px; height: 34px; font-size: 21px; line-height: 31px; color: #718177; }
     .maplibregl-ctrl-top-right { top: calc(var(--safe-top) + 156px); right: 84px; }
     .maplibregl-ctrl-group button { width: 44px; height: 44px; }
-    #map-attribution { position: absolute; z-index: 10; top: calc(var(--safe-top) + 112px); left: 8px; font-family: -apple-system, system-ui, sans-serif; }
-    #map-attribution-toggle { width: 44px; height: 44px; border: 0; border-radius: 22px; background: rgba(255,255,255,.92); color: #34453c; box-shadow: 0 2px 8px rgba(0,0,0,.2); font-size: 20px; cursor: pointer; }
-    #map-attribution-copy { display: none; width: 220px; margin-top: 6px; padding: 9px 11px; border-radius: 10px; background: rgba(255,255,255,.96); color: #34453c; box-shadow: 0 2px 10px rgba(0,0,0,.22); font-size: 11px; line-height: 15px; }
+    #map-attribution { position: absolute; z-index: 10; bottom: calc(var(--bottom-hud) + 4px); left: 8px; font-family: -apple-system, system-ui, sans-serif; }
+    #map-attribution-toggle { width: 32px; height: 32px; border: 0; border-radius: 16px; background: rgba(255,255,255,.84); color: #34453c; box-shadow: 0 2px 7px rgba(0,0,0,.18); font-size: 16px; cursor: pointer; }
+    #map-attribution-copy { position: absolute; bottom: 38px; left: 0; display: none; width: 220px; padding: 9px 11px; border-radius: 10px; background: rgba(255,255,255,.96); color: #34453c; box-shadow: 0 2px 10px rgba(0,0,0,.22); font-size: 11px; line-height: 15px; }
     #map-attribution.open #map-attribution-copy { display: block; }
+    #map-attribution.hidden { display: none; }
     #nearby-panel { position: absolute; left: 8px; right: 8px; bottom: var(--bottom-hud); z-index: 6; background: rgba(255,255,255,.96); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.25); font-family: -apple-system, system-ui, sans-serif; overflow: hidden; height: 58px; display: flex; flex-direction: column; transition: transform .15s ease; }
     #nearby-panel.peek { height: 58px; left: auto; width: 136px; }
     #nearby-panel.peek #rare-toggle, #nearby-panel.peek #sort-toggle { display: none; }
@@ -134,9 +135,9 @@ export function buildMapLibreHtml(): string {
     .route-step-icon { width: 26px; text-align: center; color: #2878d1; font-size: 22px; line-height: 22px; font-weight: 900; }
     .route-step-distance { margin-left: auto; white-space: nowrap; color: #6b7d72; font-weight: 600; }
     @keyframes snappulse { 0%,100%{ transform: scale(1);} 50%{ transform: scale(1.07);} }
-    #snap-toast { position: absolute; left: 50%; top: calc(var(--safe-top) + 108px); transform: translateX(-50%); z-index: 8; max-width: 88%; display: none; align-items: center; gap: 8px; background: rgba(217,157,33,.97); color: #fff; border: 0; border-radius: 22px; padding: 4px 10px 4px 14px; font-weight: 800; font-size: 12px; font-family: -apple-system, system-ui, sans-serif; box-shadow: 0 3px 12px rgba(0,0,0,.3); pointer-events: auto; }
+    #snap-toast { position: absolute; left: 50%; top: calc(var(--safe-top) + 62px); transform: translateX(-50%); z-index: 8; max-width: min(82%, 320px); display: none; align-items: center; gap: 8px; background: rgba(217,157,33,.97); color: #fff; border: 0; border-radius: 22px; padding: 4px 10px 4px 14px; font-weight: 800; font-size: 12px; font-family: -apple-system, system-ui, sans-serif; box-shadow: 0 3px 12px rgba(0,0,0,.3); pointer-events: auto; }
     #snap-toast.on { display: flex; }
-    #snap-toast-copy { display: inline-block; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+    #snap-toast-copy { display: inline-block; flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     #snap-toast-go { min-width: 44px; min-height: 44px; flex: 0 0 44px; border: 0; border-radius: 18px; padding: 8px 10px; background: rgba(255,255,255,.22); color: #fff; font-weight: 800; cursor: pointer; }
     #snap-toast-dismiss { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: 0 0 44px; margin: -8px -10px -8px 0; border: 0; background: transparent; color: #fff; border-radius: 50%; font-size: 20px; cursor: pointer; }
     #compass-button { position: absolute; z-index: 7; right: 12px; top: calc(var(--safe-top) + 118px); width: 44px; height: 44px; border: 0; border-radius: 22px; padding: 0; color: white; background: rgba(35, 73, 53, .92); font-size: 20px; display: none; cursor: pointer; }
@@ -250,6 +251,7 @@ export function buildMapLibreHtml(): string {
       var sortToggle = document.getElementById('sort-toggle');
       var nearbyCaret = document.getElementById('nearby-caret');
       var nearbyList = document.getElementById('nearby-list');
+      var lastNearbyCount = null;
       var trackHud = document.getElementById('track-hud');
       var trackArrow = document.getElementById('track-arrow');
       var trackCard = document.getElementById('track-card');
@@ -987,7 +989,8 @@ export function buildMapLibreHtml(): string {
         var nearest = computeNearest();
         var displayEntries = sortEntries(nearest.slice());
         var filtered = rareOnly ? displayEntries.filter(function (entry) { return entry.bird.isNotable; }) : displayEntries;
-        nearbyTitle.textContent = 'Birds nearby (' + filtered.length + ')';
+        lastNearbyCount = filtered.length;
+        nearbyTitle.textContent = nearbyTitleText(lastNearbyCount);
         sortToggle.textContent = sortLabel();
         sortToggle.classList.toggle('on', sortMode !== 'nearest');
         if (!filtered.length) {
@@ -1027,6 +1030,10 @@ export function buildMapLibreHtml(): string {
             snapToastAction = null;
           }
         }
+      }
+
+      function nearbyTitleText(count) {
+        return panelState === 'peek' || count == null ? 'Birds nearby' : 'Birds nearby (' + count + ')';
       }
 
       function updateTrackCard() {
@@ -1108,6 +1115,7 @@ export function buildMapLibreHtml(): string {
         trackHud.classList.remove('on');
         trackCard.classList.remove('on');
         nearbyPanel.classList.remove('tracking');
+        updateAttributionVisibility();
         refreshUi();
         if (headingFollow && lastUserLocation) frameUser(lastUserLocation, 250);
       }
@@ -1149,6 +1157,10 @@ export function buildMapLibreHtml(): string {
           || event.target === sortToggle || (event.target.closest && event.target.closest('#sort-toggle'))) return;
         setNearbyState(panelState === 'peek' ? 'half' : 'peek');
       });
+      function updateAttributionVisibility() {
+        attribution.classList.toggle('hidden', panelState === 'half' || nearbyPanel.classList.contains('tracking'));
+      }
+
       function setNearbyState(state) {
         state = state === 'half' ? 'half' : 'peek';
         panelState = state;
@@ -1156,6 +1168,8 @@ export function buildMapLibreHtml(): string {
         nearbyPanel.classList.add(state);
         if (state === 'peek') nearbyPanel.classList.add('collapsed');
         nearbyCaret.textContent = state === 'peek' ? '▸' : '⌄';
+        nearbyTitle.textContent = nearbyTitleText(lastNearbyCount);
+        updateAttributionVisibility();
         scheduleNearbyGeometry();
       }
       var dragStartY = null;
@@ -1514,14 +1528,15 @@ export function buildMapLibreHtml(): string {
           reportFollowPaused(false);
           programmatic = true;
           markProgrammaticCameraMove();
-          var target = data.userLocation || data.center;
+          var target = lastUserLocation || data.userLocation || data.center;
+          map.stop();
           if (data.firstPerson || headingFollow) {
             headingFollow = true;
-            frameUser(target, 450);
+            frameUser(target, 0);
             if (typeof data.heading === 'number') updateBearing(data.heading);
             enableOrientation();
           } else {
-            map.easeTo({ center: [target.longitude, target.latitude], padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 450, pitch: 55, zoom: Math.max(map.getZoom(), 15.5), bearing: 0 });
+            map.easeTo({ center: [target.longitude, target.latitude], padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 0, pitch: 55, zoom: Math.max(map.getZoom(), 15.5), bearing: 0 });
           }
           programmatic = true;
           setTimeout(function () { programmatic = false; }, 600);
