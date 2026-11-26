@@ -51,7 +51,7 @@
       }
     },
     "extra": {
-      "apiBaseUrl": "",
+      "apiBaseUrl": "https://birdgo.vercel.app",
       "googleMapsApiKey": ""
     }
   }

@@ -72,7 +72,7 @@ The current 3D bird is a lightweight procedural Three.js encounter model rendere
 
 ## iOS and TestFlight
 
-The Expo config uses the iOS bundle identifier `com.mkosoy.birdgo` and includes an App Store icon. Build and upload profiles live in `mobile/eas.json`:
+The Expo config uses the iOS bundle identifier `com.mkosoy.birdgo` and includes an App Store icon. Release builds use the production backend at `https://birdgo.vercel.app`; development builds still use the local backend (`http://10.0.2.2:4000` on the Android emulator and `http://localhost:4000` elsewhere). Build and upload profiles live in `mobile/eas.json`:
 
 ```bash
 cd mobile
