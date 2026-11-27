@@ -7,6 +7,7 @@ import type { BirdAbundance, Coordinates, EbirdObservation } from "../types";
 const BIRD_CACHE_KEY = "birdgo.nearby-birds-cache-v1";
 const BIRD_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const BIRD_CACHE_MAX_DISTANCE_KM = 25;
+const BIRD_CACHE_MAX_AREAS = 8;
 
 interface BirdCachePayload {
   savedAt: number;
@@ -24,27 +25,66 @@ function distanceKm(first: Coordinates, second: Coordinates): number {
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function cacheAreaKey(area: Coordinates): string {
+  return `${Math.round(area.latitude * 10) / 10}:${Math.round(area.longitude * 10) / 10}`;
+}
+
+function validCachePayload(value: unknown): value is BirdCachePayload {
+  const candidate = value as BirdCachePayload | undefined;
+  return Boolean(
+    candidate
+    && Array.isArray(candidate.birds)
+    && Array.isArray(candidate.notable)
+    && Number.isFinite(candidate.savedAt)
+    && Number.isFinite(candidate.area?.latitude)
+    && Number.isFinite(candidate.area?.longitude)
+  );
+}
+
+async function readBirdCacheEntries(): Promise<BirdCachePayload[]> {
+  const raw = await AsyncStorage.getItem(BIRD_CACHE_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as { entries?: unknown } | BirdCachePayload;
+    const entries = Array.isArray((parsed as { entries?: unknown }).entries)
+      ? (parsed as { entries: unknown[] }).entries
+      : validCachePayload(parsed) ? [parsed] : [];
+    return entries.filter(validCachePayload);
+  } catch {
+    return [];
+  }
+}
+
+async function writeBirdCacheEntries(entries: BirdCachePayload[]): Promise<void> {
+  if (!entries.length) {
+    await AsyncStorage.removeItem(BIRD_CACHE_KEY).catch(() => undefined);
+    return;
+  }
+  await AsyncStorage.setItem(BIRD_CACHE_KEY, JSON.stringify({ entries: entries.slice(0, BIRD_CACHE_MAX_AREAS) })).catch(() => undefined);
+}
+
 async function readBirdCache(latitude: number, longitude: number): Promise<BirdCachePayload | undefined> {
   try {
-    const raw = await AsyncStorage.getItem(BIRD_CACHE_KEY);
-    if (!raw) return undefined;
-    const parsed = JSON.parse(raw) as BirdCachePayload;
-    if (!parsed || !Array.isArray(parsed.birds) || !Array.isArray(parsed.notable) || !Number.isFinite(parsed.savedAt)) return undefined;
-    if (Date.now() - parsed.savedAt > BIRD_CACHE_MAX_AGE_MS) return undefined;
-    if (distanceKm({ latitude, longitude }, parsed.area) > BIRD_CACHE_MAX_DISTANCE_KM) return undefined;
-    return parsed;
+    const target = { latitude, longitude };
+    const now = Date.now();
+    return (await readBirdCacheEntries())
+      .filter((entry) => now - entry.savedAt <= BIRD_CACHE_MAX_AGE_MS && distanceKm(target, entry.area) <= BIRD_CACHE_MAX_DISTANCE_KM)
+      .sort((left, right) => distanceKm(target, left.area) - distanceKm(target, right.area))[0];
   } catch {
     return undefined;
   }
 }
 
 async function writeBirdCache(area: Coordinates, birds: EbirdObservation[], notable: EbirdObservation[]): Promise<void> {
+  const entries = await readBirdCacheEntries().catch(() => [] as BirdCachePayload[]);
+  const key = cacheAreaKey(area);
+  const remaining = entries.filter((entry) => cacheAreaKey(entry.area) !== key);
   if (!birds.length && !notable.length) {
-    await AsyncStorage.removeItem(BIRD_CACHE_KEY).catch(() => undefined);
+    await writeBirdCacheEntries(remaining);
     return;
   }
   const payload: BirdCachePayload = { savedAt: Date.now(), area, birds: birds.slice(0, 250), notable: notable.slice(0, 50) };
-  await AsyncStorage.setItem(BIRD_CACHE_KEY, JSON.stringify(payload)).catch(() => undefined);
+  await writeBirdCacheEntries([payload, ...remaining]);
 }
 
 function normalizedIdentity(value?: string | null): string {
