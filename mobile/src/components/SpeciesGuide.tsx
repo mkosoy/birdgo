@@ -50,6 +50,22 @@ async function writeCachedGuide(key: string, guide: SpeciesGuideData): Promise<v
   } catch { /* Guide caching is best-effort. */ }
 }
 
+function mergeRefreshedGuide(cached: SpeciesGuideData | undefined, refreshed: SpeciesGuideData): SpeciesGuideData {
+  if (!cached) return refreshed;
+  const refreshedIds = new Set(refreshed.sounds.map((sound) => sound.id));
+  return {
+    ...refreshed,
+    summary: refreshed.summary ?? cached.summary,
+    summaryUrl: refreshed.summaryUrl ?? cached.summaryUrl,
+    imageUrl: refreshed.imageUrl ?? cached.imageUrl,
+    sounds: [...refreshed.sounds, ...cached.sounds.filter((sound) => !refreshedIds.has(sound.id))],
+    sources: {
+      encyclopedia: refreshed.sources.encyclopedia ?? cached.sources.encyclopedia,
+      audio: refreshed.sources.audio ?? cached.sources.audio,
+    },
+  };
+}
+
 export function SpeciesGuide({ commonName, sciName, showImage = false, compact = false, maxSounds }: SpeciesGuideProps) {
   const [guide, setGuide] = useState<SpeciesGuideData>();
   const [loading, setLoading] = useState(true);
@@ -78,9 +94,10 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
       try {
         const result = await fetchSpeciesGuide({ commonName, sciName });
         if (cancelled) return;
-        setGuide(result);
+        const merged = mergeRefreshedGuide(cached, result);
+        setGuide(merged);
         setError(false);
-        void writeCachedGuide(cacheKey, result);
+        void writeCachedGuide(cacheKey, merged);
       } catch {
         if (!cancelled && !cached) setError(true);
       } finally {
