@@ -55,14 +55,18 @@ function clamp(value: number, min: number, max: number): number {
 
 type SkyfriendKind = "songbird" | "wader" | "owl" | "raptor" | "waterfowl" | "hummingbird" | "woodpecker";
 
+function hasNameToken(lowerName: string, terms: string[]): boolean {
+  return new RegExp(`(^|[^a-z])(${terms.join("|")})($|[^a-z])`).test(lowerName);
+}
+
 function skyfriendKindFor(commonName: string, sciName?: string | null): SkyfriendKind {
   const lowerName = `${commonName} ${sciName ?? ""}`.toLowerCase();
-  if (/heron|egret|crane|bittern|sandpiper|plover|curlew|godwit|dowitcher|snipe|stilt|avocet|yellowlegs/.test(lowerName)) return "wader";
-  if (/\bowl/.test(lowerName)) return "owl";
-  if (/hawk|eagle|falcon|osprey|kite|harrier|vulture/.test(lowerName)) return "raptor";
-  if (/duck|goose|swan|mallard|teal|merganser|grebe|pelican|cormorant|gull|tern|coot/.test(lowerName)) return "waterfowl";
-  if (/hummingbird/.test(lowerName)) return "hummingbird";
-  if (/woodpecker|flicker|sapsucker/.test(lowerName)) return "woodpecker";
+  if (hasNameToken(lowerName, ["heron", "egret", "crane", "bittern", "sandpiper", "plover", "curlew", "godwit", "dowitcher", "snipe", "stilt", "avocet", "yellowlegs", "killdeer"])) return "wader";
+  if (hasNameToken(lowerName, ["owl"])) return "owl";
+  if (hasNameToken(lowerName, ["hawk", "eagle", "falcon", "osprey", "kite", "harrier", "vulture", "kestrel"])) return "raptor";
+  if (hasNameToken(lowerName, ["duck", "goose", "swan", "mallard", "teal", "merganser", "grebe", "pelican", "cormorant", "gull", "tern", "coot"])) return "waterfowl";
+  if (hasNameToken(lowerName, ["hummingbird"])) return "hummingbird";
+  if (hasNameToken(lowerName, ["woodpecker", "flicker", "sapsucker"])) return "woodpecker";
   return "songbird";
 }
 
