@@ -322,17 +322,17 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
             id: 'building-footprint', type: 'fill', source: 'openmaptiles', 'source-layer': 'building',
             minzoom: 15,
             filter: ['!', ['has', 'hide_3d']],
-            paint: { 'fill-color': '#d6d0bd', 'fill-opacity': 0.35, 'fill-outline-color': '#aa9f7e' }
+            paint: { 'fill-color': '#e1dbc9', 'fill-opacity': 0.2, 'fill-outline-color': '#b9ad8f' }
           },
           {
             id: 'building-3d', type: 'fill-extrusion', source: 'openmaptiles', 'source-layer': 'building',
             minzoom: 15,
             filter: ['!', ['has', 'hide_3d']],
             paint: {
-              'fill-extrusion-color': '#ddd8ca',
+              'fill-extrusion-color': '#e2dcc9',
               'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 15, 0, 15.4, ['*', ['coalesce', ['get', 'render_height'], 8], 0.38]],
               'fill-extrusion-base': ['*', ['coalesce', ['get', 'render_min_height'], 0], 0.38],
-              'fill-extrusion-opacity': 0.48,
+              'fill-extrusion-opacity': 0.3,
               'fill-extrusion-vertical-gradient': true
             }
           }
