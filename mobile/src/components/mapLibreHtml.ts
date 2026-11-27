@@ -884,17 +884,13 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         return 0;
       }
 
-      function encounterDistanceScore(entry) {
-        return entry.distance - freshnessBoostKm(entry.bird);
-      }
-
       function computeNearest() {
         return latestMarkers.map(function (bird) {
           return { bird: bird, distance: haversineKm(lastUserLocation, bird) };
         }).filter(function (entry) {
           return entry.distance != null;
         }).sort(function (left, right) {
-          return encounterDistanceScore(left) - encounterDistanceScore(right);
+          return left.distance - right.distance;
         });
       }
 
@@ -906,7 +902,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           if (sortMode === 'rarity') {
             return Number(Boolean(right.bird.isNotable)) - Number(Boolean(left.bird.isNotable)) || left.distance - right.distance;
           }
-          return encounterDistanceScore(left) - encounterDistanceScore(right);
+          return left.distance - right.distance;
         });
       }
 
