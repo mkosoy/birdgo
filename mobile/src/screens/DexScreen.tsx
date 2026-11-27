@@ -6,6 +6,7 @@ import { useCollection } from "../hooks/useCollection";
 import { useTrainerProfile } from "../hooks/useTrainerProfile";
 import { releaseCaptures } from "../store/collection";
 import { Bird3DPreview } from "../components/Bird3DPreview";
+import { DailyQuests } from "../components/DailyQuests";
 import { SpeciesGuide } from "../components/SpeciesGuide";
 import { TrainerAvatar } from "../components/TrainerAvatar";
 import { buildBirdBadges, buildSpeciesDex, levelForXp, RARITY_COLORS, RARITY_ORDER, type SpeciesDexEntry } from "../utils/progression";
@@ -41,7 +42,7 @@ function displayName(entry: SpeciesDexEntry): string {
 }
 
 export function DexScreen() {
-  const { captures, seenSpecies, skyfriends, xp, loading, refresh } = useCollection();
+  const { captures, seenSpecies, skyfriends, xp, questRewards, speciesCaptureCounts, loading, refresh, claimQuest } = useCollection();
   const { trainer, saveTrainer, refresh: refreshTrainer } = useTrainerProfile();
   const [customizing, setCustomizing] = useState(false);
   const [detailUsesModel, setDetailUsesModel] = useState(false);
@@ -156,6 +157,8 @@ export function DexScreen() {
     </ScrollView> : <Text style={styles.hallEmpty}>Capture real birds to build your honor-system Hall of Fame. Skyfriends never appear here.</Text>}
   </View>;
 
+  const questArea = <DailyQuests captures={captures} skyfriends={skyfriends} claimedIds={questRewards} speciesCaptureCounts={speciesCaptureCounts} onClaim={claimQuest} />;
+
   const skyfriendArea = <View style={styles.skyfriendArea}>
     <View style={styles.skyfriendHeader}>
       <View style={styles.skyfriendTitleWrap}>
@@ -196,7 +199,7 @@ export function DexScreen() {
 
   const content = !entries.length
     ? <ScrollView contentContainerStyle={styles.emptyContent}>
-      <View>{header}{hallOfFameArea}{skyfriendArea}</View>
+      <View>{header}{questArea}{hallOfFameArea}{skyfriendArea}</View>
       <View style={styles.center}><Text style={styles.title}>Your Bird-dex is empty</Text><Text style={styles.copy}>Explore the map and capture your first bird.</Text></View>
     </ScrollView>
     : <FlatList
@@ -204,7 +207,7 @@ export function DexScreen() {
       data={entries}
       keyExtractor={(item) => item.key}
       numColumns={2}
-      ListHeaderComponent={header}
+      ListHeaderComponent={<View>{header}{questArea}</View>}
       ListFooterComponent={<View>{hallOfFameArea}{skyfriendArea}</View>}
       renderItem={renderCard}
     />;
