@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { Audio } from "expo-av";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { fetchSpeciesGuide } from "../api";
 import type { SpeciesGuide as SpeciesGuideData, SpeciesGuideSound } from "../types";
@@ -20,6 +21,51 @@ function durationLabel(seconds?: number): string {
   return `${minutes}:${remainder}`;
 }
 
+const GUIDE_CACHE_KEY = "birdgo.species-guide-cache-v1";
+const GUIDE_CACHE_MAX_ENTRIES = 60;
+
+type GuideCacheEntries = Record<string, { savedAt: number; guide: SpeciesGuideData }>;
+
+function guideCacheKey(commonName: string, sciName?: string | null): string {
+  return `${sciName?.trim().toLowerCase() ?? ""}|${commonName.trim().toLowerCase()}`;
+}
+
+async function readCachedGuide(key: string): Promise<SpeciesGuideData | undefined> {
+  try {
+    const raw = await AsyncStorage.getItem(GUIDE_CACHE_KEY);
+    if (!raw) return undefined;
+    return (JSON.parse(raw) as GuideCacheEntries)[key]?.guide;
+  } catch {
+    return undefined;
+  }
+}
+
+async function writeCachedGuide(key: string, guide: SpeciesGuideData): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(GUIDE_CACHE_KEY);
+    const entries: GuideCacheEntries = raw ? JSON.parse(raw) as GuideCacheEntries : {};
+    entries[key] = { savedAt: Date.now(), guide };
+    const sorted = Object.entries(entries).sort((left, right) => right[1].savedAt - left[1].savedAt).slice(0, GUIDE_CACHE_MAX_ENTRIES);
+    await AsyncStorage.setItem(GUIDE_CACHE_KEY, JSON.stringify(Object.fromEntries(sorted)));
+  } catch { /* Guide caching is best-effort. */ }
+}
+
+function mergeRefreshedGuide(cached: SpeciesGuideData | undefined, refreshed: SpeciesGuideData): SpeciesGuideData {
+  if (!cached) return refreshed;
+  const refreshedIds = new Set(refreshed.sounds.map((sound) => sound.id));
+  return {
+    ...refreshed,
+    summary: refreshed.summary ?? cached.summary,
+    summaryUrl: refreshed.summaryUrl ?? cached.summaryUrl,
+    imageUrl: refreshed.imageUrl ?? cached.imageUrl,
+    sounds: [...refreshed.sounds, ...cached.sounds.filter((sound) => !refreshedIds.has(sound.id))],
+    sources: {
+      encyclopedia: refreshed.sources.encyclopedia ?? cached.sources.encyclopedia,
+      audio: refreshed.sources.audio ?? cached.sources.audio,
+    },
+  };
+}
+
 export function SpeciesGuide({ commonName, sciName, showImage = false, compact = false, maxSounds }: SpeciesGuideProps) {
   const [guide, setGuide] = useState<SpeciesGuideData>();
   const [loading, setLoading] = useState(true);
@@ -34,19 +80,30 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
 
   useEffect(() => {
     let cancelled = false;
+    const cacheKey = guideCacheKey(commonName, sciName);
     setLoading(true);
     setError(false);
     setGuide(undefined);
-    void fetchSpeciesGuide({ commonName, sciName })
-      .then((result) => {
-        if (!cancelled) setGuide(result);
-      })
-      .catch(() => {
-        if (!cancelled) setError(true);
-      })
-      .finally(() => {
+    void (async () => {
+      const cached = await readCachedGuide(cacheKey);
+      if (cancelled) return;
+      if (cached) {
+        setGuide(cached);
+        setLoading(false);
+      }
+      try {
+        const result = await fetchSpeciesGuide({ commonName, sciName });
+        if (cancelled) return;
+        const merged = mergeRefreshedGuide(cached, result);
+        setGuide(merged);
+        setError(false);
+        void writeCachedGuide(cacheKey, merged);
+      } catch {
+        if (!cancelled && !cached) setError(true);
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
