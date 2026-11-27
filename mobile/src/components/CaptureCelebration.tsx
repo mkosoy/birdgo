@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Animated, Easing, Image, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { Animated, Easing, Image, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Bird3DPreview } from "./Bird3DPreview";
 import { RARITY_COLORS } from "../utils/progression";
@@ -69,6 +69,7 @@ export function CaptureCelebration({ commonName, sciName, rarity, xp, firstSpeci
           return <Animated.View key={particle.id} style={[styles.particle, { left: `${particle.left}%`, width: particle.size, height: particle.size * 1.45, backgroundColor: particle.color, opacity, transform: [{ translateX }, { translateY }, { rotate }] }]} />;
         })}
       </View>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       <Animated.View style={[styles.card, { opacity: entrance, transform: [{ scale: entrance.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) }, { translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [28, 0] }) }] }]}>
         <Text style={styles.eyebrow}>{headline}</Text>
         <View style={[styles.heroFrame, { borderColor: rarityColor }]}>
@@ -91,12 +92,15 @@ export function CaptureCelebration({ commonName, sciName, rarity, xp, firstSpeci
           <Text style={styles.keepButtonText}>Keep birding</Text>
         </Pressable>
       </Animated.View>
+      </ScrollView>
     </View>
   </Modal>;
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, alignItems: "center", justifyContent: "center", padding: 22, backgroundColor: "rgba(5, 16, 10, 0.72)" },
+  backdrop: { flex: 1, backgroundColor: "rgba(5, 16, 10, 0.72)" },
+  scroll: { width: "100%" },
+  scrollContent: { flexGrow: 1, alignItems: "center", justifyContent: "center", padding: 22 },
   particle: { position: "absolute", top: 0, borderRadius: 3 },
   card: { width: "100%", maxWidth: 360, alignItems: "center", padding: 18, borderRadius: 24, backgroundColor: "#fffdf6", borderWidth: 1, borderColor: "#e4ddc8", elevation: 8 },
   eyebrow: { color: "#2f7d5b", fontSize: 13, fontWeight: "900", letterSpacing: 1.1, textTransform: "uppercase" },
