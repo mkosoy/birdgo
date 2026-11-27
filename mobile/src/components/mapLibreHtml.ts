@@ -1703,7 +1703,8 @@ ${speciesAudioScript()}
             presenceClass: distance == null ? 'presence-mid' : distance <= 0.06 ? 'presence-close' : distance <= 0.12 ? 'presence-near' : distance <= 0.25 ? 'presence-mid' : 'presence-far'
           };
         });
-        var signature = String(trackId || '') + '|' + markerDataSignature(markers) + '|' + JSON.stringify(chosen.map(function (bird, chosenIndex) {
+        var cameraSignature = [map.getZoom().toFixed(2), Math.round(map.getBearing() / 2) * 2, Math.round(map.getPitch())].join(':');
+        var signature = cameraSignature + '|' + String(trackId || '') + '|' + markerDataSignature(markers) + '|' + JSON.stringify(chosen.map(function (bird, chosenIndex) {
           var closeDistance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
           return [bird.id, visualStates[chosenIndex].presenceClass, visualStates[chosenIndex].inRange ? 1 : 0, closeDistance != null && closeDistance < 0.06 ? Math.round(closeDistance * 1000 / 5) * 5 : 0];
         }));
