@@ -138,10 +138,15 @@ function decryptBackupPayload(payload: string, key: string): string {
   return decodeUtf8(plaintext);
 }
 
+async function cloudAccessToken(key: string): Promise<string> {
+  return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, `birdgo-cloud-access-v1:${key}`);
+}
+
 async function cloudSyncRequest<T>(path: string, key: string, options: RequestInit = {}): Promise<T> {
+  const accessToken = await cloudAccessToken(key);
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
-    headers: { "content-type": "application/json", authorization: `Bearer ${key}`, ...options.headers },
+    headers: { "content-type": "application/json", authorization: `Bearer ${accessToken}`, ...options.headers },
   });
   const body = await response.json().catch(() => ({})) as T & { error?: string; currentRevision?: number };
   if (!response.ok) throw new CloudSyncError(body.error ?? `Cloud sync failed (${response.status})`, response.status, body.currentRevision);
