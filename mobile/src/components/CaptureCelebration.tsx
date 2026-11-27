@@ -127,9 +127,9 @@ const styles = StyleSheet.create({
   collectionNote: { color: "#748379", fontSize: 11, marginTop: 3, textAlign: "center" },
   questBox: { width: "100%", marginTop: 11, padding: 10, borderRadius: 14, backgroundColor: "#edf7ef", borderWidth: 1, borderColor: "#c9e5d0" },
   questHeading: { color: "#2f7d5b", fontSize: 10, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 5 },
-  questRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 2 },
-  questName: { flex: 1, color: "#173c2b", fontSize: 11, fontWeight: "900" },
-  questDetail: { flex: 1.4, color: "#52665a", fontSize: 10, fontWeight: "700", textAlign: "right" },
+  questRow: { gap: 1, paddingVertical: 2 },
+  questName: { color: "#173c2b", fontSize: 11, fontWeight: "900" },
+  questDetail: { color: "#52665a", fontSize: 10, fontWeight: "700" },
   keepButton: { width: "100%", minHeight: 48, marginTop: 15, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#2f7d5b" },
   keepButtonText: { color: "#fff", fontSize: 14, fontWeight: "900" },
 });
