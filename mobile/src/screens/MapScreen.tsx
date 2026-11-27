@@ -394,6 +394,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     if (!rareHuntCandidates.has(id)) rareHuntCandidates.set(id, bird);
   });
   const rareHunt = [...rareHuntCandidates.values()]
+    .filter((bird) => !dismissedRareHuntIds.includes(observationMarkerId(bird)))
     .filter((bird) => {
       if (bird.virtual || !bird.comName || distanceKm(location, bird) > 15) return false;
       const ageHours = bird.obsDt ? (Date.now() - new Date(bird.obsDt).getTime()) / 3_600_000 : 24;
