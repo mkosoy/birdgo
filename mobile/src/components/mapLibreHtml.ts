@@ -48,21 +48,25 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
     .bird-marker, .user-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 18px; font-weight: bold; }
     .bird-marker { position: absolute; width: 42px; height: 42px; background: linear-gradient(145deg, #39a874, #23684d); border: 3px solid white; cursor: pointer; box-shadow: 0 3px 9px rgba(0,0,0,.32); }
     @keyframes skyfriendArrive { 0% { opacity: 0; filter: brightness(2.2) saturate(1.6); } 55% { opacity: 1; filter: brightness(1.45) saturate(1.35); } 100% { opacity: 1; filter: none; } }
-    .bird-scale { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transform-origin: center; transition: transform .18s ease-out; }
+    @keyframes birdBob { 0%, 100% { transform: scale(var(--presence-scale, 1)) translateY(0); } 50% { transform: scale(var(--presence-scale, 1)) translateY(-2px); } }
+    .bird-scale { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transform-origin: center; transition: transform .18s ease-out; --presence-scale: 1; transform: scale(var(--presence-scale)); }
     .bird-scale img { position: absolute; left: 2px; top: 2px; width: 36px; height: 36px; object-fit: cover; border-radius: 50%; }
-    .bird-marker.presence-close .bird-scale { transform: scale(1.24); }
-    .bird-marker.presence-near .bird-scale { transform: scale(1.1); }
-    .bird-marker.presence-mid .bird-scale { transform: scale(.92); }
-    .bird-marker.presence-far .bird-scale { transform: scale(.72); }
-    .bird-marker.virtual .bird-scale { animation: skyfriendArrive .65s ease-out; }
-    .bird-marker.virtual.presence-close .bird-scale { transform: scale(1.38); }
-    .bird-marker.virtual.presence-near .bird-scale { transform: scale(1.2); }
-    .bird-marker.virtual.presence-mid .bird-scale { transform: scale(1); }
+    .bird-marker.presence-close .bird-scale { --presence-scale: 1.24; }
+    .bird-marker.presence-near .bird-scale { --presence-scale: 1.1; }
+    .bird-marker.presence-mid .bird-scale { --presence-scale: .92; }
+    .bird-marker.presence-far .bird-scale { --presence-scale: .72; }
+    .bird-marker.virtual .bird-scale { animation: skyfriendArrive .65s ease-out, birdBob 2.6s ease-in-out .7s infinite; }
+    .bird-marker.in-range:not(.virtual) .bird-scale { animation: birdBob 2.2s ease-in-out infinite; }
+    .bird-marker.virtual.presence-close .bird-scale { --presence-scale: 1.38; }
+    .bird-marker.virtual.presence-near .bird-scale { --presence-scale: 1.2; }
+    .bird-marker.virtual.presence-mid .bird-scale { --presence-scale: 1; }
+    @media (prefers-reduced-motion: reduce) { .bird-marker.virtual .bird-scale, .bird-marker.in-range:not(.virtual) .bird-scale { animation: none; } }
     .bird-marker.presence-far { opacity: .78; }
     .bird-marker.in-range { box-shadow: 0 0 0 5px rgba(217,157,33,.38), 0 2px 8px rgba(0,0,0,.3); }
     .bird-marker.notable { background: linear-gradient(145deg, #efbd35, #b97d08); border-color: #fff3bd; }
     .bird-marker.captured { background: #61776c; border-color: #a9f0bf; }
     .bird-marker.virtual { background: linear-gradient(145deg, #7d64f2, #28b9d7); border-color: #d9fbff; box-shadow: 0 0 14px rgba(92,220,255,.72), 0 3px 9px rgba(0,0,0,.32); }
+    .bird-marker.prismatic .bird-scale { animation-duration: .65s, 1.9s; }
     .bird-marker.prismatic { background: linear-gradient(145deg, #ffd766, #7d64f2 48%, #28e0c8); border-color: #fff3bd; box-shadow: 0 0 18px rgba(255,215,102,.88), 0 3px 10px rgba(0,0,0,.34); }
     .thumb-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
     .bird-scale .caught-badge, .bird-scale .skyfriend-badge { position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; }
