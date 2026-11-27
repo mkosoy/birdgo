@@ -102,8 +102,13 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
 
   const copySyncKey = async () => {
     if (!cloudKey) return;
-    await Clipboard.setStringAsync(cloudKey);
-    showMessage("Private sync key copied. Store it somewhere safe and do not share it publicly.");
+    try {
+      const copied = await Clipboard.setStringAsync(cloudKey);
+      if (copied === false) throw new Error("copy failed");
+      showMessage("Private sync key copied. Store it somewhere safe and do not share it publicly.");
+    } catch {
+      showMessage("Copy failed. Select the key text above and copy it manually before leaving setup.", "bad");
+    }
   };
 
   const enableCloudSync = async () => {
