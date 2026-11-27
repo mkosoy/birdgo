@@ -286,6 +286,10 @@ function syncSecret(request: Request): string | undefined {
   return secret && /^[A-Za-z0-9_-]{32,128}$/.test(secret) ? secret : undefined;
 }
 
+app.get("/api/sync/status", (_request, response) => {
+  response.json({ enabled: syncStorageConfigured() });
+});
+
 app.get("/api/sync", async (request, response) => {
   if (syncRateLimited(request)) {
     response.status(429).json({ error: "Too many sync requests. Try again shortly.", status: 429 });
