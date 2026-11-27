@@ -1,4 +1,5 @@
-export function buildMapLibreHtml(): string {
+export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string {
+  const serializedApiBaseUrl = JSON.stringify(options.apiBaseUrl ?? "");
   return `<!doctype html>
 <html>
 <head>
@@ -77,10 +78,13 @@ export function buildMapLibreHtml(): string {
     .encounter .where { font-size: 12px; line-height: 15px; }
     .encounter .distance { font-size: 12px; font-weight: 750; color: #264536; }
     .encounter .field-notes { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; max-height: 45px; overflow: hidden; font-size: 11px; line-height: 15px; }
-    .encounter .actions { display: flex; flex-wrap: nowrap; gap: 6px; margin-top: 9px; }
-    .encounter button { flex: 1 1 0; min-height: 42px; border: 0; border-radius: 10px; padding: 6px 7px; color: white; background: #2f7d5b; font-weight: 800; font-size: 12px; cursor: pointer; box-shadow: inset 0 -2px 0 rgba(0,0,0,.12); }
+    .encounter .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 9px; }
+    .encounter .audio-credit { display: none; color: #68796f; font-size: 9px; line-height: 12px; margin-top: 5px; }
+    .encounter .audio-credit.on { display: block; }
+    .encounter button { min-height: 40px; border: 0; border-radius: 10px; padding: 6px 7px; color: white; background: #2f7d5b; font-weight: 800; font-size: 12px; cursor: pointer; box-shadow: inset 0 -2px 0 rgba(0,0,0,.12); }
     .encounter button:nth-child(2) { background: #2878d1; }
-    .encounter button:nth-child(3) { background: #6f5aa8; }
+    .encounter button:nth-child(3) { background: #d99d21; }
+    .encounter button:nth-child(4) { background: #6f5aa8; }
     .maplibregl-popup { z-index: 9 !important; }
     .maplibregl-popup-content { border-radius: 16px; padding: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.32); }
     .maplibregl-popup-close-button { width: 34px; height: 34px; font-size: 21px; line-height: 31px; color: #718177; }
@@ -315,6 +319,10 @@ export function buildMapLibreHtml(): string {
       var arrowFrame = null;
       var trackId = null;
       var currentPopupBirdId = null;
+      var currentAudio = null;
+      var currentAudioKey = null;
+      var audioRequest = 0;
+      var apiBaseUrl = ${serializedApiBaseUrl};
       var routeDistanceM = null;
       var routeGeometryCoordinates = [];
       var routeAlongM = 0;
@@ -764,6 +772,7 @@ export function buildMapLibreHtml(): string {
       });
 
       function openBirdPopup(bird) {
+        stopBirdAudio();
         if (currentPopup) currentPopup.remove();
         var popup = new maplibregl.Popup({ offset: 24, maxWidth: '282px', closeButton: true })
           .setLngLat([bird.longitude, bird.latitude])
@@ -774,6 +783,7 @@ export function buildMapLibreHtml(): string {
         postOutward({ type: 'popup', open: true });
         popup.on('close', function () {
           if (currentPopup === popup) {
+            stopBirdAudio();
             currentPopup = null;
             currentPopupBirdId = null;
             postOutward({ type: 'popup', open: false });
@@ -1394,6 +1404,88 @@ export function buildMapLibreHtml(): string {
         snapToastAction = null;
       });
 
+      function stopBirdAudio() {
+        audioRequest += 1;
+        if (currentAudio) {
+          try { currentAudio.pause(); } catch (error) { /* noop */ }
+        }
+        currentAudio = null;
+        currentAudioKey = null;
+        resetListenButtons();
+      }
+
+      function speciesGuideUrl(bird) {
+        var params = new URLSearchParams();
+        if (bird.sciName) params.set('sciName', bird.sciName);
+        if (bird.comName) params.set('commonName', bird.comName);
+        return apiBaseUrl + '/api/species/guide?' + params.toString();
+      }
+
+      function resetListenButtons() {
+        document.querySelectorAll('[data-action="listen"]').forEach(function (button) {
+          button.disabled = false;
+          button.textContent = 'Listen';
+        });
+      }
+
+      function toggleBirdAudio(bird, button, popupElement) {
+        if (!button) return;
+        var credit = popupElement ? popupElement.querySelector('[data-audio-credit]') : null;
+        if (currentAudio && currentAudioKey === bird.id) {
+          if (currentAudio.paused) {
+            currentAudio.play().then(function () { button.textContent = 'Pause'; }).catch(function () { button.textContent = 'Listen'; });
+          } else {
+            currentAudio.pause();
+            button.textContent = 'Listen';
+          }
+          return;
+        }
+        stopBirdAudio();
+        resetListenButtons();
+        var requestId = audioRequest;
+        button.disabled = true;
+        button.textContent = 'Loading';
+        fetch(speciesGuideUrl(bird))
+          .then(function (response) { if (!response.ok) throw new Error('guide unavailable'); return response.json(); })
+          .then(function (guide) {
+            if (requestId !== audioRequest) return;
+            var sound = guide && Array.isArray(guide.sounds) && guide.sounds[0];
+            if (!sound || !sound.url) throw new Error('no species recording');
+            var audio = new Audio(sound.url);
+            currentAudio = audio;
+            currentAudioKey = bird.id;
+            audio.addEventListener('ended', function () {
+              if (currentAudio === audio) {
+                currentAudio = null;
+                currentAudioKey = null;
+              }
+              button.textContent = 'Listen';
+            });
+            return audio.play().then(function () {
+              if (requestId !== audioRequest) {
+                audio.pause();
+                return;
+              }
+              button.disabled = false;
+              button.textContent = 'Pause';
+              if (credit) {
+                credit.textContent = 'Audio · ' + (sound.recordist || 'Unknown recordist') + (sound.license ? ' · ' + sound.license : '');
+                credit.classList.add('on');
+              }
+            });
+          })
+          .catch(function () {
+            if (requestId !== audioRequest) return;
+            stopBirdAudio();
+            button.disabled = false;
+            button.textContent = 'No audio';
+            if (credit) {
+              credit.textContent = 'No licensed species recording is available right now.';
+              credit.classList.add('on');
+            }
+          });
+      }
+
       function popupHtml(bird, userLocation) {
         var distance = haversineKm(userLocation, bird);
         var count = typeof bird.howMany === 'number' && bird.howMany > 0 ? ' • ×' + bird.howMany : '';
@@ -1417,7 +1509,8 @@ export function buildMapLibreHtml(): string {
           (frequencyCopy ? '<div class="distance">' + frequencyCopy + '</div>' : '') +
           '<div class="distance" data-capture-copy>' + captureCopy + '</div>' +
           '<div class="field-notes" data-info>How to spot it: Field notes loading…</div>' +
-          '<div class="actions"><button data-action="capture">' + actionLabel + '</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
+          '<div class="audio-credit" data-audio-credit></div>' +
+          '<div class="actions"><button data-action="capture">' + actionLabel + '</button><button data-action="directions">Directions</button><button data-action="listen">Listen</button><button data-action="about">Guide</button></div>' +
           '</div>';
       }
 
@@ -1425,6 +1518,7 @@ export function buildMapLibreHtml(): string {
         var element = popup.getElement();
         if (!element) return;
         element.querySelector('[data-action="capture"]').addEventListener('click', function () {
+          stopBirdAudio();
           postOutward({ type: 'capture', id: bird.id });
           if (bird.virtual) popup.remove();
         });
@@ -1432,7 +1526,11 @@ export function buildMapLibreHtml(): string {
           postOutward({ type: 'directions', id: bird.id, latitude: bird.latitude, longitude: bird.longitude, name: bird.comName });
         });
         element.querySelector('[data-action="about"]').addEventListener('click', function () {
+          stopBirdAudio();
           postOutward({ type: 'about', speciesCode: bird.speciesCode, comName: bird.comName, sciName: bird.sciName });
+        });
+        element.querySelector('[data-action="listen"]').addEventListener('click', function () {
+          toggleBirdAudio(bird, this, element);
         });
         fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(bird.comName || 'Bird'))
           .then(function (response) { if (!response.ok) throw new Error('Wikipedia unavailable'); return response.json(); })
