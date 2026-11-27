@@ -71,6 +71,9 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
     .nb-row.virtual .nb-thumb { box-shadow: 0 0 0 2px #72e7ff inset; background: linear-gradient(145deg, #ece7ff, #dffaff); }
     .nb-row.virtual .nb-name { color: #4241a0; }
     .nb-row.virtual .nb-go { background: linear-gradient(135deg, #735eea, #27aacb); }
+    .nb-row.prismatic .nb-thumb { box-shadow: 0 0 0 2px #ffd766 inset, 0 0 10px rgba(255,215,102,.5); background: linear-gradient(145deg, #fff2bc, #dffaff); }
+    .nb-row.prismatic .nb-name { color: #8a6210; }
+    .nb-row.prismatic .nb-go { background: linear-gradient(135deg, #d6a525, #735eea); }
     .user-marker { position: absolute; width: 46px; height: 46px; background: linear-gradient(#2f8ee8,#175fb4); border: 3px solid white; box-shadow: 0 0 0 2px rgba(40,120,209,.45), 0 4px 10px rgba(0,0,0,.35); }
     .user-marker::before { content: ''; position: absolute; top: 50%; left: 50%; width: 60px; height: 60px; border-radius: 50%; border: 2px solid rgba(40, 120, 209, 0.55); animation: pulse 1.8s ease-out infinite; }
     @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(1.45); opacity: 0; } }
@@ -1173,11 +1176,11 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           nearbyList.innerHTML = filtered.slice(0, 14).map(function (entry) {
             var bird = entry.bird;
             var name = bird.comName || bird.sciName || 'Bird';
-            var rareClass = (bird.isNotable ? ' rare' : '') + (bird.virtual ? ' virtual' : '');
+            var rareClass = (bird.isNotable ? ' rare' : '') + (bird.virtual ? ' virtual' : '') + (bird.prismatic ? ' prismatic' : '');
             return '<div class="nb-row' + rareClass + '" data-bird-id="' + escapeHtml(bird.id) + '">' +
               '<div class="nb-thumb">' + thumbInnerHtml(bird) + '</div>' +
               '<div class="nb-info"><div class="nb-name">' + escapeHtml(name) + (bird.isNotable ? ' <span class="star">★</span>' : '') + '</div>' +
-              '<div class="nb-sub">' + fmtDist(entry.distance) + ' away · ' + etaMin(entry.distance) + ' min walk · ' + (bird.virtual ? 'Skyfriend' : 'seen ' + escapeHtml(bird.relativeTime || 'recently')) + (bird.captureCount ? ' · collected ×' + bird.captureCount : '') + '</div></div>' +
+              '<div class="nb-sub">' + fmtDist(entry.distance) + ' away · ' + etaMin(entry.distance) + ' min walk · ' + (bird.virtual ? (bird.prismatic ? 'Prismatic Skyfriend' : 'Skyfriend') : 'seen ' + escapeHtml(bird.relativeTime || 'recently')) + (bird.captureCount ? ' · collected ×' + bird.captureCount : '') + '</div></div>' +
               '<button class="nb-go' + rareClass + '" type="button" data-go-id="' + escapeHtml(bird.id) + '">Go</button>' +
               '</div>';
           }).join('');
@@ -1189,14 +1192,14 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           var closest = nearest[0];
           if (closest && closest.distance * 1000 <= SNAP_M) {
             var closestName = closest.bird.comName || closest.bird.sciName || 'Bird';
-            var closestLabel = (closest.bird.virtual ? 'Skyfriend ' : '') + closestName;
+            var closestLabel = (closest.bird.virtual ? closest.bird.prismatic ? 'Prismatic Skyfriend ' : 'Skyfriend ' : '') + closestName;
             snapToastCopy.textContent = (compactToast() ? '' : closest.bird.virtual ? 'Collect ' : 'Snap ') + closestLabel + ' · ' + fmtDist(closest.distance);
             snapToastGo.textContent = closest.bird.virtual ? 'Collect' : 'Snap';
             setToast(true);
             snapToastAction = function () { capture(closest.bird.id); };
           } else if (closest && closest.distance * 1000 <= 180) {
             var nearbyName = closest.bird.comName || closest.bird.sciName || 'Bird';
-            snapToastCopy.textContent = (compactToast() && !closest.bird.virtual ? '' : closest.bird.virtual ? 'Skyfriend ' : 'Nearby ') + nearbyName + ' · ' + fmtDist(closest.distance);
+            snapToastCopy.textContent = (compactToast() && !closest.bird.virtual ? '' : closest.bird.virtual ? closest.bird.prismatic ? 'Prismatic Skyfriend ' : 'Skyfriend ' : 'Nearby ') + nearbyName + ' · ' + fmtDist(closest.distance);
             snapToastGo.textContent = 'Go';
             setToast(true);
             snapToastAction = function () { startTrack(closest.bird); };
