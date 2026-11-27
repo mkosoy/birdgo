@@ -125,6 +125,7 @@ export interface SpeciesGuideSound {
   durationSeconds?: number;
   recordingType?: string;
   description?: string;
+  source?: string;
 }
 
 export interface SpeciesGuide {

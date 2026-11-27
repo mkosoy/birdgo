@@ -120,8 +120,9 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
           {entry.descriptionUrl ? <Pressable accessibilityRole="link" accessibilityLabel={`Open audio source for ${entry.title}`} hitSlop={8} style={styles.sourceButton} onPress={() => void Linking.openURL(entry.descriptionUrl as string)}><Ionicons name="open-outline" size={17} color="#5c6f65" /></Pressable> : null}
         </View>;
       })}
-      <Text style={styles.attribution}>Audio from Wikimedia Commons / xeno-canto contributors; licenses shown per recording.</Text>
+      <Text style={styles.attribution}>Audio from {[...new Set(guide.sounds.map((sound) => sound.source ?? "Wikimedia Commons / xeno-canto"))].join(" and ")}; licenses shown per recording.</Text>
     </> : null}
+    {!loading && !error && guide && !guide.sounds.length ? <Text style={styles.noSoundText}>No species recording is available yet.</Text> : null}
   </View>;
 }
 
@@ -149,4 +150,5 @@ const styles = StyleSheet.create({
   soundDescription: { color: "#4c6255", fontSize: 10, lineHeight: 14, marginTop: 2 },
   soundMeta: { color: "#68796f", fontSize: 10, fontWeight: "700", marginTop: 2 },
   attribution: { color: "#7b8a80", fontSize: 9, lineHeight: 13, marginTop: 7 },
+  noSoundText: { color: "#748379", fontSize: 11, lineHeight: 15, marginTop: 7 },
 });

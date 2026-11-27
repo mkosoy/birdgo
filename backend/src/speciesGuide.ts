@@ -8,6 +8,7 @@ export interface SpeciesGuideSound {
   durationSeconds?: number;
   recordingType?: string;
   description?: string;
+  source?: string;
 }
 
 export interface SpeciesGuide {
@@ -59,6 +60,39 @@ interface CommonsResponse {
   query?: {
     pages?: Record<string, CommonsPage>;
   };
+}
+
+interface InatSound {
+  id?: number;
+  license_code?: string | null;
+  attribution?: string;
+  file_url?: string;
+  file_content_type?: string;
+  hidden?: boolean;
+}
+
+interface InatObservationSound {
+  id?: number;
+  uri?: string;
+  description?: string | null;
+  observed_on?: string | null;
+  place_guess?: string | null;
+  quality_grade?: string;
+  taxon?: {
+    name?: string;
+    preferred_common_name?: string;
+    iconic_taxon_name?: string;
+    rank?: string;
+  } | null;
+  user?: {
+    login?: string;
+    name?: string;
+  };
+  sounds?: InatSound[];
+}
+
+interface InatSoundResponse {
+  results?: InatObservationSound[];
 }
 
 const GUIDE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -230,6 +264,7 @@ async function fetchCommonsSounds(scientificName?: string, commonName?: string):
           ...(typeof info.duration === "number" && Number.isFinite(info.duration) ? { durationSeconds: Math.round(info.duration) } : {}),
           ...(recordingType(info) ? { recordingType: recordingType(info) } : {}),
           ...(recordingDescription(info) ? { description: recordingDescription(info) } : {}),
+          source: "Wikimedia Commons / xeno-canto",
         } satisfies SpeciesGuideSound,
       }];
     })
@@ -241,13 +276,100 @@ async function fetchCommonsSounds(scientificName?: string, commonName?: string):
   return [];
 }
 
+function inatLicenseLabel(code?: string | null): string | undefined {
+  const normalized = code?.trim().toLowerCase();
+  if (normalized === "cc0") return "CC0";
+  if (normalized === "cc-by") return "CC BY";
+  if (normalized === "cc-by-sa") return "CC BY-SA";
+  return undefined;
+}
+
+function inatTaxonMatches(observation: InatObservationSound, scientificName?: string, commonName?: string): boolean {
+  const taxon = observation.taxon;
+  if (!taxon || taxon.iconic_taxon_name !== "Aves") return false;
+  const scientific = scientificName ? normalizeName(scientificName) : "";
+  const common = commonName ? normalizeName(commonName) : "";
+  if (scientific) return Boolean(taxon.name && normalizeName(taxon.name) === scientific);
+  return Boolean(common && taxon.preferred_common_name && normalizeName(taxon.preferred_common_name) === common);
+}
+
+function inatContext(observation: InatObservationSound): string | undefined {
+  const cleanedDescription = cleanHtml(observation.description ?? undefined);
+  if (cleanedDescription) return cleanedDescription.length > 170 ? `${cleanedDescription.slice(0, 167).trim()}…` : cleanedDescription;
+  const parts = [
+    observation.observed_on ? `Recorded ${observation.observed_on}` : undefined,
+    observation.place_guess ? `in ${observation.place_guess}` : undefined,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" ") : undefined;
+}
+
+async function searchInaturalistSounds(query: string): Promise<InatObservationSound[]> {
+  const params = new URLSearchParams({
+    taxon_name: query,
+    sounds: "true",
+    per_page: "20",
+    order_by: "votes",
+  });
+  const payload = await fetchJson<InatSoundResponse>(`https://api.inaturalist.org/v1/observations?${params.toString()}`);
+  return payload.results ?? [];
+}
+
+async function fetchInaturalistSounds(scientificName?: string, commonName?: string): Promise<SpeciesGuideSound[]> {
+  const queries = [scientificName, commonName]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .filter((value, index, values) => normalizeName(value) !== normalizeName(values[index - 1] ?? ""));
+  for (const query of queries) {
+    let observations: InatObservationSound[] = [];
+    try {
+      observations = await searchInaturalistSounds(query.trim());
+    } catch {
+      continue;
+    }
+    const sounds = observations
+      .filter((observation) => inatTaxonMatches(observation, scientificName, commonName))
+      .sort((left, right) => (left.quality_grade === "research" ? 0 : 1) - (right.quality_grade === "research" ? 0 : 1))
+      .flatMap((observation) => (observation.sounds ?? []).flatMap((sound) => {
+        const license = inatLicenseLabel(sound.license_code);
+        if (!license || sound.hidden || !sound.file_url || !sound.id) return [];
+        return [{
+          id: `inat-${sound.id}`,
+          title: `${observation.taxon?.preferred_common_name ?? commonName ?? scientificName ?? "Bird"} field recording`,
+          url: sound.file_url,
+          ...(observation.uri ? { descriptionUrl: observation.uri } : {}),
+          ...(observation.user?.name || observation.user?.login ? { recordist: observation.user.name ?? observation.user.login } : {}),
+          license,
+          recordingType: "field recording",
+          ...(inatContext(observation) ? { description: inatContext(observation) } : {}),
+          source: "iNaturalist",
+        } satisfies SpeciesGuideSound];
+      }))
+      .sort((left, right) => Number(left.url.includes(".wav")) - Number(right.url.includes(".wav")))
+      .slice(0, 3);
+    if (sounds.length) return sounds;
+  }
+  return [];
+}
+
+async function fetchGuideSounds(scientificName?: string, commonName?: string): Promise<SpeciesGuideSound[]> {
+  const [commonsSounds, inaturalistSounds] = await Promise.all([
+    fetchCommonsSounds(scientificName, commonName).catch(() => []),
+    fetchInaturalistSounds(scientificName, commonName).catch(() => []),
+  ]);
+  const seenUrls = new Set<string>();
+  return [...commonsSounds, ...inaturalistSounds].filter((sound) => {
+    if (seenUrls.has(sound.url)) return false;
+    seenUrls.add(sound.url);
+    return true;
+  }).slice(0, 3);
+}
+
 export async function fetchSpeciesGuide(scientificName?: string, commonName?: string): Promise<SpeciesGuide> {
   const key = `${normalizeName(scientificName ?? "")}|${normalizeName(commonName ?? "")}`;
   const cached = guideCache.get(key);
   if (cached && cached.expiresAt > Date.now()) return cached.guide;
   const [summary, sounds] = await Promise.all([
     fetchWikipediaSummary(scientificName, commonName).catch(() => undefined),
-    fetchCommonsSounds(scientificName, commonName).catch(() => []),
+    fetchGuideSounds(scientificName, commonName).catch(() => []),
   ]);
   const guide: SpeciesGuide = {
     ...(summary?.summary ? { summary: summary.summary } : {}),
@@ -256,7 +378,7 @@ export async function fetchSpeciesGuide(scientificName?: string, commonName?: st
     sounds,
     sources: {
       ...(summary?.summaryUrl ? { encyclopedia: "Wikipedia" } : {}),
-      ...(sounds.length ? { audio: "Wikimedia Commons / xeno-canto contributors" } : {}),
+      ...(sounds.length ? { audio: [...new Set(sounds.map((sound) => sound.source ?? "Wikimedia Commons / xeno-canto"))].join(" / ") } : {}),
     },
   };
   guideCache.set(key, { guide, expiresAt: Date.now() + GUIDE_CACHE_TTL_MS });
