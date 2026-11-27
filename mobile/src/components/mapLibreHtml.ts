@@ -868,13 +868,33 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         return Math.max(1, Math.round(km * 1000 / 81));
       }
 
+      function observationAgeHours(bird) {
+        if (!bird || !bird.obsDt) return 999;
+        var age = (Date.now() - new Date(bird.obsDt).getTime()) / 3600000;
+        return Number.isFinite(age) ? Math.max(0, age) : 999;
+      }
+
+      function freshnessBoostKm(bird) {
+        if (!bird || bird.virtual) return 0;
+        if (bird.source === 'birdweather') return 1.4;
+        var age = observationAgeHours(bird);
+        if (age <= 12) return 0.45;
+        if (age <= 36) return 0.2;
+        if (age > 48) return -0.35;
+        return 0;
+      }
+
+      function encounterDistanceScore(entry) {
+        return entry.distance - freshnessBoostKm(entry.bird);
+      }
+
       function computeNearest() {
         return latestMarkers.map(function (bird) {
           return { bird: bird, distance: haversineKm(lastUserLocation, bird) };
         }).filter(function (entry) {
           return entry.distance != null;
         }).sort(function (left, right) {
-          return left.distance - right.distance;
+          return encounterDistanceScore(left) - encounterDistanceScore(right);
         });
       }
 
@@ -886,7 +906,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           if (sortMode === 'rarity') {
             return Number(Boolean(right.bird.isNotable)) - Number(Boolean(left.bird.isNotable)) || left.distance - right.distance;
           }
-          return left.distance - right.distance;
+          return encounterDistanceScore(left) - encounterDistanceScore(right);
         });
       }
 
@@ -1474,7 +1494,7 @@ ${speciesAudioScript()}
         var distance = haversineKm(userLocation, bird);
         var count = typeof bird.howMany === 'number' && bird.howMany > 0 ? ' • ×' + bird.howMany : '';
         var virtual = Boolean(bird.virtual);
-        var frequencyCopy = !virtual && typeof bird.reportCount === 'number' && bird.reportCount > 0 ? 'Reported at ' + bird.reportCount + ' location' + (bird.reportCount === 1 ? '' : 's') + ' recently' : '';
+        var frequencyCopy = !virtual && bird.source !== 'birdweather' && typeof bird.reportCount === 'number' && bird.reportCount > 0 ? 'Reported at ' + bird.reportCount + ' location' + (bird.reportCount === 1 ? '' : 's') + ' recently' : '';
         var statusCopy = virtual ? (bird.prismatic ? 'Prismatic virtual encounter' : 'Virtual learning encounter') : bird.source === 'birdweather' ? 'Live acoustic detection · ' + escapeHtml(bird.relativeTime || 'recently') : 'Past sighting · ' + escapeHtml(bird.relativeTime || 'recently');
         var captureCopy = virtual
           ? distance != null && distance > 0.06
@@ -1683,7 +1703,7 @@ ${speciesAudioScript()}
         }
         function markerScore(bird) {
           var distance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
-          return (distance == null ? 999 : distance) - (bird.isNotable ? 0.35 : 0) - (bird.captureCount ? 0.1 : 0);
+          return (distance == null ? 999 : distance) - freshnessBoostKm(bird) - (bird.isNotable ? 0.2 : 0) - (bird.captureCount ? 0.1 : 0);
         }
         var sorted = (markers || []).slice().sort(function (left, right) {
           var leftTracked = trackId && String(left.id) === String(trackId) ? 0 : 1;
