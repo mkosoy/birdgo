@@ -218,12 +218,6 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   }, {}), [captures]);
   const skyfriendCellsKey = useMemo(() => skyfriendCellKeysAround(location).join("|"), [location]);
   const skyfriendCells = useMemo(() => skyfriendCellsKey.split("|"), [skyfriendCellsKey]);
-  const spawnAnchorLatitude = Math.round(location.latitude * 5000) / 5000;
-  const spawnAnchorLongitude = Math.round(location.longitude * 5000) / 5000;
-  const skyfriendSpawnLocation = useMemo(
-    () => ({ latitude: spawnAnchorLatitude, longitude: spawnAnchorLongitude }),
-    [spawnAnchorLatitude, spawnAnchorLongitude],
-  );
   useEffect(() => {
     let active = true;
     setSpawnSpeciesAssignments(null);
@@ -239,16 +233,16 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     () => spawnSpeciesAssignments
       ? skyfriendCells.map((cellKey) => ({
         cellKey,
-        spawns: buildSkyfriendSpawns(birds, skyfriendSpawnLocation, new Date(), spawnSpeciesAssignments[cellKey] ?? [], cellKey, cellKey === trackedSkyfriendCellKey),
+        spawns: buildSkyfriendSpawns(birds, location, new Date(), spawnSpeciesAssignments[cellKey] ?? [], cellKey, cellKey === trackedSkyfriendCellKey),
       }))
       : [],
-    [birds, skyfriendSpawnLocation, skyfriendCells, spawnSpeciesAssignments, trackedSkyfriendCellKey],
+    [birds, location, skyfriendCells, spawnSpeciesAssignments, trackedSkyfriendCellKey],
   );
   const skyfriendSpawns = useMemo(
     () => skyfriendSpawnGroups.flatMap((group) => group.spawns)
-      .filter((bird) => distanceKm(skyfriendSpawnLocation, bird) <= 0.55)
-      .sort((left, right) => distanceKm(skyfriendSpawnLocation, left) - distanceKm(skyfriendSpawnLocation, right)),
-    [skyfriendSpawnLocation, skyfriendSpawnGroups],
+      .filter((bird) => distanceKm(location, bird) <= 0.55)
+      .sort((left, right) => distanceKm(location, left) - distanceKm(location, right)),
+    [location, skyfriendSpawnGroups],
   );
   useEffect(() => {
     if (!spawnSpeciesAssignments) return;
