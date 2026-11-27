@@ -19,7 +19,7 @@ import { claimDailyBonusXp, hasDailyBonus } from "../store/collection";
 import type { Coordinates, EbirdObservation, SeenSpecies } from "../types";
 import { rarityForSpecies, speciesKeyAliases } from "../utils/progression";
 import { buildBirdwalkPlan, xpForBirdwalk, type BirdwalkState, type BirdwalkStop } from "../utils/birdwalk";
-import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround } from "../utils/skyfriends";
+import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround, skyfriendCellKeyFromEncounterId } from "../utils/skyfriends";
 
 type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string };
 type GuideTarget = { speciesCode: string; comName: string; sciName?: string };
@@ -217,14 +217,15 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     });
     return () => { active = false; };
   }, [skyfriendCells, skyfriendCellsKey]);
+  const trackedSkyfriendCellKey = skyfriendCellKeyFromEncounterId(activeTrackTarget?.id);
   const skyfriendSpawnGroups = useMemo(
     () => spawnSpeciesAssignments
       ? skyfriendCells.map((cellKey) => ({
         cellKey,
-        spawns: buildSkyfriendSpawns(birds, location, new Date(), spawnSpeciesAssignments[cellKey] ?? [], cellKey),
+        spawns: buildSkyfriendSpawns(birds, location, new Date(), spawnSpeciesAssignments[cellKey] ?? [], cellKey, cellKey === trackedSkyfriendCellKey),
       }))
       : [],
-    [birds, location, skyfriendCells, spawnSpeciesAssignments],
+    [birds, location, skyfriendCells, spawnSpeciesAssignments, trackedSkyfriendCellKey],
   );
   const skyfriendSpawns = useMemo(
     () => skyfriendSpawnGroups.flatMap((group) => group.spawns)
