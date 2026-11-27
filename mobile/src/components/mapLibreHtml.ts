@@ -12,6 +12,13 @@ export function buildMapLibreHtml(): string {
     #atmosphere-tint { position: absolute; inset: 0; z-index: 1; pointer-events: none; transition: background 700ms; }
     #weather-orb { position: absolute; top: calc(var(--safe-top) + 116px); right: 16px; z-index: 3; width: 30px; height: 30px; border-radius: 50%; pointer-events: none; background: #ffd766; box-shadow: 0 0 20px rgba(255,214,102,.62); transition: all 700ms; }
     #weather-particles { position: absolute; inset: 0; z-index: 3; pointer-events: none; opacity: 0; transition: opacity 500ms; }
+    #map-loading { position: absolute; inset: 0; z-index: 4; pointer-events: none; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 38%, rgba(213,239,182,.94), rgba(128,196,126,.96) 52%, rgba(80,153,109,.98)); opacity: 1; transition: opacity 550ms ease; }
+    #map-loading.hidden { opacity: 0; }
+    #map-loading-card { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 22px; border-radius: 24px; color: #173c2b; font-family: -apple-system, system-ui, sans-serif; text-align: center; text-shadow: 0 1px 0 rgba(255,255,255,.45); }
+    #map-loading-ring { width: 54px; height: 54px; border-radius: 50%; border: 5px solid rgba(255,255,255,.45); border-top-color: #fff; box-shadow: 0 4px 18px rgba(31,91,55,.2); animation: map-loading-spin 1.1s linear infinite; }
+    #map-loading-title { font-size: 18px; font-weight: 900; letter-spacing: .1px; }
+    #map-loading-subtitle { font-size: 12px; font-weight: 700; color: rgba(23,60,43,.72); }
+    @keyframes map-loading-spin { to { transform: rotate(360deg); } }
     body[data-period="dawn"] #sky-gradient { background: linear-gradient(to bottom, rgba(255,157,118,.78), rgba(119,173,222,.34) 52%, rgba(153,216,242,0)); }
     body[data-period="dusk"] #sky-gradient { background: linear-gradient(to bottom, rgba(245,126,103,.82), rgba(108,111,190,.38) 52%, rgba(153,216,242,0)); }
     body[data-period="night"] #sky-gradient { background: linear-gradient(to bottom, rgba(12,24,70,.92), rgba(31,56,111,.42) 52%, rgba(31,56,111,0)); }
@@ -170,6 +177,7 @@ export function buildMapLibreHtml(): string {
   <div id="sky-gradient"></div>
   <div id="weather-orb"></div>
   <div id="weather-particles"></div>
+  <div id="map-loading"><div id="map-loading-card"><div id="map-loading-ring"></div><div id="map-loading-title">Scanning the canopy</div><div id="map-loading-subtitle">Loading nearby habitat</div></div></div>
   <div id="track-hud"><div id="track-arrow">⬆</div></div>
   <div id="nearby-panel" class="collapsed peek">
     <div id="nearby-handle" aria-hidden="true"></div>
@@ -279,6 +287,15 @@ export function buildMapLibreHtml(): string {
         bearing: 0,
         attributionControl: false
       });
+      var mapLoading = document.getElementById('map-loading');
+      var mapLoadingHidden = false;
+      function hideMapLoading() {
+        if (mapLoadingHidden) return;
+        mapLoadingHidden = true;
+        if (mapLoading) mapLoading.classList.add('hidden');
+      }
+      map.once('idle', hideMapLoading);
+      setTimeout(hideMapLoading, 6500);
       var birdMarkers = [];
       var currentPopup = null;
       var userMarker = null;
