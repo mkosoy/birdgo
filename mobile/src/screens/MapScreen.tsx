@@ -32,7 +32,7 @@ function externalSpeciesUrl(target: GuideTarget): string {
     ? `https://www.inaturalist.org/taxa/${target.speciesCode.slice(5)}`
     : target.speciesCode && !target.speciesCode.startsWith("bw-")
     ? `https://ebird.org/species/${target.speciesCode}`
-    : `https://ebird.org/search?q=${encodeURIComponent(target.comName)}`;
+    : `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(target.comName)}`;
 }
 
 function formatObservationAge(obsDt: string | undefined, source?: string): string {
