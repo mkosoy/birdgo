@@ -23,6 +23,7 @@ const BACKUP_KEYS = [
 ] as const;
 
 const MAX_BACKUP_BYTES = Platform.OS === "web" ? 4 * 1024 * 1024 : 25 * 1024 * 1024;
+const MAX_VALUE_CHARS = 1_500_000;
 const keySet = new Set<string>(BACKUP_KEYS);
 
 type BackupEntries = Record<string, string>;
@@ -39,9 +40,27 @@ function timestampSlug(date = new Date()): string {
   return date.toISOString().slice(0, 19).replace(/[T:]/g, "-");
 }
 
+function withoutPhotoReferences(raw: string | undefined): string | undefined {
+  if (!raw) return raw;
+  try {
+    const captures = JSON.parse(raw) as Record<string, unknown>[];
+    if (!Array.isArray(captures)) return raw;
+    return JSON.stringify(captures.map((capture) => {
+      if (!capture || typeof capture !== "object") return capture;
+      const { photoUri, ...metadata } = capture;
+      return typeof photoUri === "string" && photoUri ? { ...metadata, photoEvidenceProvided: true } : metadata;
+    }));
+  } catch {
+    return raw;
+  }
+}
+
 export async function createCollectionBackupJson(): Promise<string> {
   const pairs = await AsyncStorage.multiGet([...BACKUP_KEYS]);
-  const entries = Object.fromEntries(pairs.flatMap(([key, value]) => value == null ? [] : [[key, value]]));
+  const entries = Object.fromEntries(pairs.flatMap(([key, value]) => {
+    if (value == null) return [];
+    return [[key, key === "birdgo.captures" ? withoutPhotoReferences(value) ?? value : value]];
+  }));
   const backup: BackupFile = {
     app: "birdgo",
     kind: "collection-backup",
@@ -49,7 +68,9 @@ export async function createCollectionBackupJson(): Promise<string> {
     exportedAt: new Date().toISOString(),
     entries,
   };
-  return JSON.stringify(backup, null, 2);
+  const json = JSON.stringify(backup, null, 2);
+  if (json.length > MAX_BACKUP_BYTES) throw new Error("This collection is too large for a portable backup right now.");
+  return json;
 }
 
 async function downloadBackupWeb(json: string): Promise<void> {
@@ -101,6 +122,19 @@ function validJsonObject(value: string | undefined): boolean {
   }
 }
 
+function optionalString(value: unknown, allowNull = false): boolean {
+  return value === undefined || (allowNull && value === null) || typeof value === "string";
+}
+
+function validCoordinates(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const coordinates = value as Record<string, unknown>;
+  return typeof coordinates.latitude === "number"
+    && Number.isFinite(coordinates.latitude)
+    && typeof coordinates.longitude === "number"
+    && Number.isFinite(coordinates.longitude);
+}
+
 function validateCaptureList(raw: string | undefined): boolean {
   if (raw == null) return true;
   try {
@@ -108,13 +142,36 @@ function validateCaptureList(raw: string | undefined): boolean {
     return Array.isArray(captures) && captures.every((capture) => {
       if (!capture || typeof capture !== "object") return false;
       const record = capture as Record<string, unknown>;
-      const location = record.location as Record<string, unknown> | undefined;
       return typeof record.id === "string"
         && typeof record.commonName === "string"
         && typeof record.timestamp === "string"
-        && Boolean(location)
-        && typeof location?.latitude === "number"
-        && typeof location?.longitude === "number";
+        && validCoordinates(record.location)
+        && optionalString(record.speciesCode)
+        && optionalString(record.sciName, true)
+        && optionalString(record.canonicalKey)
+        && optionalString(record.photoUri)
+        && (record.rarity === undefined || ["common", "uncommon", "rare", "epic", "legendary"].includes(String(record.rarity)))
+        && (record.verified === undefined || typeof record.verified === "boolean")
+        && (record.photoEvidenceProvided === undefined || typeof record.photoEvidenceProvided === "boolean")
+        && (record.xpAwarded === undefined || typeof record.xpAwarded === "number");
+    });
+  } catch {
+    return false;
+  }
+}
+
+function validateSeenSpeciesList(raw: string | undefined): boolean {
+  if (raw == null) return true;
+  try {
+    const seen = JSON.parse(raw) as unknown[];
+    return Array.isArray(seen) && seen.every((species) => {
+      if (!species || typeof species !== "object") return false;
+      const record = species as Record<string, unknown>;
+      return typeof record.speciesCode === "string"
+        && typeof record.comName === "string"
+        && optionalString(record.sciName)
+        && optionalString(record.canonicalKey)
+        && (record.location === undefined || validCoordinates(record.location));
     });
   } catch {
     return false;
@@ -138,11 +195,12 @@ export function validateCollectionBackup(json: string): BackupEntries {
   const entries: BackupEntries = {};
   for (const [key, value] of Object.entries(parsed.entries)) {
     if (!keySet.has(key) || typeof value !== "string") throw new Error("This backup contains unsupported or corrupted data.");
+    if (value.length > MAX_VALUE_CHARS) throw new Error("This backup contains a record too large for mobile storage.");
     entries[key] = value;
   }
   if (!Object.keys(entries).length) throw new Error("This backup is empty.");
   if (!validateCaptureList(entries["birdgo.captures"])) throw new Error("The capture records in this backup are corrupted.");
-  if (!validJsonArray(entries["birdgo.seen"])
+  if (!validateSeenSpeciesList(entries["birdgo.seen"])
     || !validJsonArray(entries["birdgo.xp-events"])
     || !validJsonArray(entries["birdgo.discovered-species"])
     || !validJsonArray(entries["birdgo.species-capture-count-groups-v1"])

@@ -54,7 +54,7 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
       <View style={styles.iconWrap}><Ionicons name="cloud-download-outline" size={17} color="#235040" /></View>
       <View style={styles.copyWrap}>
         <Text style={styles.title}>Collection backup</Text>
-        <Text style={styles.copy}>Export or restore species records, journal metadata, XP, Skyfriends, and trainer identity. Photo image files are not guaranteed across devices; cloud sync is not yet enabled.</Text>
+        <Text style={styles.copy}>Export or restore species records, journal metadata, XP, Skyfriends, and trainer identity. Photo image files are not included yet; cloud sync is not enabled.</Text>
       </View>
     </View>
     {!confirmingImport ? <View style={styles.actions}>
