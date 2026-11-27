@@ -37,6 +37,14 @@ export function observationMarkerId(bird: Pick<EbirdObservation, "speciesCode" |
   return `${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`;
 }
 
+export function skyfriendCellKeyFromEncounterId(encounterId?: string): string | undefined {
+  const locId = encounterId?.split(":")[1];
+  if (!locId?.startsWith("skyfriend-")) return undefined;
+  const parts = locId.split("-");
+  if (parts.length < 7) return undefined;
+  return `${parts[1]}:${parts[2]}:${parts[3]}-${parts[4]}-${parts[5]}`;
+}
+
 const ASSIGNMENTS_KEY = "birdgo.skyfriend-spawn-species-v1";
 const FLED_KEY = "birdgo.skyfriend-fled-v1";
 const CELL_SIZE_DEGREES = 0.0012;
@@ -114,9 +122,9 @@ export async function markSkyfriendFled(encounterId: string, until: number): Pro
   return write;
 }
 
-export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation: Coordinates, now = new Date(), preferredSpecies: (string | undefined)[] = [], cellKeyOverride?: string): EbirdObservation[] {
+export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation: Coordinates, now = new Date(), preferredSpecies: (string | undefined)[] = [], cellKeyOverride?: string, forceWhenRealNearby = false): EbirdObservation[] {
   const nearbyRealCount = realBirds.filter((bird) => !bird.virtual && distanceKm(bird, userLocation) <= 0.12).length;
-  const targetCount = nearbyRealCount ? 0 : 1;
+  const targetCount = nearbyRealCount && !forceWhenRealNearby ? 0 : 1;
   if (!targetCount) return [];
 
   const speciesPool = new Map<string, { bird: EbirdObservation; weight: number }>();

@@ -8,15 +8,18 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SF_COORDS } from "../config";
 import { BirdMap } from "../components/BirdMap";
 import { SkyfriendWatch } from "../components/SkyfriendWatch";
+import { BirdwalkPlanner } from "../components/BirdwalkPlanner";
 import { SpeciesGuide } from "../components/SpeciesGuide";
 import type { BirdMapMode } from "../components/BirdMap";
 import { useBirds } from "../hooks/useBirds";
 import { useCollection } from "../hooks/useCollection";
 import { useWeather } from "../hooks/useWeather";
 import { useTrainerProfile } from "../hooks/useTrainerProfile";
+import { claimDailyBonusXp, hasDailyBonus } from "../store/collection";
 import type { Coordinates, EbirdObservation, SeenSpecies } from "../types";
 import { rarityForSpecies, speciesKeyAliases } from "../utils/progression";
-import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround } from "../utils/skyfriends";
+import { buildBirdwalkPlan, xpForBirdwalk, type BirdwalkState, type BirdwalkStop } from "../utils/birdwalk";
+import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround, skyfriendCellKeyFromEncounterId } from "../utils/skyfriends";
 
 type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string };
 type GuideTarget = { speciesCode: string; comName: string; sciName?: string };
@@ -70,11 +73,14 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const [spawnSpeciesAssignments, setSpawnSpeciesAssignments] = useState<Record<string, string[]> | null>(null);
   const [fledSkyfriends, setFledSkyfriends] = useState<Record<string, number>>({});
   const [watchTarget, setWatchTarget] = useState<EbirdObservation | undefined>();
+  const [birdwalk, setBirdwalk] = useState<BirdwalkState | undefined>();
+  const [birdwalkBonusClaimed, setBirdwalkBonusClaimed] = useState(false);
   const [guideTarget, setGuideTarget] = useState<GuideTarget | undefined>();
   useFocusEffect(useCallback(() => {
     void refreshCollection();
     void refreshTrainer();
     void loadSkyfriendFled().then(setFledSkyfriends).catch(() => undefined);
+    void hasDailyBonus("birdwalk").then(setBirdwalkBonusClaimed).catch(() => undefined);
     return () => setClosePopupRequest((request) => request + 1);
   }, [refreshCollection, refreshTrainer]));
   useEffect(() => {
@@ -90,25 +96,109 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     }, nextExpiry - now + 50);
     return () => clearTimeout(timeout);
   }, [fledSkyfriends]);
+  const trackBirdwalkStop = (stop: BirdwalkStop) => {
+    const target = {
+      latitude: stop.latitude,
+      longitude: stop.longitude,
+      name: stop.commonName,
+      id: stop.id,
+      speciesCode: stop.speciesCode,
+    };
+    setActiveTrackTarget(target);
+    setTrackRequest(target);
+  };
+
+  const stopBirdwalkTracking = (stops?: BirdwalkStop[]) => {
+    if (stops?.some((stop) => stop.id === activeTrackTarget?.id)) {
+      setActiveTrackTarget(undefined);
+      setTracking(false);
+      setStopTrackRequest((request) => request + 1);
+    }
+  };
+
+  const advanceBirdwalk = (completedId: string, completedName: string): boolean => {
+    if (!birdwalk) return false;
+    const currentStop = birdwalk.stops[birdwalk.index];
+    if (!currentStop || currentStop.id !== completedId) return false;
+    const nextIndex = birdwalk.index + 1;
+    if (nextIndex >= birdwalk.stops.length) {
+      const completedStopCount = birdwalk.stops.length - (birdwalk.skippedIds?.length ?? 0);
+      const rewardXp = xpForBirdwalk(Math.max(1, completedStopCount));
+      setBirdwalk(undefined);
+      setActiveTrackTarget(undefined);
+      setTracking(false);
+      setStopTrackRequest((request) => request + 1);
+      void claimDailyBonusXp("birdwalk", rewardXp).then((awarded) => {
+        if (awarded) {
+          setBirdwalkBonusClaimed(true);
+          void refreshCollection();
+        }
+        setCompletionNotice(`Birdwalk complete — ${completedName} was the final stop!${awarded ? ` +${rewardXp} XP` : ""}`);
+      }).catch(() => setCompletionNotice(`Birdwalk complete — ${completedName} was the final stop!`));
+      return true;
+    }
+    const nextState = { ...birdwalk, index: nextIndex };
+    const nextStop = nextState.stops[nextIndex];
+    setBirdwalk(nextState);
+    setCompletionNotice(`${completedName} complete. Next stop: ${nextStop.commonName}.`);
+    trackBirdwalkStop(nextStop);
+    return true;
+  };
+
+  const skipBirdwalkStop = () => {
+    if (!birdwalk) return;
+    const currentStop = birdwalk.stops[birdwalk.index];
+    const nextIndex = birdwalk.index + 1;
+    if (nextIndex >= birdwalk.stops.length) {
+      stopBirdwalkTracking([currentStop]);
+      setBirdwalk(undefined);
+      setCompletionNotice("Birdwalk ended.");
+      return;
+    }
+    const nextState = { ...birdwalk, index: nextIndex, skippedIds: [...(birdwalk.skippedIds ?? []), currentStop.id] };
+    setBirdwalk(nextState);
+    setCompletionNotice(`Skipped ${currentStop.commonName}. Next stop: ${nextState.stops[nextIndex].commonName}.`);
+    trackBirdwalkStop(nextState.stops[nextIndex]);
+  };
+
+  const endBirdwalk = () => {
+    if (!birdwalk) return;
+    stopBirdwalkTracking(birdwalk.stops);
+    setBirdwalk(undefined);
+    setCompletionNotice("Birdwalk ended.");
+  };
+
   useEffect(() => {
     if (!targetCapture || processedTargetCapture.current === targetCapture.timestamp) return;
     processedTargetCapture.current = targetCapture.timestamp;
-    if (!activeTrackTarget) return;
-    const targetName = activeTrackTarget.name.trim().toLowerCase().replace(/\s+/g, " ");
     const captureName = targetCapture.commonName.trim().toLowerCase().replace(/\s+/g, " ");
-    const sameSpecies = Boolean(
-      (activeTrackTarget.speciesCode && targetCapture.speciesCode && activeTrackTarget.speciesCode === targetCapture.speciesCode)
-      || (targetName && captureName && targetName === captureName)
-    );
-    const sameEncounter = activeTrackTarget.id
-      ? targetCapture.encounterId === activeTrackTarget.id
-      : sameSpecies;
-    if (!sameSpecies || !sameEncounter) return;
+    const matchesCapture = (target: TrackTarget) => {
+      const targetName = target.name.trim().toLowerCase().replace(/\s+/g, " ");
+      const sameSpecies = Boolean(
+        (target.speciesCode && targetCapture.speciesCode && target.speciesCode === targetCapture.speciesCode)
+        || (targetName && captureName && targetName === captureName)
+      );
+      const sameEncounter = target.id
+        ? targetCapture.encounterId === target.id
+        : sameSpecies;
+      return sameSpecies && sameEncounter;
+    };
+    const walkStop = birdwalk?.stops[birdwalk.index];
+    if (walkStop && matchesCapture({
+      latitude: walkStop.latitude,
+      longitude: walkStop.longitude,
+      name: walkStop.commonName,
+      id: walkStop.id,
+      speciesCode: walkStop.speciesCode,
+    }) && advanceBirdwalk(walkStop.id, targetCapture.commonName)) return;
+    const completionTarget = activeTrackTarget;
+    if (!completionTarget || !matchesCapture(completionTarget)) return;
+    if (completionTarget.id && advanceBirdwalk(completionTarget.id, targetCapture.commonName)) return;
     setCompletionNotice(`Encounter complete: ${targetCapture.commonName}!`);
     setActiveTrackTarget(undefined);
     setTracking(false);
     setStopTrackRequest((request) => request + 1);
-  }, [targetCapture, activeTrackTarget]);
+  }, [targetCapture, activeTrackTarget, birdwalk]);
 
   useEffect(() => {
     if (!completionNotice || !isFocused) return;
@@ -138,14 +228,15 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     });
     return () => { active = false; };
   }, [skyfriendCells, skyfriendCellsKey]);
+  const trackedSkyfriendCellKey = skyfriendCellKeyFromEncounterId(activeTrackTarget?.id);
   const skyfriendSpawnGroups = useMemo(
     () => spawnSpeciesAssignments
       ? skyfriendCells.map((cellKey) => ({
         cellKey,
-        spawns: buildSkyfriendSpawns(birds, location, new Date(), spawnSpeciesAssignments[cellKey] ?? [], cellKey),
+        spawns: buildSkyfriendSpawns(birds, location, new Date(), spawnSpeciesAssignments[cellKey] ?? [], cellKey, cellKey === trackedSkyfriendCellKey),
       }))
       : [],
-    [birds, location, skyfriendCells, spawnSpeciesAssignments],
+    [birds, location, skyfriendCells, spawnSpeciesAssignments, trackedSkyfriendCellKey],
   );
   const skyfriendSpawns = useMemo(
     () => skyfriendSpawnGroups.flatMap((group) => group.spawns)
@@ -186,6 +277,15 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     [skyfriendSpawns, collectedSkyfriendIds, activeTrackTarget, fledSkyfriends],
   );
   const mapBirds = useMemo(() => [...birds, ...activeSkyfriendSpawns], [birds, activeSkyfriendSpawns]);
+  const birdwalkPlan = useMemo(() => buildBirdwalkPlan(location, mapBirds, captureCounts), [location, mapBirds, captureCounts]);
+
+  const startBirdwalk = () => {
+    const nextState = birdwalk ?? { stops: birdwalkPlan.stops, index: 0 };
+    const nextStop = nextState.stops[nextState.index];
+    if (!nextStop) return;
+    setBirdwalk(nextState);
+    trackBirdwalkStop(nextStop);
+  };
 
   const clearTrackedSkyfriend = (encounterId: string) => {
     if (activeTrackTarget?.id !== encounterId) return;
@@ -222,7 +322,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         imageUrl: bird.imageUrl,
       });
       setCompletionNotice(`Skyfriend collected: ${commonName}!`);
-      clearTrackedSkyfriend(encounterId);
+      if (!advanceBirdwalk(encounterId, commonName)) clearTrackedSkyfriend(encounterId);
     } finally {
       collectingSkyfriends.current.delete(encounterId);
     }
@@ -492,6 +592,15 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           </Pressable>
         )}
         {loading && <ActivityIndicator color="#fff" />}
+        {mode === "adventure" && !popupOpen && !topMessage && !toastOpen ? <BirdwalkPlanner
+          plan={birdwalkPlan}
+          active={birdwalk}
+          tracking={Boolean(tracking && birdwalk && activeTrackTarget?.id === birdwalk.stops[birdwalk.index]?.id)}
+          rewardClaimed={birdwalkBonusClaimed}
+          onStart={startBirdwalk}
+          onSkip={skipBirdwalkStop}
+          onEnd={endBirdwalk}
+        /> : null}
       </View>
       {!loading && !error && birds.length === 0 && <View style={styles.empty}><Text style={styles.emptyText}>No birds spotted nearby — try moving the map.</Text></View>}
       {mode === "adventure" && nearbyState !== "half" && (
