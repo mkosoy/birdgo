@@ -1808,7 +1808,7 @@ ${speciesAudioScript()}
             if (typeof data.heading === 'number') updateBearing(data.heading);
             enableOrientation();
           } else {
-            map.easeTo({ center: [target.longitude, target.latitude], padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 0, pitch: 55, zoom: Math.max(map.getZoom(), 15.5), bearing: 0 });
+            map.easeTo({ center: [target.longitude, target.latitude], padding: { top: 0, right: 0, bottom: 0, left: 0 }, duration: 0, pitch: 0, zoom: Math.max(map.getZoom(), 15.5), bearing: 0 });
           }
           programmatic = true;
           setTimeout(function () { programmatic = false; }, 600);

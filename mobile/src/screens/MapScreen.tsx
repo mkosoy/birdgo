@@ -3,6 +3,7 @@ import { ActivityIndicator, AppState, Linking, Modal, Platform, Pressable, Scrol
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useIsFocused, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SF_COORDS } from "../config";
@@ -24,6 +25,7 @@ import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpeci
 type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string };
 type GuideTarget = { speciesCode: string; comName: string; sciName?: string };
 let persistentTrackTarget: TrackTarget | undefined;
+const MAP_PREFERENCES_KEY = "birdgo.map-preferences-v1";
 
 function externalSpeciesUrl(target: GuideTarget): string {
   return target.speciesCode.startsWith("inat-")
@@ -42,6 +44,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const [center, setCenter] = useState<Coordinates>(SF_COORDS);
   const [mode, setMode] = useState<BirdMapMode>("adventure");
   const [firstPerson, setFirstPerson] = useState(true);
+  const [mapPreferencesLoaded, setMapPreferencesLoaded] = useState(false);
   const [heading, setHeading] = useState<number | undefined>();
   const [recenterRequest, setRecenterRequest] = useState(0);
   const [overviewRequest, setOverviewRequest] = useState(0);
@@ -76,6 +79,31 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const [birdwalk, setBirdwalk] = useState<BirdwalkState | undefined>();
   const [birdwalkBonusClaimed, setBirdwalkBonusClaimed] = useState(false);
   const [guideTarget, setGuideTarget] = useState<GuideTarget | undefined>();
+  useEffect(() => {
+    let cancelled = false;
+    void AsyncStorage.getItem(MAP_PREFERENCES_KEY).then((raw) => {
+      if (cancelled) return;
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as { mode?: unknown; firstPerson?: unknown };
+          if (parsed.mode === "classic" || parsed.mode === "adventure") setMode(parsed.mode);
+          if (typeof parsed.firstPerson === "boolean") setFirstPerson(parsed.firstPerson);
+        } catch {
+          // Ignore corrupt preferences and keep defaults.
+        }
+      }
+      setMapPreferencesLoaded(true);
+    }).catch(() => {
+      if (!cancelled) setMapPreferencesLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!mapPreferencesLoaded) return;
+    void AsyncStorage.setItem(MAP_PREFERENCES_KEY, JSON.stringify({ mode, firstPerson })).catch(() => undefined);
+  }, [firstPerson, mapPreferencesLoaded, mode]);
+
   useFocusEffect(useCallback(() => {
     void refreshCollection();
     void refreshTrainer();
@@ -376,7 +404,6 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
       setLocationNotice(null);
       if (firstFix || recoveringFromFallback) {
         setCenter(next);
-        setFirstPerson(true);
         setRecenterRequest((request) => request + 1);
       }
     };
