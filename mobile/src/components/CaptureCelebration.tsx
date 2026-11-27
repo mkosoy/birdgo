@@ -81,7 +81,7 @@ export function CaptureCelebration({ commonName, sciName, rarity, xp, firstSpeci
             : <Bird3DPreview commonName={commonName} rarity={rarity} height={168} />}
         </View>
         <Text style={styles.name}>{commonName}</Text>
-        {sciName && identified ? <Text style={styles.scientific}>{sciName}</Text> : null}
+        {sciName && identified && sciName.trim().toLowerCase() !== commonName.trim().toLowerCase() ? <Text style={styles.scientific}>{sciName}</Text> : null}
         <View style={styles.metaRow}>
           <View style={[styles.rarityPill, { backgroundColor: rarityColor }]}><Text style={styles.rarityText}>{rarity.toUpperCase()}</Text></View>
           <View style={styles.xpPill}><Text style={styles.xpText}>{xp > 0 ? `+${xp} XP` : "No XP"}</Text></View>

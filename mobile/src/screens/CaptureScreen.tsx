@@ -214,11 +214,11 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
           }
         } catch { /* Saving still works with legacy identity fallback. */ }
       }
-      const commonName = contextSpecies?.comName ?? result.commonName ?? "Unidentified bird";
       const canonicalKey = contextSpecies?.canonicalKey ?? result.canonicalKey;
       const sciName = contextSpecies?.canonicalKey
         ? contextSpecies.sciName
         : result.canonicalSciName ?? contextSpecies?.sciName ?? result.sciName;
+      const commonName = contextSpecies?.comName ?? result.commonName ?? sciName ?? "Unidentified bird";
       const rarity = rarityForSpecies(contextSpecies?.speciesCode, commonName, contextSpecies?.isNotable, sciName, canonicalKey, contextSpecies?.frequency, contextSpecies?.abundanceCount);
       const verified = Boolean(result.isBird && result.provider !== "heuristic" && (result.commonName || result.sciName));
       const record = await saveCapture({
@@ -256,11 +256,11 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
   };
 
   const contextSpecies = speciesContext();
-  const resultName = contextSpecies?.comName ?? result?.commonName ?? "Unidentified bird";
   const resultCanonicalKey = contextSpecies?.canonicalKey ?? result?.canonicalKey;
   const resultSciName = contextSpecies?.canonicalKey
     ? contextSpecies.sciName
     : result?.canonicalSciName ?? contextSpecies?.sciName ?? result?.sciName;
+  const resultName = contextSpecies?.comName ?? result?.commonName ?? resultSciName ?? "Unidentified bird";
   const resultRarity = rarityForSpecies(contextSpecies?.speciesCode, resultName, contextSpecies?.isNotable, resultSciName, resultCanonicalKey, contextSpecies?.frequency, contextSpecies?.abundanceCount);
   const referenceImageUrl = result?.imageUrl ?? contextSpecies?.imageUrl;
   const referenceImageAttribution = result?.imageUrl ? result.imageAttribution : undefined;
