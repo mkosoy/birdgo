@@ -260,7 +260,7 @@ export function DexScreen() {
     const rarity = item.rarity ?? entry?.rarity ?? "common";
     const evidence = item.verified ? "AI verified photo" : item.photoUri ? "Unverified photo" : "Honor-system sighting";
     const coordinates = coordinateLabel(item.location?.latitude, item.location?.longitude);
-    return <Pressable accessibilityRole="button" accessibilityLabel={`${item.commonName} journal record`} style={styles.journalRow} onPress={() => openJournalCapture(item)}>
+    return <Pressable accessibilityRole="button" accessibilityLabel={`${item.commonName} journal record, ${journalDate(item.timestamp)}, ${evidence}, ${rarity} rarity${coordinates ? `, near ${coordinates}` : ""}`} style={styles.journalRow} onPress={() => openJournalCapture(item)}>
       {item.photoUri
         ? <Image source={{ uri: item.photoUri }} style={styles.journalImage} />
         : <View style={[styles.journalImage, styles.journalImageEmpty]}><Ionicons name={item.verified ? "camera" : "hand-left"} size={20} color="#64776c" /></View>}
