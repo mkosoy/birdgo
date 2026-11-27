@@ -39,7 +39,10 @@ async function readBirdCache(latitude: number, longitude: number): Promise<BirdC
 }
 
 async function writeBirdCache(area: Coordinates, birds: EbirdObservation[], notable: EbirdObservation[]): Promise<void> {
-  if (!birds.length) return;
+  if (!birds.length && !notable.length) {
+    await AsyncStorage.removeItem(BIRD_CACHE_KEY).catch(() => undefined);
+    return;
+  }
   const payload: BirdCachePayload = { savedAt: Date.now(), area, birds: birds.slice(0, 250), notable: notable.slice(0, 50) };
   await AsyncStorage.setItem(BIRD_CACHE_KEY, JSON.stringify(payload)).catch(() => undefined);
 }
@@ -102,9 +105,10 @@ export function useBirds(latitude: number, longitude: number) {
     setLoading(true);
     setError(null);
     const cached = await readBirdCache(latitude, longitude);
-    if (currentRequest === requestId.current && cached) {
-      setBirds(cached.birds);
-      setNotable(cached.notable);
+    if (currentRequest === requestId.current) {
+      setBirds(cached?.birds ?? []);
+      setNotable(cached?.notable ?? []);
+      setLoadedArea(cached?.area ?? null);
     }
     try {
       const [recent, rare, abundance] = await Promise.all([
@@ -169,9 +173,10 @@ export function useBirds(latitude: number, longitude: number) {
       })().catch(() => undefined);
     } catch (cause) {
       if (currentRequest !== requestId.current) return;
-      if (cached?.birds.length) {
+      if (cached?.birds.length || cached?.notable.length) {
         setBirds(cached.birds);
         setNotable(cached.notable);
+        setLoadedArea(cached.area);
         setError("Offline — showing your last nearby birds. Tap to retry.");
       } else {
         setError("Couldn’t load birds. Tap to retry.");
