@@ -35,6 +35,15 @@ function externalSpeciesUrl(target: GuideTarget): string {
     : `https://ebird.org/search?q=${encodeURIComponent(target.comName)}`;
 }
 
+function formatObservationAge(obsDt?: string): string {
+  if (!obsDt) return "recently reported";
+  const hours = Math.max(0, (Date.now() - new Date(obsDt).getTime()) / 3_600_000);
+  if (!Number.isFinite(hours)) return "recently reported";
+  if (hours < 1) return "reported within the hour";
+  if (hours < 24) return `reported ${Math.round(hours)}h ago`;
+  return `reported ${Math.round(hours / 24)}d ago`;
+}
+
 export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: SeenSpecies) => void; targetCapture?: { speciesCode?: string; commonName: string; sciName?: string | null; encounterId?: string; timestamp: number } }) {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
@@ -369,15 +378,22 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     setCompletionNotice(`${bird.comName ?? "The Skyfriend"} slipped away. It may return soon.`);
     clearTrackedSkyfriend(encounterId);
   };
+  const rareHunt = notable
+    .filter((bird) => !bird.virtual && bird.comName)
+    .sort((a, b) => distanceKm(location, a) - distanceKm(location, b))[0];
+  const startRareHunt = (bird: EbirdObservation) => {
+    const target = { latitude: bird.latitude, longitude: bird.longitude, name: bird.comName ?? "Rare bird", id: observationMarkerId(bird), speciesCode: bird.speciesCode };
+    setActiveTrackTarget(target);
+    setTrackRequest(target);
+    setRareDismissed(true);
+  };
   const topMessage = completionNotice
     ? { text: completionNotice, onPress: () => setCompletionNotice(null) }
     : locationNotice
     ? { text: locationNotice, onPress: () => setLocationRetry((request) => request + 1) }
     : error
       ? { text: error, onPress: () => void refresh() }
-      : notable.length > 0 && !rareDismissed && !toastOpen
-          ? { text: `Rare bird nearby: ${notable[0].comName ?? "Unknown"}!`, onPress: () => setRareDismissed(true) }
-          : null;
+      : null;
   const handleRegionChange = (next: Coordinates) => {
     if (
       hasRealLocation.current
@@ -617,6 +633,17 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           </Pressable>
         )}
         </View>
+        {rareHunt && !rareDismissed && !popupOpen && !toastOpen && !completionNotice && !locationNotice && !error ? <View style={styles.rareCard}>
+          <Text style={styles.rareEyebrow}>Rare hunt nearby</Text>
+          <Text style={styles.rareTitle}>{rareHunt.comName}</Text>
+          <Text style={styles.rareCopy}>{distanceKm(location, rareHunt) < 1 ? `${Math.round(distanceKm(location, rareHunt) * 1000)}m` : `${distanceKm(location, rareHunt).toFixed(1)}km`} away · {formatObservationAge(rareHunt.obsDt)}{rareHunt.locName ? ` · ${rareHunt.locName}` : ""}</Text>
+          <Text style={styles.rareHint}>A real recent report — search the habitat carefully; the bird is not guaranteed to still be there.</Text>
+          <View style={styles.rareActions}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Track rare ${rareHunt.comName}`} style={styles.rarePrimary} onPress={() => startRareHunt(rareHunt)}><Text style={styles.rarePrimaryText}>Hunt</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${rareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: rareHunt.speciesCode, comName: rareHunt.comName ?? "Unknown bird", sciName: rareHunt.sciName })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Dismiss rare hunt" style={styles.rareDismiss} onPress={() => setRareDismissed(true)}><Text style={styles.rareDismissText}>×</Text></Pressable>
+          </View>
+        </View> : null}
         {topMessage && !popupOpen && (
           <Pressable style={[styles.topMessage, toastOpen && styles.topMessageBelowToast]} onPress={topMessage.onPress}>
             <Text style={styles.topMessageText}>{topMessage.text}</Text>
@@ -686,6 +713,18 @@ const styles = StyleSheet.create({
   modeButton: { minWidth: 64, height: 44, paddingHorizontal: 5, backgroundColor: "#ffffffee", borderRadius: 14, elevation: 3, alignItems: "center", justifyContent: "center" },
   modeButtonActive: { backgroundColor: "#d9efe1", borderWidth: 2, borderColor: "#2f7d5b" },
   modeButtonText: { color: "#173c2b", fontWeight: "700" },
+  rareCard: { maxWidth: 360, alignSelf: "flex-start", backgroundColor: "#fff8df", borderColor: "#e3bc4f", borderWidth: 1, padding: 12, borderRadius: 16, elevation: 4, gap: 4 },
+  rareEyebrow: { color: "#9a6908", fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.8 },
+  rareTitle: { color: "#263816", fontSize: 19, fontWeight: "900" },
+  rareCopy: { color: "#46513a", fontSize: 12, fontWeight: "700" },
+  rareHint: { color: "#655d45", fontSize: 12, lineHeight: 17, marginTop: 2 },
+  rareActions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
+  rarePrimary: { minWidth: 78, minHeight: 40, borderRadius: 12, backgroundColor: "#c98d13", alignItems: "center", justifyContent: "center" },
+  rarePrimaryText: { color: "#fff", fontWeight: "900" },
+  rareSecondary: { minWidth: 72, minHeight: 40, borderRadius: 12, backgroundColor: "#fff", borderWidth: 1, borderColor: "#dfc77d", alignItems: "center", justifyContent: "center" },
+  rareSecondaryText: { color: "#7c5a10", fontWeight: "900" },
+  rareDismiss: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  rareDismissText: { color: "#7c5a10", fontSize: 22, lineHeight: 24 },
   topMessage: { minHeight: 44, maxWidth: 360, alignSelf: "flex-start", backgroundColor: "#ffffffee", paddingHorizontal: 12, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 8 },
   topMessageBelowToast: { marginTop: 52 },
   topMessageText: { flex: 1, color: "#173c2b", fontWeight: "700", fontSize: 13 },
