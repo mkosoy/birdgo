@@ -96,6 +96,7 @@ interface InatSoundResponse {
 }
 
 const GUIDE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const GUIDE_CACHE_MAX_ENTRIES = 200;
 const guideCache = new Map<string, { expiresAt: number; guide: SpeciesGuide }>();
 const USER_AGENT = "BirdGo/1.0 (educational birding app)";
 
@@ -226,7 +227,7 @@ async function searchCommonsAudio(query: string): Promise<CommonsPage[]> {
     gsrnamespace: "6",
     gsrlimit: "10",
     prop: "videoinfo",
-    viprop: "url|size|derivatives|extmetadata",
+    viprop: "url|size|mime|derivatives|extmetadata",
     format: "json",
   });
   const payload = await fetchJson<CommonsResponse>(`https://commons.wikimedia.org/w/api.php?${params.toString()}`);
@@ -381,6 +382,14 @@ export async function fetchSpeciesGuide(scientificName?: string, commonName?: st
       ...(sounds.length ? { audio: [...new Set(sounds.map((sound) => sound.source ?? "Wikimedia Commons / xeno-canto"))].join(" / ") } : {}),
     },
   };
-  guideCache.set(key, { guide, expiresAt: Date.now() + GUIDE_CACHE_TTL_MS });
+  const now = Date.now();
+  for (const [cacheKey, entry] of guideCache) {
+    if (entry.expiresAt <= now) guideCache.delete(cacheKey);
+  }
+  if (!guideCache.has(key) && guideCache.size >= GUIDE_CACHE_MAX_ENTRIES) {
+    const oldestKey = guideCache.keys().next().value;
+    if (oldestKey) guideCache.delete(oldestKey);
+  }
+  guideCache.set(key, { guide, expiresAt: now + GUIDE_CACHE_TTL_MS });
   return guide;
 }
