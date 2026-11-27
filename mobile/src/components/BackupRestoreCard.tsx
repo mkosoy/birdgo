@@ -166,18 +166,20 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
   };
 
   const restoreCloud = async (key: string, targetRevision?: number) => {
-    const record = await restoreEncryptedCloudBackup(key, targetRevision);
-    if (!record) throw new Error("No encrypted cloud backup exists for this sync key yet.");
-    reconcileAutomaticCloudBackup(record.revision);
+    const result = await restoreEncryptedCloudBackup(key, targetRevision);
+    if (!result) throw new Error("No encrypted cloud backup exists for this sync key yet.");
+    reconcileAutomaticCloudBackup(result.record.revision);
     setCloudKey(key);
-    setCloudRevision(record.revision);
-    setRemoteCloudRevision(record.revision);
+    setCloudRevision(result.record.revision);
+    setRemoteCloudRevision(result.record.revision);
     setConfirmingCloudRestore(false);
     setRestoreTargetRevision(undefined);
     setLinkingCloud(false);
     setSyncKeyDraft("");
     onRestored();
-    showMessage(`Encrypted cloud backup restored · revision ${record.revision}.`);
+    showMessage(result.rewrittenAsLatest
+      ? `Encrypted backup restored from revision ${result.restoredRevision}; cloud is now revision ${result.record.revision}.`
+      : `Encrypted cloud backup restored · revision ${result.record.revision}.`);
   };
 
   const runCloudRestore = async (key?: string) => {
