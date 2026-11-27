@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Haptics from "expo-haptics";
 import type { BirdRarity, EbirdObservation } from "../types";
 import { RARITY_COLORS, rarityForSpecies } from "../utils/progression";
 
@@ -132,6 +133,8 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
   const panStartRef = useRef({ x: 0, y: 0 });
   const finishedRef = useRef(false);
   const interactionBoostRef = useRef(0);
+  const focusHapticAtRef = useRef(0);
+  const wasCenteredRef = useRef(false);
   const callbacksRef = useRef({ onSuccess, onEscape });
   callbacksRef.current = { onSuccess, onEscape };
 
@@ -147,9 +150,26 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
     if (finishedRef.current) return;
     finishedRef.current = true;
     setPhase(nextPhase);
+    const haptic = nextPhase === "success" ? Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success) : Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    void haptic.catch(() => undefined);
     if (nextPhase === "success") callbacksRef.current.onSuccess();
     else callbacksRef.current.onEscape();
   }, []);
+
+  useEffect(() => {
+    if (phase !== "playing") {
+      wasCenteredRef.current = false;
+      return;
+    }
+    if (frame.centered && !wasCenteredRef.current) {
+      const now = Date.now();
+      if (now - focusHapticAtRef.current > 850) {
+        focusHapticAtRef.current = now;
+        void Haptics.selectionAsync().catch(() => undefined);
+      }
+    }
+    wasCenteredRef.current = frame.centered;
+  }, [frame.centered, phase]);
 
   useEffect(() => {
     if (phase !== "playing") return undefined;
