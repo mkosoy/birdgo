@@ -279,7 +279,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const mapBirds = useMemo(() => [...birds, ...activeSkyfriendSpawns], [birds, activeSkyfriendSpawns]);
   const birdwalkPlan = useMemo(() => buildBirdwalkPlan(location, mapBirds, captureCounts), [location, mapBirds, captureCounts]);
   const collectionStarted = captures.length > 0 || skyfriends.length > 0;
-  const advancedMapControlsVisible = collectionStarted || Boolean(activeTrackTarget || birdwalk);
+  const advancedMapControlsVisible = collectionStarted || Boolean(activeTrackTarget || birdwalk) || !firstPerson;
 
   const startBirdwalk = () => {
     const nextState = birdwalk ?? { stops: birdwalkPlan.stops, index: 0 };
