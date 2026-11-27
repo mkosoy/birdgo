@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCollection } from "../hooks/useCollection";
 import { useTrainerProfile } from "../hooks/useTrainerProfile";
 import { releaseCaptures } from "../store/collection";
 import { Bird3DPreview } from "../components/Bird3DPreview";
 import { TrainerAvatar } from "../components/TrainerAvatar";
-import { buildSpeciesDex, levelForXp, RARITY_COLORS, RARITY_ORDER, type SpeciesDexEntry } from "../utils/progression";
+import { buildBirdBadges, buildSpeciesDex, levelForXp, RARITY_COLORS, RARITY_ORDER, type SpeciesDexEntry } from "../utils/progression";
 import type { TrainerAccessory, TrainerProfile } from "../types";
 
 function coordinateLabel(latitude?: number, longitude?: number): string | undefined {
@@ -63,6 +64,8 @@ export function DexScreen() {
   }, [refresh]));
 
   const entries = useMemo(() => buildSpeciesDex(captures, seenSpecies), [captures, seenSpecies]);
+  const badges = useMemo(() => buildBirdBadges(captures, skyfriends), [captures, skyfriends]);
+  const earnedBadgeCount = badges.filter((badge) => badge.earned).length;
   const progress = levelForXp(xp);
   const capturedSpecies = entries.filter((entry) => entry.capturedCount > 0 && entry.identified !== false).length;
   const totalCaptured = entries.reduce((total, entry) => total + entry.capturedCount, 0);
@@ -113,6 +116,17 @@ export function DexScreen() {
     <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.round(progress.progress * 100)}%` }]} /></View>
     <Text style={styles.progressCopy}>{progress.currentLevelXp} / {progress.nextLevelXp} XP to level {progress.level + 1}</Text>
     <Text style={styles.progressHint}>Capture new species for +50 XP. Duplicates still train your collection, with diminishing XP.</Text>
+    <View style={styles.badgeHeaderRow}>
+      <Text style={styles.badgeHeader}>Badges</Text>
+      <Text style={styles.badgeCount}>{earnedBadgeCount}/{badges.length}</Text>
+    </View>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.badgeRow}>
+      {badges.map((badge) => <View key={badge.id} accessibilityLabel={`${badge.title} badge, ${badge.progress} of ${badge.target}. ${badge.detail}`} style={[styles.milestoneCard, !badge.earned && styles.milestoneLocked]}>
+        <View style={[styles.milestoneIconWrap, badge.earned && styles.milestoneIconEarned]}><Ionicons name={badge.icon} size={17} color={badge.earned ? "#173c2b" : "#bdd5c5"} /></View>
+        <Text style={styles.milestoneTitle} numberOfLines={1}>{badge.title}</Text>
+        <Text style={styles.milestoneProgress}>{badge.progress}/{badge.target}</Text>
+      </View>)}
+    </ScrollView>
   </View>;
 
   const hallOfFameArea = <View style={styles.hallArea}>
@@ -307,6 +321,16 @@ const styles = StyleSheet.create({
   progressFill: { height: "100%", borderRadius: 8, backgroundColor: "#65d184" },
   progressCopy: { color: "#e2f1e7", fontWeight: "800", marginTop: 6, fontSize: 12 },
   progressHint: { color: "#a9c9b4", marginTop: 3, fontSize: 11, lineHeight: 15 },
+  badgeHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12, marginBottom: 7 },
+  badgeHeader: { color: "#dff4e7", fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.8 },
+  badgeCount: { color: "#a9c9b4", fontSize: 11, fontWeight: "900" },
+  badgeRow: { gap: 7, paddingRight: 6 },
+  milestoneCard: { width: 96, minHeight: 76, alignItems: "center", justifyContent: "center", gap: 3, borderRadius: 14, paddingHorizontal: 7, paddingVertical: 8, backgroundColor: "rgba(255,255,255,.10)", borderWidth: 1, borderColor: "rgba(255,255,255,.12)" },
+  milestoneLocked: { opacity: 0.62 },
+  milestoneIconWrap: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,.14)" },
+  milestoneIconEarned: { backgroundColor: "#ffd766" },
+  milestoneTitle: { color: "#fff", fontSize: 10, fontWeight: "900", textAlign: "center" },
+  milestoneProgress: { color: "#a9c9b4", fontSize: 10, fontWeight: "800" },
   hallArea: { margin: 5, marginBottom: 12, padding: 14, borderRadius: 18, backgroundColor: "#4a3512", elevation: 3 },
   hallHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
   hallTitle: { color: "#fff3c7", fontSize: 21, fontWeight: "900" },

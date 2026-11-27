@@ -1,4 +1,4 @@
-import type { BirdRarity, CaptureRecord, SeenSpecies } from "../types";
+import type { BirdRarity, CaptureRecord, SeenSpecies, SkyfriendRecord } from "../types";
 
 export const RARITY_ORDER: BirdRarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
 
@@ -109,6 +109,38 @@ export function levelForXp(xp: number): { level: number; currentLevelXp: number;
     nextLevelXp: span,
     progress: Math.min(1, Math.max(0, (xp - floor) / span)),
   };
+}
+
+export interface BirdBadge {
+  id: string;
+  title: string;
+  detail: string;
+  icon: "leaf" | "camera" | "ribbon" | "star" | "planet" | "sparkles";
+  progress: number;
+  target: number;
+  earned: boolean;
+}
+
+function makeBadge(id: string, title: string, detail: string, icon: BirdBadge["icon"], progress: number, target: number): BirdBadge {
+  return { id, title, detail, icon, progress: Math.min(progress, target), target, earned: progress >= target };
+}
+
+export function buildBirdBadges(captures: CaptureRecord[], skyfriends: SkyfriendRecord[]): BirdBadge[] {
+  const identified = captures.filter(isIdentifiedCapture);
+  const species = new Set(identified.map((capture) => speciesKey(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey)));
+  const verifiedCount = identified.filter((capture) => capture.verified).length;
+  const rareSpecies = new Set(identified
+    .filter((capture) => RARITY_ORDER.indexOf(capture.rarity ?? "common") >= RARITY_ORDER.indexOf("rare"))
+    .map((capture) => speciesKey(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey)));
+  const skyfriendSpecies = new Set(skyfriends.map((record) => speciesKey(record.speciesCode, record.commonName, record.sciName, record.canonicalKey)));
+  return [
+    makeBadge("first-species", "First species", "Capture your first identified real bird", "leaf", species.size, 1),
+    makeBadge("photographer", "Photographer", "Verify 3 real bird photos with AI", "camera", verifiedCount, 3),
+    makeBadge("life-list", "Life list", "Collect 5 real species", "ribbon", species.size, 5),
+    makeBadge("rare-spotter", "Rare spotter", "Capture a rare or better species", "star", rareSpecies.size, 1),
+    makeBadge("skyfriend-trainer", "Skyfriend trainer", "Collect your first Skyfriend", "planet", skyfriendSpecies.size, 1),
+    makeBadge("skyfriend-guide", "Skyfriend guide", "Collect 5 Skyfriend species", "sparkles", skyfriendSpecies.size, 5),
+  ];
 }
 
 export interface SpeciesDexEntry {
