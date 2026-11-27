@@ -13,11 +13,17 @@ export interface EarTrainingSpecies {
   imageUrl?: string;
 }
 
+interface SpeciesPracticeStats {
+  attempts: number;
+  correct: number;
+}
+
 interface EarTrainingStats {
   attempts: number;
   correct: number;
   streak: number;
   bestStreak: number;
+  species?: Record<string, SpeciesPracticeStats>;
 }
 
 interface EarTrainingRound {
@@ -29,10 +35,33 @@ interface EarTrainingRound {
 }
 
 const STATS_KEY = "birdgo.ear-training-v1";
-const EMPTY_STATS: EarTrainingStats = { attempts: 0, correct: 0, streak: 0, bestStreak: 0 };
+const EMPTY_STATS: EarTrainingStats = { attempts: 0, correct: 0, streak: 0, bestStreak: 0, species: {} };
 
 function shuffled<T>(items: T[]): T[] {
   return items.map((item) => ({ item, sort: Math.random() })).sort((left, right) => left.sort - right.sort).map(({ item }) => item);
+}
+
+function practiceAccuracy(stats?: SpeciesPracticeStats): number | undefined {
+  return stats?.attempts ? stats.correct / stats.attempts : undefined;
+}
+
+function basePracticeScore(speciesKey: string, stats: EarTrainingStats): number {
+  const speciesStats = stats.species?.[speciesKey];
+  const accuracy = practiceAccuracy(speciesStats);
+  const baseline = accuracy == null ? 0.18 : accuracy;
+  const familiarityBonus = Math.min(speciesStats?.attempts ?? 0, 8) * 0.025;
+  return baseline + familiarityBonus;
+}
+
+function practiceScore(speciesKey: string, stats: EarTrainingStats): number {
+  return basePracticeScore(speciesKey, stats) + Math.random() * 0.28;
+}
+
+function orderedForPractice(items: EarTrainingSpecies[], stats: EarTrainingStats): EarTrainingSpecies[] {
+  return items
+    .map((item) => ({ item, score: practiceScore(item.key, stats) }))
+    .sort((left, right) => left.score - right.score)
+    .map(({ item }) => item);
 }
 
 function attributionFor(sound: SpeciesGuideSound): string {
@@ -62,11 +91,17 @@ export function EarTrainingQuiz({ species }: { species: EarTrainingSpecies[] }) 
       if (!raw || !mountedRef.current) return;
       try {
         const parsed = JSON.parse(raw) as Partial<EarTrainingStats>;
+        const speciesStats = Object.fromEntries(Object.entries(parsed.species ?? {}).flatMap(([key, value]) => {
+          if (!value || typeof value !== "object") return [];
+          const practice = value as Partial<SpeciesPracticeStats>;
+          return [[key, { attempts: Math.max(0, practice.attempts ?? 0), correct: Math.max(0, practice.correct ?? 0) }]];
+        }));
         setStats({
           attempts: Math.max(0, parsed.attempts ?? 0),
           correct: Math.max(0, parsed.correct ?? 0),
           streak: Math.max(0, parsed.streak ?? 0),
           bestStreak: Math.max(0, parsed.bestStreak ?? 0),
+          species: speciesStats,
         });
       } catch { /* ignore corrupt local stats */ }
     }).catch(() => undefined);
@@ -101,7 +136,7 @@ export function EarTrainingQuiz({ species }: { species: EarTrainingSpecies[] }) 
     setRound(undefined);
     answerLockRef.current = false;
     await unloadSound();
-    const freshCandidates = shuffled(species.filter((entry) => entry.key !== lastTargetKeyRef.current));
+    const freshCandidates = orderedForPractice(species.filter((entry) => entry.key !== lastTargetKeyRef.current), stats);
     const repeatedCandidates = shuffled(species.filter((entry) => entry.key === lastTargetKeyRef.current));
     const candidates = [...freshCandidates, ...repeatedCandidates];
     if (token !== roundTokenRef.current || !mountedRef.current) return;
@@ -194,17 +229,29 @@ export function EarTrainingQuiz({ species }: { species: EarTrainingSpecies[] }) 
     if (!round || round.selectedKey || answerLockRef.current) return;
     answerLockRef.current = true;
     const correct = choice.key === round.target.key;
+    const targetPractice = stats.species?.[round.target.key] ?? { attempts: 0, correct: 0 };
     const next = {
       attempts: stats.attempts + 1,
       correct: stats.correct + (correct ? 1 : 0),
       streak: correct ? stats.streak + 1 : 0,
       bestStreak: correct ? Math.max(stats.bestStreak, stats.streak + 1) : stats.bestStreak,
+      species: {
+        ...stats.species,
+        [round.target.key]: {
+          attempts: targetPractice.attempts + 1,
+          correct: targetPractice.correct + (correct ? 1 : 0),
+        },
+      },
     };
     saveStats(next);
     setRound({ ...round, selectedKey: choice.key });
   };
 
   const accuracy = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0;
+  const focusSpecies = stats.attempts
+    ? [...species].sort((left, right) => basePracticeScore(left.key, stats) - basePracticeScore(right.key, stats))[0]
+    : undefined;
+  const focusAccuracy = focusSpecies ? practiceAccuracy(stats.species?.[focusSpecies.key]) : undefined;
 
   return <>
     <View style={styles.card}>
@@ -218,7 +265,7 @@ export function EarTrainingQuiz({ species }: { species: EarTrainingSpecies[] }) 
       </View>
       <Text style={styles.description}>
         {available
-          ? `Train with ${species.length} species you have collected. Best streak ${stats.bestStreak}.`
+          ? `Train with ${species.length} species you have collected. Best streak ${stats.bestStreak}.${focusSpecies ? ` Focus: ${focusSpecies.commonName}${focusAccuracy == null ? "" : ` · ${Math.round(focusAccuracy * 100)}%`}` : ""}`
           : `Collect ${Math.max(0, 3 - species.length)} more species to unlock bird-sound quizzes.`}
       </Text>
       <Pressable accessibilityRole="button" accessibilityLabel={available ? "Start ear training quiz" : "Ear training locked"} disabled={!available} style={[styles.startButton, !available && styles.startDisabled]} onPress={openQuiz}>
@@ -260,6 +307,7 @@ export function EarTrainingQuiz({ species }: { species: EarTrainingSpecies[] }) 
               </View>
               {round.selectedKey ? <View style={styles.reveal}>
                 <Text style={styles.revealTitle}>{round.selectedKey === round.target.key ? "Correct — great ear!" : `It was ${round.target.commonName}.`}</Text>
+                <Text style={styles.masteryCopy}>{round.target.commonName} mastery: {Math.round((practiceAccuracy(stats.species?.[round.target.key]) ?? 0) * 100)}% over {stats.species?.[round.target.key]?.attempts ?? 0} round{(stats.species?.[round.target.key]?.attempts ?? 0) === 1 ? "" : "s"}</Text>
                 {round.imageUrl ? <Image source={{ uri: round.imageUrl }} style={styles.revealImage} /> : null}
                 <Text style={styles.attribution}>{attributionFor(round.sound)}</Text>
                 {round.sound.descriptionUrl ? <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(round.sound.descriptionUrl as string)}><Text style={styles.sourceLink}>Open audio source and license details</Text></Pressable> : null}
@@ -310,6 +358,7 @@ const styles = StyleSheet.create({
   hint: { color: "#748379", fontSize: 11, lineHeight: 16, textAlign: "center", marginTop: 11 },
   reveal: { marginTop: 13, alignItems: "center" },
   revealTitle: { color: "#173c2b", fontSize: 16, fontWeight: "900", textAlign: "center" },
+  masteryCopy: { color: "#60766a", fontSize: 11, fontWeight: "800", textAlign: "center", marginTop: 5 },
   revealImage: { width: "100%", height: 142, borderRadius: 14, backgroundColor: "#dce6df", marginTop: 9 },
   attribution: { color: "#748379", fontSize: 10, lineHeight: 14, marginTop: 7, textAlign: "center" },
   sourceLink: { color: "#2878d1", fontSize: 11, fontWeight: "800", marginTop: 4, textAlign: "center" },
