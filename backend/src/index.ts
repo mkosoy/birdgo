@@ -63,7 +63,7 @@ function observationCacheKey(parts: (string | number)[]): string {
 }
 
 function coordinateCachePart(value: number): number {
-  return Math.round(value * 100) / 100;
+  return Math.round(value * 1000) / 1000;
 }
 
 function readObservationCache<T>(key: string): T | undefined {
@@ -148,7 +148,7 @@ async function fetchRecentEbirdObservations(lat: number, lng: number, dist: numb
   const cacheLng = coordinateCachePart(lng);
   const key = observationCacheKey(["ebird-recent", cacheLat, cacheLng, dist, back]);
   return cachedObservationRequest(key, () => ebirdGet<EbirdObservation[]>(
-    `/data/obs/geo/recent?lat=${cacheLat}&lng=${cacheLng}&dist=${dist}&back=${back}`,
+    `/data/obs/geo/recent?lat=${lat}&lng=${lng}&dist=${dist}&back=${back}`,
     token,
   ));
 }
@@ -157,7 +157,7 @@ async function fetchRecentInatObservations(lat: number, lng: number, dist: numbe
   const cacheLat = coordinateCachePart(lat);
   const cacheLng = coordinateCachePart(lng);
   const key = observationCacheKey(["inat-recent", cacheLat, cacheLng, dist, back]);
-  return cachedObservationRequest(key, () => fetchInatBirds(cacheLat, cacheLng, dist, back));
+  return cachedObservationRequest(key, () => fetchInatBirds(lat, lng, dist, back));
 }
 
 async function fetchNotableEbirdObservations(lat: number, lng: number, dist: number, detail: string): Promise<EbirdObservation[]> {
@@ -165,7 +165,7 @@ async function fetchNotableEbirdObservations(lat: number, lng: number, dist: num
   const cacheLng = coordinateCachePart(lng);
   const key = observationCacheKey(["ebird-notable", cacheLat, cacheLng, dist, detail]);
   return cachedObservationRequest(key, () => ebirdGet<EbirdObservation[]>(
-    `/data/obs/geo/recent/notable?lat=${cacheLat}&lng=${cacheLng}&dist=${dist}&detail=${encodeURIComponent(detail)}`,
+    `/data/obs/geo/recent/notable?lat=${lat}&lng=${lng}&dist=${dist}&detail=${encodeURIComponent(detail)}`,
     token,
   ));
 }
