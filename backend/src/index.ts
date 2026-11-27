@@ -13,6 +13,7 @@ import { fetchInatBirdAbundance, fetchInatBirds, fetchSpeciesReferenceImage } fr
 import { identifyBird, type BirdIdProvider } from "./birdId.js";
 import { canonicalizeSpecies, type SpeciesIdentityInput } from "./taxonomy.js";
 import { fetchSpeciesGuide } from "./speciesGuide.js";
+import { readSyncRecord, syncKeyFromSecret, syncStorageConfigured, writeSyncRecordIfRevision } from "./sync.js";
 
 dotenv.config();
 export const app = express();
@@ -254,6 +255,106 @@ app.post("/api/species/canonical", async (request, response) => {
   } catch (error) {
     console.error(error);
     response.status(502).json({ error: "Species canonicalization failed", status: 502 });
+  }
+});
+
+const SYNC_RATE_WINDOW_MS = 10 * 60 * 1000;
+const SYNC_RATE_LIMIT = 120;
+const SYNC_PAYLOAD_MAX_CHARS = 900_000;
+const syncRequests = new Map<string, { count: number; resetAt: number }>();
+
+function syncRateLimited(request: Request): boolean {
+  const ip = request.ip || request.socket.remoteAddress || "unknown";
+  const now = Date.now();
+  if (syncRequests.size > 1000) {
+    for (const [key, entry] of syncRequests) {
+      if (entry.resetAt <= now) syncRequests.delete(key);
+    }
+  }
+  const current = syncRequests.get(ip);
+  if (!current || current.resetAt <= now) {
+    syncRequests.set(ip, { count: 1, resetAt: now + SYNC_RATE_WINDOW_MS });
+    return false;
+  }
+  current.count += 1;
+  return current.count > SYNC_RATE_LIMIT;
+}
+
+function syncSecret(request: Request): string | undefined {
+  const header = request.header("authorization");
+  const secret = header?.startsWith("Bearer ") ? header.slice(7) : undefined;
+  return secret && /^[A-Za-z0-9_-]{32,128}$/.test(secret) ? secret : undefined;
+}
+
+app.get("/api/sync/status", (_request, response) => {
+  response.json({ enabled: syncStorageConfigured() });
+});
+
+app.get("/api/sync", async (request, response) => {
+  if (syncRateLimited(request)) {
+    response.status(429).json({ error: "Too many sync requests. Try again shortly.", status: 429 });
+    return;
+  }
+  const secret = syncSecret(request);
+  if (!secret) {
+    response.status(401).json({ error: "A valid sync key is required.", status: 401 });
+    return;
+  }
+  if (!syncStorageConfigured()) {
+    response.status(503).json({ error: "Cloud sync storage is not configured.", status: 503 });
+    return;
+  }
+  try {
+    const record = await readSyncRecord(syncKeyFromSecret(secret));
+    if (!record) {
+      response.status(404).json({ error: "No cloud backup exists for this sync key.", status: 404 });
+      return;
+    }
+    response.json(record);
+  } catch (error) {
+    console.error(error);
+    response.status(502).json({ error: "Cloud sync read failed.", status: 502 });
+  }
+});
+
+app.put("/api/sync", async (request, response) => {
+  if (syncRateLimited(request)) {
+    response.status(429).json({ error: "Too many sync requests. Try again shortly.", status: 429 });
+    return;
+  }
+  const secret = syncSecret(request);
+  if (!secret) {
+    response.status(401).json({ error: "A valid sync key is required.", status: 401 });
+    return;
+  }
+  if (!syncStorageConfigured()) {
+    response.status(503).json({ error: "Cloud sync storage is not configured.", status: 503 });
+    return;
+  }
+  const body = request.body as { payload?: unknown; expectedRevision?: unknown };
+  if (typeof body.payload !== "string" || !body.payload) {
+    response.status(400).json({ error: "payload is required.", status: 400 });
+    return;
+  }
+  if (body.payload.length > SYNC_PAYLOAD_MAX_CHARS) {
+    response.status(413).json({ error: "Sync payload is too large.", status: 413 });
+    return;
+  }
+  if (!Number.isInteger(body.expectedRevision) || Number(body.expectedRevision) < 0) {
+    response.status(400).json({ error: "expectedRevision must be a non-negative integer.", status: 400 });
+    return;
+  }
+  try {
+    const key = syncKeyFromSecret(secret);
+    const result = await writeSyncRecordIfRevision(key, body.payload, Number(body.expectedRevision));
+    if (result.status === "conflict") {
+      response.status(409).json({ error: "Cloud backup changed on another device.", status: 409, currentRevision: result.currentRevision });
+      return;
+    }
+    response.json(result.record);
+  } catch (error) {
+    console.error(error);
+    response.status(502).json({ error: "Cloud sync write failed.", status: 502 });
   }
 });
 
