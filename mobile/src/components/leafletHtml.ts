@@ -55,6 +55,7 @@ export function buildLeafletHtml(): string {
       var popupBirdId = null;
       var restoringPopup = false;
       var latestData = null;
+      var latestMarkers = [];
       var programmaticCameraMove = false;
       var userGesture = false;
       function markProgrammaticCameraMove() { programmaticCameraMove = true; }
@@ -138,7 +139,7 @@ export function buildLeafletHtml(): string {
           postOutward({ type: 'directions', id: bird.id, latitude: bird.latitude, longitude: bird.longitude, name: bird.comName });
         });
         element.querySelector('[data-action="about"]').addEventListener('click', function () {
-          postOutward({ type: 'about', speciesCode: bird.speciesCode, comName: bird.comName });
+          postOutward({ type: 'about', speciesCode: bird.speciesCode, comName: bird.comName, sciName: bird.sciName });
         });
         fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(bird.comName || 'Bird'))
           .then(function (response) { if (!response.ok) throw new Error('Wikipedia unavailable'); return response.json(); })
@@ -159,7 +160,8 @@ export function buildLeafletHtml(): string {
 
       function render(data) {
         if (!data || !data.center) return;
-        latestData = Object.assign({}, data, { command: null });
+        if (Array.isArray(data.markers)) latestMarkers = data.markers;
+        latestData = Object.assign({}, data, { command: null, markers: latestMarkers });
         var restorePopupId = popupBirdId;
         var restoreMarker = null;
         if (data.userLocation) lastUserLocation = data.userLocation;
@@ -183,7 +185,7 @@ export function buildLeafletHtml(): string {
         var minSpacing = zoom >= 16 ? 18 : zoom >= 15 ? 24 : zoom >= 13 ? 38 : 48;
         var visibleBounds = map.getBounds().pad(0.08);
         var referenceLocation = lastUserLocation || data.center;
-        var sortedBirds = (data.markers || []).slice().sort(function (left, right) {
+        var sortedBirds = latestMarkers.slice().sort(function (left, right) {
           function score(bird) {
             var distance = haversineKm(referenceLocation, bird);
             return (distance == null ? 999 : distance) - (bird.isNotable ? 0.35 : 0) - (bird.captureCount ? 0.1 : 0) - (bird.virtual ? 0.05 : 0);
@@ -215,7 +217,7 @@ export function buildLeafletHtml(): string {
           }
           var point = map.latLngToContainerPoint(latLng);
           var crowded = false;
-          if (String(bird.id) !== String(restorePopupId)) {
+          if (zoom < 16 && String(bird.id) !== String(restorePopupId)) {
             for (var pointIndex = 0; pointIndex < chosenPoints.length; pointIndex += 1) {
               var dx = point.x - chosenPoints[pointIndex].x;
               var dy = point.y - chosenPoints[pointIndex].y;

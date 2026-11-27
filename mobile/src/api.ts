@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "./config";
-import type { BirdAbundance, CanonicalSpeciesResult, EbirdObservation, IdentificationResult } from "./types";
+import type { BirdAbundance, CanonicalSpeciesResult, EbirdObservation, IdentificationResult, SpeciesGuide } from "./types";
 
 interface RawEbirdObservation {
   lat?: number;
@@ -35,7 +35,7 @@ export function fetchBirdAbundance(latitude: number, longitude: number): Promise
 }
 
 export function fetchNotableBirds(latitude: number, longitude: number): Promise<EbirdObservation[]> {
-  return request<RawEbirdObservation[]>(`/api/birds/notable?lat=${latitude}&lng=${longitude}&dist=25&detail=full`)
+  return request<RawEbirdObservation[]>(`/api/birds/notable?lat=${latitude}&lng=${longitude}&dist=25&detail=simple`)
     .then((observations) => observations.flatMap((observation) => mapObservation(observation, true)));
 }
 
@@ -69,4 +69,11 @@ export function canonicalizeSpecies(items: Array<{ speciesCode?: string; comName
     method: "POST",
     body: JSON.stringify({ items }),
   });
+}
+
+export function fetchSpeciesGuide(input: { sciName?: string | null; commonName?: string | null }): Promise<SpeciesGuide> {
+  const params = new URLSearchParams();
+  if (input.sciName?.trim()) params.set("sciName", input.sciName.trim());
+  if (input.commonName?.trim()) params.set("commonName", input.commonName.trim());
+  return request(`/api/species/guide?${params.toString()}`);
 }

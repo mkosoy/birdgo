@@ -12,6 +12,7 @@ import {
 import { fetchInatBirdAbundance, fetchInatBirds, fetchSpeciesReferenceImage } from "./inaturalist.js";
 import { identifyBird, type BirdIdProvider } from "./birdId.js";
 import { canonicalizeSpecies, type SpeciesIdentityInput } from "./taxonomy.js";
+import { fetchSpeciesGuide } from "./speciesGuide.js";
 
 dotenv.config();
 export const app = express();
@@ -43,6 +44,13 @@ let taxonomyCache: { expiresAt: number; data: unknown } | undefined;
 function queryNumber(request: Request, key: string, fallback: number): number {
   const value = Number(request.query[key]);
   return Number.isFinite(value) ? value : fallback;
+}
+
+function distanceScore(latitude: number, longitude: number, observation: EbirdObservation): number {
+  if (typeof observation.lat !== "number" || typeof observation.lng !== "number") return Number.POSITIVE_INFINITY;
+  const latDelta = observation.lat - latitude;
+  const lngDelta = (observation.lng - longitude) * Math.cos(latitude * Math.PI / 180);
+  return latDelta * latDelta + lngDelta * lngDelta;
 }
 
 function handleEbirdError(error: unknown, response: Response): void {
@@ -138,9 +146,26 @@ app.get("/api/birds/notable", async (request, response) => {
       `/data/obs/geo/recent/notable?lat=${lat}&lng=${lng}&dist=${dist}&detail=${encodeURIComponent(detail)}`,
       token,
     );
-    response.json(observations.filter(isSpeciesObservation));
+    const deduplicated = deduplicateObservations(observations);
+    deduplicated.sort((left, right) => distanceScore(lat, lng, left) - distanceScore(lat, lng, right));
+    response.json(deduplicated);
   } catch (error) {
     handleEbirdError(error, response);
+  }
+});
+
+app.get("/api/species/guide", async (request, response) => {
+  const sciName = typeof request.query.sciName === "string" ? request.query.sciName.trim().slice(0, 160) : undefined;
+  const commonName = typeof request.query.commonName === "string" ? request.query.commonName.trim().slice(0, 160) : undefined;
+  if (!sciName && !commonName) {
+    response.status(400).json({ error: "sciName or commonName is required", status: 400 });
+    return;
+  }
+  try {
+    response.json(await fetchSpeciesGuide(sciName || undefined, commonName || undefined));
+  } catch (error) {
+    console.error(error);
+    response.status(502).json({ error: "Unable to load species guide", status: 502 });
   }
 });
 

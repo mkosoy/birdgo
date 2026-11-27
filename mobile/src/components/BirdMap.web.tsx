@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { EbirdObservation, Coordinates, TrainerProfile, WeatherAtmosphere } from "../types";
 import { buildLeafletHtml } from "./leafletHtml";
 import { buildMapLibreHtml } from "./mapLibreHtml";
-import type { BirdMapProps } from "./BirdMap";
+import type { BirdMapProps, LeafletData, LeafletDataPayload, LeafletMarker } from "./BirdMap";
 import { speciesKey } from "../utils/progression";
 
 interface LeafletMessage {
@@ -14,6 +14,7 @@ interface LeafletMessage {
   id?: string;
   speciesCode?: string;
   comName?: string;
+  sciName?: string;
   name?: string;
   latitude?: number;
   longitude?: number;
@@ -36,7 +37,26 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
   const lastOverviewRef = useRef(0);
   const lastNearestRef = useRef(0);
   const markerLookup = useMemo(() => new Map(birds.map((bird) => [markerId(bird), bird])), [birds]);
-  const data = useMemo(() => ({
+  const postedMarkersRef = useRef<LeafletMarker[] | null>(null);
+  const markers = useMemo<LeafletMarker[]>(() => birds.map((bird) => ({
+    id: markerId(bird),
+    latitude: bird.latitude,
+    longitude: bird.longitude,
+    comName: bird.comName ?? "Bird",
+    sciName: bird.sciName,
+    locName: bird.locName,
+    obsDt: bird.obsDt,
+    relativeTime: relativeTime(bird.obsDt),
+    howMany: bird.howMany,
+    frequency: bird.frequency,
+    reportCount: bird.reportCount,
+    speciesCode: bird.speciesCode,
+    isNotable: Boolean(bird.isNotable),
+    imageUrl: bird.imageUrl,
+    virtual: Boolean(bird.virtual),
+    captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
+  })), [birds, captureCounts]);
+  const data = useMemo<LeafletData>(() => ({
     center,
     loading,
     weather,
@@ -45,25 +65,8 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
     heading,
     firstPerson,
     safeArea,
-    markers: birds.map((bird) => ({
-      id: markerId(bird),
-      latitude: bird.latitude,
-      longitude: bird.longitude,
-      comName: bird.comName ?? "Bird",
-      sciName: bird.sciName,
-      locName: bird.locName,
-      obsDt: bird.obsDt,
-      relativeTime: relativeTime(bird.obsDt),
-      howMany: bird.howMany,
-      frequency: bird.frequency,
-      reportCount: bird.reportCount,
-      speciesCode: bird.speciesCode,
-      isNotable: Boolean(bird.isNotable),
-      imageUrl: bird.imageUrl,
-      virtual: Boolean(bird.virtual),
-      captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
-    })),
-  }), [birds, captureCounts, center, firstPerson, heading, safeArea, userLocation, weather, trainer]);
+    markers,
+  }), [markers, center, firstPerson, heading, safeArea, userLocation, weather, trainer, loading]);
   const dataRef = useRef<typeof data | null>(null);
   useEffect(() => {
     dataRef.current = data;
@@ -83,7 +86,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
       } else if (message.type === "directions" && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name) {
         onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id });
       } else if (message.type === "about" && message.speciesCode && message.comName) {
-        onAbout({ speciesCode: message.speciesCode, comName: message.comName });
+        onAbout({ speciesCode: message.speciesCode, comName: message.comName, sciName: message.sciName });
       } else if (message.type === "popup") {
         onPopupChange?.(Boolean(message.open));
       } else if (message.type === "toast") {
@@ -107,60 +110,66 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
     return () => window.removeEventListener("message", handleMessage);
   }, [markerLookup, onAbout, onCapture, onDirections, onNearbyStateChange, onPopupChange, onRegionChange, onToastChange, onFollowChange, onTrackingChange]);
 
+  const postData = useCallback((latestData: LeafletData, forceMarkers = false) => {
+    const includeMarkers = forceMarkers || latestData.markers !== postedMarkersRef.current;
+    const payload: LeafletDataPayload = includeMarkers ? latestData : { ...latestData, markers: undefined };
+    iframeRef.current?.contentWindow?.postMessage(JSON.stringify(payload), "*");
+    if (includeMarkers) postedMarkersRef.current = latestData.markers;
+  }, []);
   useEffect(() => {
-    iframeRef.current?.contentWindow?.postMessage(JSON.stringify(data), "*");
-  }, [data]);
+    postData(data);
+  }, [data, postData]);
   useEffect(() => {
     if (!recenterRequest || recenterRequest === lastRecenterRef.current) return;
     lastRecenterRef.current = recenterRequest;
     const latestData = dataRef.current;
-    if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "recenter" }), "*");
+    if (latestData) postData({ ...latestData, command: "recenter" });
   }, [recenterRequest]);
   useEffect(() => {
     if (firstPerson === lastFirstPersonRef.current) return;
     lastFirstPersonRef.current = firstPerson;
     const latestData = dataRef.current;
-    if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "setView", firstPerson }), "*");
+    if (latestData) postData({ ...latestData, command: "setView", firstPerson });
   }, [firstPerson]);
   useEffect(() => {
     if (!overviewRequest || overviewRequest === lastOverviewRef.current) return;
     lastOverviewRef.current = overviewRequest;
     const latestData = dataRef.current;
-    if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "overview" }), "*");
+    if (latestData) postData({ ...latestData, command: "overview" });
   }, [overviewRequest]);
   useEffect(() => {
     if (!nearestRequest || nearestRequest === lastNearestRef.current) return;
     lastNearestRef.current = nearestRequest;
     const latestData = dataRef.current;
-    if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "nearest" }), "*");
+    if (latestData) postData({ ...latestData, command: "nearest" });
   }, [nearestRequest]);
   useEffect(() => {
     if (!trackRequest) return;
     const latestData = dataRef.current;
-    if (latestData) iframeRef.current?.contentWindow?.postMessage(JSON.stringify({
+    if (latestData) postData({
       ...latestData,
       command: "track",
       trackTarget: trackRequest,
-    }), "*");
+    });
   }, [trackRequest]);
 
   useEffect(() => {
     if (!stopTrackRequest) return;
     const latestData = dataRef.current;
     if (latestData) {
-      iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "stopTrack" }), "*");
+      postData({ ...latestData, command: "stopTrack" });
     }
   }, [stopTrackRequest]);
   useEffect(() => {
     if (!closePopupRequest) return;
     const latestData = dataRef.current;
     if (latestData) {
-      iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ ...latestData, command: "closePopup" }), "*");
+      postData({ ...latestData, command: "closePopup" });
     }
   }, [closePopupRequest]);
 
-  const html = mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml();
+  const html = useMemo(() => (mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml()), [mode]);
   const blobUrl = useMemo(() => URL.createObjectURL(new Blob([html], { type: "text/html" })), [html]);
   useEffect(() => () => URL.revokeObjectURL(blobUrl), [blobUrl]);
-  return <iframe ref={iframeRef} src={blobUrl} onLoad={() => iframeRef.current?.contentWindow?.postMessage(JSON.stringify(data), "*")} style={{ border: 0, width: "100%", height: "100%" }} title="BirdGo map" />;
+  return <iframe ref={iframeRef} src={blobUrl} onLoad={() => postData(dataRef.current ?? data, true)} style={{ border: 0, width: "100%", height: "100%" }} title="BirdGo map" />;
 }

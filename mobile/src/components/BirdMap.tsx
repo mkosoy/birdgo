@@ -34,7 +34,7 @@ export interface BirdMapProps {
   safeArea?: SafeAreaInsets;
   onCapture: (bird: EbirdObservation) => void;
   onDirections: (coordinates: Coordinates & { name: string; id?: string }) => void;
-  onAbout: (bird: { speciesCode: string; comName: string }) => void;
+  onAbout: (bird: { speciesCode: string; comName: string; sciName?: string }) => void;
   onPopupChange?: (open: boolean) => void;
   onToastChange?: (open: boolean) => void;
   onNearbyStateChange?: (state: "peek" | "half", height?: number) => void;
@@ -43,7 +43,7 @@ export interface BirdMapProps {
   onRegionChange: (coordinates: Coordinates) => void;
 }
 
-interface LeafletMarker {
+export interface LeafletMarker {
   id: string;
   latitude: number;
   longitude: number;
@@ -62,7 +62,7 @@ interface LeafletMarker {
   captureCount?: number;
 }
 
-interface LeafletData {
+export interface LeafletData {
   center: Coordinates;
   userLocation?: Coordinates;
   loading?: boolean;
@@ -71,10 +71,12 @@ interface LeafletData {
   heading?: number;
   markers: LeafletMarker[];
   command?: "recenter" | "setView" | "overview" | "nearest" | "track" | "stopTrack" | "closePopup";
-  trackTarget?: Coordinates & { name: string; id?: string };
+  trackTarget?: Coordinates & { name: string; id?: string; speciesCode?: string };
   firstPerson?: boolean;
   safeArea?: SafeAreaInsets;
 }
+
+export type LeafletDataPayload = Omit<LeafletData, "markers"> & { markers?: LeafletMarker[] };
 
 interface LeafletMessage {
   type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow" | "tracking";
@@ -85,6 +87,7 @@ interface LeafletMessage {
   id?: string;
   speciesCode?: string;
   comName?: string;
+  sciName?: string;
   name?: string;
   latitude?: number;
   longitude?: number;
@@ -110,8 +113,27 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
   const lastOverviewRef = useRef(0);
   const lastNearestRef = useRef(0);
   const dataRef = useRef<LeafletData | null>(null);
+  const postedMarkersRef = useRef<LeafletMarker[] | null>(null);
   useImperativeHandle(forwardedRef, () => webViewRef.current as WebView);
   const markerLookup = useMemo(() => new Map(birds.map((bird) => [markerId(bird), bird])), [birds]);
+  const markers = useMemo<LeafletMarker[]>(() => birds.map((bird) => ({
+    id: markerId(bird),
+    latitude: bird.latitude,
+    longitude: bird.longitude,
+    comName: bird.comName ?? "Bird",
+    sciName: bird.sciName,
+    locName: bird.locName,
+    obsDt: bird.obsDt,
+    relativeTime: relativeTime(bird.obsDt),
+    howMany: bird.howMany,
+    frequency: bird.frequency,
+    reportCount: bird.reportCount,
+    speciesCode: bird.speciesCode,
+    isNotable: Boolean(bird.isNotable),
+    imageUrl: bird.imageUrl,
+    virtual: Boolean(bird.virtual),
+    captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
+  })), [birds, captureCounts]);
   const data = useMemo<LeafletData>(() => ({
     center,
     userLocation,
@@ -121,39 +143,25 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     loading,
     weather,
     trainer,
-    markers: birds.map((bird) => ({
-      id: markerId(bird),
-      latitude: bird.latitude,
-      longitude: bird.longitude,
-      comName: bird.comName ?? "Bird",
-      sciName: bird.sciName,
-      locName: bird.locName,
-      obsDt: bird.obsDt,
-      relativeTime: relativeTime(bird.obsDt),
-      howMany: bird.howMany,
-      frequency: bird.frequency,
-      reportCount: bird.reportCount,
-      speciesCode: bird.speciesCode,
-      isNotable: Boolean(bird.isNotable),
-      imageUrl: bird.imageUrl,
-      virtual: Boolean(bird.virtual),
-      captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
-    })),
-  }), [birds, captureCounts, center, firstPerson, heading, safeArea, userLocation, weather, trainer]);
+    markers,
+  }), [markers, center, firstPerson, heading, safeArea, userLocation, weather, trainer, loading]);
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
 
-  const pushData = useCallback(() => {
-    webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify(data))}, '*'); true;`);
-  }, [data]);
-  useEffect(() => { pushData(); }, [pushData]);
+  const postData = useCallback((latestData: LeafletData, forceMarkers = false) => {
+    const includeMarkers = forceMarkers || latestData.markers !== postedMarkersRef.current;
+    const payload: LeafletDataPayload = includeMarkers ? latestData : { ...latestData, markers: undefined };
+    webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify(payload))}, '*'); true;`);
+    if (includeMarkers) postedMarkersRef.current = latestData.markers;
+  }, []);
+  useEffect(() => { postData(data); }, [data, postData]);
   useEffect(() => {
     if (!recenterRequest || recenterRequest === lastRecenterRef.current) return;
     lastRecenterRef.current = recenterRequest;
     const latestData = dataRef.current;
     if (latestData) {
-      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "recenter" }))}, '*'); true;`);
+      postData({ ...latestData, command: "recenter" });
     }
   }, [recenterRequest]);
   useEffect(() => {
@@ -161,7 +169,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     lastFirstPersonRef.current = firstPerson;
     const latestData = dataRef.current;
     if (latestData) {
-      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "setView", firstPerson }))}, '*'); true;`);
+      postData({ ...latestData, command: "setView", firstPerson });
     }
   }, [firstPerson]);
   useEffect(() => {
@@ -169,7 +177,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     lastOverviewRef.current = overviewRequest;
     const latestData = dataRef.current;
     if (latestData) {
-      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "overview" }))}, '*'); true;`);
+      postData({ ...latestData, command: "overview" });
     }
   }, [overviewRequest]);
   useEffect(() => {
@@ -177,14 +185,14 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     lastNearestRef.current = nearestRequest;
     const latestData = dataRef.current;
     if (latestData) {
-      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "nearest" }))}, '*'); true;`);
+      postData({ ...latestData, command: "nearest" });
     }
   }, [nearestRequest]);
   useEffect(() => {
     if (!trackRequest) return;
     const latestData = dataRef.current;
     if (latestData) {
-      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "track", trackTarget: trackRequest }))}, '*'); true;`);
+      postData({ ...latestData, command: "track", trackTarget: trackRequest });
     }
   }, [trackRequest]);
 
@@ -201,7 +209,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     } else if (message.type === "directions" && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name) {
       onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id });
     } else if (message.type === "about" && message.speciesCode && message.comName) {
-      onAbout({ speciesCode: message.speciesCode, comName: message.comName });
+      onAbout({ speciesCode: message.speciesCode, comName: message.comName, sciName: message.sciName });
     } else if (message.type === "popup") {
       onPopupChange?.(Boolean(message.open));
     } else if (message.type === "toast") {
@@ -226,19 +234,19 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     if (!stopTrackRequest) return;
     const latestData = dataRef.current;
     if (latestData) {
-      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "stopTrack" }))}, '*'); true;`);
+      postData({ ...latestData, command: "stopTrack" });
     }
   }, [stopTrackRequest]);
   useEffect(() => {
     if (!closePopupRequest) return;
     const latestData = dataRef.current;
     if (latestData) {
-      webViewRef.current?.injectJavaScript(`window.postMessage(${JSON.stringify(JSON.stringify({ ...latestData, command: "closePopup" }))}, '*'); true;`);
+      postData({ ...latestData, command: "closePopup" });
     }
   }, [closePopupRequest]);
 
-  const html = mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml();
-  return <WebView key={mode} ref={webViewRef} style={styles.map} source={{ html }} onLoadEnd={pushData} onMessage={handleMessage} originWhitelist={["*"]} />;
+  const html = useMemo(() => (mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml()), [mode]);
+  return <WebView key={mode} ref={webViewRef} style={styles.map} source={{ html }} onLoadEnd={() => postData(dataRef.current ?? data, true)} onMessage={handleMessage} originWhitelist={["*"]} />;
 });
 
 const styles = StyleSheet.create({ map: { flex: 1 } });
