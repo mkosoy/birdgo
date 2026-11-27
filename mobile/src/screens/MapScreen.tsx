@@ -341,7 +341,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     : locationNotice
     ? { text: locationNotice, onPress: () => setLocationRetry((request) => request + 1) }
     : error
-      ? { text: "Couldn’t load birds. Tap to retry.", onPress: () => void refresh() }
+      ? { text: error, onPress: () => void refresh() }
       : notable.length > 0 && !rareDismissed && !toastOpen
           ? { text: `Rare bird nearby: ${notable[0].comName ?? "Unknown"}!`, onPress: () => setRareDismissed(true) }
           : null;
