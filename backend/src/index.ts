@@ -153,10 +153,10 @@ async function fetchRecentInatObservations(lat: number, lng: number, dist: numbe
   return cachedObservationRequest(key, () => fetchInatBirds(lat, lng, dist, back));
 }
 
-async function fetchNotableEbirdObservations(lat: number, lng: number, dist: number, detail: string): Promise<EbirdObservation[]> {
-  const key = observationCacheKey(["ebird-notable", lat, lng, dist, detail]);
+async function fetchNotableEbirdObservations(lat: number, lng: number, dist: number, detail: string, back: number): Promise<EbirdObservation[]> {
+  const key = observationCacheKey(["ebird-notable", lat, lng, dist, detail, back]);
   return cachedObservationRequest(key, () => ebirdGet<EbirdObservation[]>(
-    `/data/obs/geo/recent/notable?lat=${lat}&lng=${lng}&dist=${dist}&detail=${encodeURIComponent(detail)}`,
+    `/data/obs/geo/recent/notable?lat=${lat}&lng=${lng}&dist=${dist}&detail=${encodeURIComponent(detail)}&back=${back}`,
     token,
   ));
 }
@@ -203,8 +203,9 @@ app.get("/api/birds/notable", async (request, response) => {
   const lng = queryNumber(request, "lng", -122.4194);
   const dist = queryNumber(request, "dist", 25);
   const detail = typeof request.query.detail === "string" ? request.query.detail : "full";
+  const back = queryNumber(request, "back", 3);
   try {
-    const observations = await fetchNotableEbirdObservations(lat, lng, dist, detail);
+    const observations = await fetchNotableEbirdObservations(lat, lng, dist, detail, back);
     const deduplicated = deduplicateObservations(observations);
     deduplicated.sort((left, right) => distanceScore(lat, lng, left) - distanceScore(lat, lng, right));
     response.json(deduplicated);
