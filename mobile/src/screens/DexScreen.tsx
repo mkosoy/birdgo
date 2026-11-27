@@ -11,7 +11,7 @@ import { EarTrainingQuiz } from "../components/EarTrainingQuiz";
 import { SpeciesGuide } from "../components/SpeciesGuide";
 import { TrainerAvatar } from "../components/TrainerAvatar";
 import { buildBirdBadges, buildSpeciesDex, levelForXp, RARITY_COLORS, RARITY_ORDER, type SpeciesDexEntry } from "../utils/progression";
-import type { TrainerAccessory, TrainerProfile } from "../types";
+import type { CaptureRecord, TrainerAccessory, TrainerProfile } from "../types";
 
 function coordinateLabel(latitude?: number, longitude?: number): string | undefined {
   if (typeof latitude !== "number" || !Number.isFinite(latitude)
@@ -23,6 +23,13 @@ function shortDate(timestamp?: string): string {
   if (!timestamp) return "Date unknown";
   const date = new Date(timestamp);
   return Number.isNaN(date.getTime()) ? "Date unknown" : date.toLocaleDateString();
+}
+
+function journalDate(timestamp?: string): string {
+  if (!timestamp) return "Date unknown";
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "Date unknown";
+  return `${date.toLocaleDateString()} · ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
 }
 
 const AVATAR_COLORS = ["#2f8ee8", "#2f7d5b", "#7d64f2", "#d97941", "#c94f7c", "#263d78"];
@@ -51,6 +58,7 @@ export function DexScreen() {
   const [selected, setSelected] = useState<SpeciesDexEntry>();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "captured" | "seen" | "rare">("all");
+  const [viewMode, setViewMode] = useState<"collection" | "journal">("collection");
   const [pendingRelease, setPendingRelease] = useState<{
     commonName: string;
     speciesCode?: string;
@@ -88,6 +96,8 @@ export function DexScreen() {
   const earTrainingSpecies = useMemo(() => entries
     .filter((entry) => entry.capturedCount > 0 && entry.identified !== false)
     .map((entry) => ({ key: entry.key, commonName: entry.commonName, sciName: entry.sciName, imageUrl: entry.photoUri || entry.imageUrl })), [entries]);
+  const journalCaptures = useMemo(() => [...captures]
+    .sort((left, right) => Date.parse(right.timestamp) - Date.parse(left.timestamp)), [captures]);
   const hallOfFameEntries = useMemo(() => entries
     .filter((entry) => entry.capturedCount > 0 && entry.identified !== false)
     .map((entry) => ({
@@ -193,6 +203,15 @@ export function DexScreen() {
     </ScrollView> : <Text style={styles.skyfriendEmpty}>Explore low-activity areas and look for glowing holographic birds.</Text>}
   </View>;
 
+  const modeSwitch = <View style={styles.modeSwitch}>
+    {([
+      { value: "collection" as const, label: "Collection" },
+      { value: "journal" as const, label: `Journal${journalCaptures.length ? ` · ${journalCaptures.length}` : ""}` },
+    ]).map((choice) => <Pressable key={choice.value} accessibilityRole="button" accessibilityLabel={`${choice.label} view`} style={[styles.modeButton, viewMode === choice.value && styles.modeButtonActive]} onPress={() => setViewMode(choice.value)}>
+      <Text style={[styles.modeButtonText, viewMode === choice.value && styles.modeButtonTextActive]}>{choice.label}</Text>
+    </Pressable>)}
+  </View>;
+
   const filterChoices: { value: typeof filter; label: string }[] = [
     { value: "all", label: "All" },
     { value: "captured", label: "Collected" },
@@ -231,21 +250,59 @@ export function DexScreen() {
     </Pressable>;
   };
 
+  const openJournalCapture = (capture: CaptureRecord) => {
+    const entry = entries.find((candidate) => candidate.captureIds.includes(capture.id));
+    if (entry) setSelected(entry);
+  };
+
+  const renderJournalRow = ({ item }: { item: CaptureRecord }) => {
+    const entry = entries.find((candidate) => candidate.captureIds.includes(item.id));
+    const rarity = item.rarity ?? entry?.rarity ?? "common";
+    const evidence = item.verified ? "AI verified photo" : item.photoUri ? "Unverified photo" : "Honor-system sighting";
+    const coordinates = coordinateLabel(item.location?.latitude, item.location?.longitude);
+    return <Pressable accessibilityRole="button" accessibilityLabel={`${item.commonName} journal record, ${journalDate(item.timestamp)}, ${evidence}, ${rarity} rarity${coordinates ? `, near ${coordinates}` : ""}`} style={styles.journalRow} onPress={() => openJournalCapture(item)}>
+      {item.photoUri
+        ? <Image source={{ uri: item.photoUri }} style={styles.journalImage} />
+        : <View style={[styles.journalImage, styles.journalImageEmpty]}><Ionicons name={item.verified ? "camera" : "hand-left"} size={20} color="#64776c" /></View>}
+      <View style={styles.journalCopy}>
+        <Text style={styles.journalName} numberOfLines={1}>{item.commonName}</Text>
+        <Text style={styles.journalMeta} numberOfLines={1}>{journalDate(item.timestamp)}{coordinates ? ` · ${coordinates}` : ""}</Text>
+        <Text style={styles.journalEvidence}>{evidence}</Text>
+      </View>
+      <View style={styles.journalEnd}>
+        <View style={[styles.journalRarityChip, { backgroundColor: RARITY_COLORS[rarity] }]}><Text style={styles.rarityChipText}>{rarity.charAt(0).toUpperCase() + rarity.slice(1)}</Text></View>
+        <Ionicons name="chevron-forward" size={17} color="#7b8e82" />
+      </View>
+    </Pressable>;
+  };
+
   const content = !entries.length
     ? <ScrollView contentContainerStyle={styles.emptyContent}>
-      <View>{header}{questArea}{earTrainingArea}{hallOfFameArea}{skyfriendArea}</View>
-      <View style={styles.center}><Text style={styles.title}>Your Bird-dex is empty</Text><Text style={styles.copy}>Explore the map and capture your first bird.</Text></View>
+      <View>{header}{modeSwitch}{questArea}{earTrainingArea}{hallOfFameArea}{skyfriendArea}</View>
+      <View style={styles.center}><Text style={styles.title}>{viewMode === "journal" ? "No journal entries yet" : "Your Bird-dex is empty"}</Text><Text style={styles.copy}>{viewMode === "journal" ? "Capture real birds to start your chronological field journal." : "Explore the map and capture your first bird."}</Text></View>
     </ScrollView>
-    : <FlatList
-      contentContainerStyle={styles.list}
-      data={filteredEntries}
-      keyExtractor={(item) => item.key}
-      numColumns={2}
-      ListHeaderComponent={<View>{header}{questArea}{earTrainingArea}{dexControls}</View>}
-      ListFooterComponent={<View>{hallOfFameArea}{skyfriendArea}</View>}
-      renderItem={renderCard}
-      ListEmptyComponent={<View style={styles.noMatches}><Text style={styles.noMatchesText}>No species match this search.</Text></View>}
-    />;
+    : viewMode === "journal"
+      ? <FlatList
+        key="journal-list"
+        contentContainerStyle={styles.list}
+        data={journalCaptures}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={<View>{header}{modeSwitch}<Text style={styles.journalIntro}>Your real-bird field journal, newest first. Skyfriends stay separate.</Text></View>}
+        ListFooterComponent={<View>{skyfriendArea}</View>}
+        renderItem={renderJournalRow}
+        ListEmptyComponent={<View style={styles.noMatches}><Text style={styles.noMatchesText}>No real bird observations yet.</Text></View>}
+      />
+      : <FlatList
+        key="collection-grid"
+        contentContainerStyle={styles.list}
+        data={filteredEntries}
+        keyExtractor={(item) => item.key}
+        numColumns={2}
+        ListHeaderComponent={<View>{header}{modeSwitch}{questArea}{earTrainingArea}{dexControls}</View>}
+        ListFooterComponent={<View>{hallOfFameArea}{skyfriendArea}</View>}
+        renderItem={renderCard}
+        ListEmptyComponent={<View style={styles.noMatches}><Text style={styles.noMatchesText}>No species match this search.</Text></View>}
+      />;
 
   const selectedCapture = selected?.capture;
   const selectedCaptures = selected
@@ -472,6 +529,21 @@ const styles = StyleSheet.create({
   visualToggle: { alignSelf: "center", marginTop: 8, borderRadius: 15, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: "#edf4ec" },
   visualToggleText: { color: "#466052", fontSize: 12, fontWeight: "800" },
   detailCopy: { color: "#687a70", fontSize: 11, lineHeight: 15, textAlign: "center", marginTop: 10 },
+  modeSwitch: { marginTop: 12, padding: 3, borderRadius: 999, backgroundColor: "#e4ede7", flexDirection: "row", gap: 3 },
+  modeButton: { flex: 1, minHeight: 34, borderRadius: 999, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
+  modeButtonActive: { backgroundColor: "#ffffff", shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 5, shadowOffset: { width: 0, height: 1 } },
+  modeButtonText: { color: "#60766a", fontSize: 11, fontWeight: "900" },
+  modeButtonTextActive: { color: "#173c2b" },
+  journalIntro: { marginTop: 10, marginBottom: 2, color: "#6d7f74", fontSize: 10, lineHeight: 14, fontWeight: "700", textAlign: "center" },
+  journalRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#ffffff", borderRadius: 14, borderWidth: 1, borderColor: "#dfe8e2", padding: 10, marginBottom: 8 },
+  journalImage: { width: 48, height: 48, borderRadius: 12, backgroundColor: "#d8e4db" },
+  journalImageEmpty: { alignItems: "center", justifyContent: "center" },
+  journalCopy: { flex: 1, flexShrink: 1, minWidth: 0 },
+  journalName: { color: "#173c2b", fontSize: 13, fontWeight: "900" },
+  journalMeta: { marginTop: 3, color: "#68796f", fontSize: 10, fontWeight: "700" },
+  journalEvidence: { marginTop: 3, color: "#45675a", fontSize: 9, fontWeight: "800" },
+  journalEnd: { flexShrink: 0, flexDirection: "row", alignItems: "center", gap: 4 },
+  journalRarityChip: { borderRadius: 9, paddingHorizontal: 7, paddingVertical: 3 },
   historyArea: { marginTop: 13, padding: 11, borderRadius: 13, backgroundColor: "#f0f5f1", borderWidth: 1, borderColor: "#dfe8e2", gap: 8 },
   historyTitle: { color: "#173c2b", fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.7 },
   historyRow: { flexDirection: "row", alignItems: "center", gap: 9 },
