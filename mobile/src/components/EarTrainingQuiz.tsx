@@ -103,27 +103,33 @@ export function EarTrainingQuiz({ species }: { species: EarTrainingSpecies[] }) 
     await unloadSound();
     const freshCandidates = shuffled(species.filter((entry) => entry.key !== lastTargetKeyRef.current));
     const repeatedCandidates = shuffled(species.filter((entry) => entry.key === lastTargetKeyRef.current));
-    const candidates = [...freshCandidates.slice(0, 5), ...repeatedCandidates].slice(0, Math.min(6, species.length));
-    for (const target of candidates) {
-      try {
-        const guide = await fetchSpeciesGuide({ commonName: target.commonName, sciName: target.sciName });
-        if (token !== roundTokenRef.current || !mountedRef.current) return;
-        if (!guide.sounds.length) continue;
-        const sound = guide.sounds[Math.floor(Math.random() * guide.sounds.length)];
-        const distractors = shuffled(species.filter((entry) => entry.key !== target.key)).slice(0, 2);
-        if (distractors.length < 2) continue;
-        lastTargetKeyRef.current = target.key;
-        setRound({
-          target,
-          choices: shuffled([target, ...distractors]),
-          sound,
-          imageUrl: guide.imageUrl ?? target.imageUrl,
-        });
-        setLoading(false);
-        return;
-      } catch {
-        // Try another captured species before surfacing an error.
-      }
+    const candidates = [...freshCandidates, ...repeatedCandidates];
+    if (token !== roundTokenRef.current || !mountedRef.current) return;
+    for (let offset = 0; offset < candidates.length; offset += 4) {
+      const batch = candidates.slice(offset, offset + 4);
+      const results = await Promise.all(batch.map(async (target) => {
+        try {
+          return { target, guide: await fetchSpeciesGuide({ commonName: target.commonName, sciName: target.sciName }) };
+        } catch {
+          return { target, guide: undefined };
+        }
+      }));
+      if (token !== roundTokenRef.current || !mountedRef.current) return;
+      const usable = results.find(({ guide }) => guide?.sounds.length);
+      if (!usable?.guide) continue;
+      const { target, guide } = usable;
+      const sound = guide.sounds[Math.floor(Math.random() * guide.sounds.length)];
+      const distractors = shuffled(species.filter((entry) => entry.key !== target.key)).slice(0, 2);
+      if (distractors.length < 2) continue;
+      lastTargetKeyRef.current = target.key;
+      setRound({
+        target,
+        choices: shuffled([target, ...distractors]),
+        sound,
+        imageUrl: guide.imageUrl ?? target.imageUrl,
+      });
+      setLoading(false);
+      return;
     }
     if (token === roundTokenRef.current && mountedRef.current) {
       setLoading(false);
