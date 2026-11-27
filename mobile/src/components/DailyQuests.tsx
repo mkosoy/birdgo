@@ -3,11 +3,13 @@ import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from "
 import Ionicons from "@expo/vector-icons/Ionicons";
 import type { CaptureRecord, SkyfriendRecord } from "../types";
 import { buildDailyQuests, type DailyQuest } from "../utils/quests";
+import type { SpeciesCountGroup } from "../utils/progression";
 
 interface DailyQuestsProps {
   captures: CaptureRecord[];
   skyfriends: SkyfriendRecord[];
   claimedIds: string[];
+  speciesCaptureCounts: SpeciesCountGroup[];
   onClaim: (questId: string, rewardXp: number) => Promise<boolean>;
 }
 
@@ -28,12 +30,12 @@ function RewardBurst({ xp }: { xp: number }) {
   }]}>+{xp} XP</Animated.Text>;
 }
 
-export function DailyQuests({ captures, skyfriends, claimedIds, onClaim }: DailyQuestsProps) {
+export function DailyQuests({ captures, skyfriends, claimedIds, speciesCaptureCounts, onClaim }: DailyQuestsProps) {
   const [claimingId, setClaimingId] = useState<string>();
   const [burst, setBurst] = useState<{ claimKey: string; xp: number }>();
   const [now, setNow] = useState(() => new Date());
   const burstTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-  const quests = useMemo(() => buildDailyQuests(captures, skyfriends, now), [captures, skyfriends, now]);
+  const quests = useMemo(() => buildDailyQuests(captures, skyfriends, speciesCaptureCounts, now), [captures, skyfriends, speciesCaptureCounts, now]);
   const claimed = useMemo(() => new Set(claimedIds), [claimedIds]);
   const completedCount = quests.filter((quest) => quest.completed).length;
 

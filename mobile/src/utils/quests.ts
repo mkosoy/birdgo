@@ -1,5 +1,5 @@
 import type { CaptureRecord, SkyfriendRecord } from "../types";
-import { isIdentifiedCapture, RARITY_ORDER, speciesKeyAliases } from "./progression";
+import { isIdentifiedCapture, RARITY_ORDER, speciesKeyAliases, type SpeciesCountGroup } from "./progression";
 
 export interface DailyQuest {
   id: string;
@@ -47,17 +47,24 @@ function makeQuest(id: string, claimDay: string, title: string, detail: string, 
   };
 }
 
-function newSpeciesCountToday(captures: CaptureRecord[], dayStart: number): number {
+function newSpeciesCountToday(captures: CaptureRecord[], dayStart: number, speciesCaptureCounts: SpeciesCountGroup[]): number {
   const priorAliases = new Set<string>();
+  const todaysCaptures = captures.filter((capture) => timestamp(capture.timestamp) >= dayStart);
   captures.forEach((capture) => {
     if (timestamp(capture.timestamp) < dayStart) {
       speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey).forEach((alias) => priorAliases.add(alias));
     }
   });
+  speciesCaptureCounts.forEach((group) => {
+    const todaysCount = todaysCaptures.filter((capture) => {
+      const aliases = speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey);
+      return aliases.some((alias) => group.aliases.includes(alias));
+    }).length;
+    if (group.count > todaysCount) group.aliases.forEach((alias) => priorAliases.add(alias));
+  });
   const counted = new Set<string>();
   let count = 0;
-  captures
-    .filter((capture) => timestamp(capture.timestamp) >= dayStart)
+  todaysCaptures
     .sort((left, right) => timestamp(left.timestamp) - timestamp(right.timestamp))
     .forEach((capture) => {
       const aliases = speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey);
@@ -71,11 +78,11 @@ function newSpeciesCountToday(captures: CaptureRecord[], dayStart: number): numb
 
 type RealQuestId = "verify-photo" | "rare-find" | "new-species" | "two-real";
 
-function realSpecialProgress(id: RealQuestId, captures: CaptureRecord[], dayStart: number): number {
+function realSpecialProgress(id: RealQuestId, captures: CaptureRecord[], dayStart: number, speciesCaptureCounts: SpeciesCountGroup[]): number {
   const todays = captures.filter((capture) => timestamp(capture.timestamp) >= dayStart && isIdentifiedCapture(capture));
   if (id === "verify-photo") return todays.filter((capture) => capture.verified && capture.photoUri).length;
   if (id === "rare-find") return todays.filter((capture) => RARITY_ORDER.indexOf(capture.rarity ?? "common") >= RARITY_ORDER.indexOf("rare")).length;
-  if (id === "new-species") return newSpeciesCountToday(captures, dayStart);
+  if (id === "new-species") return newSpeciesCountToday(captures, dayStart, speciesCaptureCounts);
   return todays.length;
 }
 
@@ -91,7 +98,7 @@ const SKYFRIEND_QUESTS = [
   { id: "skyfriend-pair", title: "Skyfriend trek", detail: "Collect two Skyfriends", icon: "sparkles" as const, target: 2, rewardXp: 30 },
 ];
 
-export function buildDailyQuests(captures: CaptureRecord[], skyfriends: SkyfriendRecord[], now = new Date()): DailyQuest[] {
+export function buildDailyQuests(captures: CaptureRecord[], skyfriends: SkyfriendRecord[], speciesCaptureCounts: SpeciesCountGroup[] = [], now = new Date()): DailyQuest[] {
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const key = dayKey(now);
   const todaysReal = captures.filter((capture) => timestamp(capture.timestamp) >= start && isIdentifiedCapture(capture));
@@ -103,7 +110,7 @@ export function buildDailyQuests(captures: CaptureRecord[], skyfriends: Skyfrien
   const skyQuest = SKYFRIEND_QUESTS[(hash >>> 3) % SKYFRIEND_QUESTS.length];
   return [
     makeQuest("real-log", key, "Birding moment", "Capture or honor-log one real bird", "leaf", todaysReal.length, 1, 20),
-    makeQuest(realId, key, realSpecial.title, realSpecial.detail, realSpecial.icon, realSpecialProgress(realId, captures, start), realSpecial.target, realSpecial.rewardXp),
+    makeQuest(realId, key, realSpecial.title, realSpecial.detail, realSpecial.icon, realSpecialProgress(realId, captures, start, speciesCaptureCounts), realSpecial.target, realSpecial.rewardXp),
     makeQuest(skyQuest.id, key, skyQuest.title, skyQuest.detail, skyQuest.icon, todaysSkyfriends.length, skyQuest.target, skyQuest.rewardXp),
   ];
 }

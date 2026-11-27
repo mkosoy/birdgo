@@ -40,7 +40,7 @@ function displayName(entry: SpeciesDexEntry): string {
 }
 
 export function DexScreen() {
-  const { captures, seenSpecies, skyfriends, xp, questRewards, loading, refresh, claimQuest } = useCollection();
+  const { captures, seenSpecies, skyfriends, xp, questRewards, speciesCaptureCounts, loading, refresh, claimQuest } = useCollection();
   const { trainer, saveTrainer, refresh: refreshTrainer } = useTrainerProfile();
   const [customizing, setCustomizing] = useState(false);
   const [detailUsesModel, setDetailUsesModel] = useState(false);
@@ -142,7 +142,7 @@ export function DexScreen() {
     </ScrollView> : <Text style={styles.hallEmpty}>Capture real birds to build your honor-system Hall of Fame. Skyfriends never appear here.</Text>}
   </View>;
 
-  const questArea = <DailyQuests captures={captures} skyfriends={skyfriends} claimedIds={questRewards} onClaim={claimQuest} />;
+  const questArea = <DailyQuests captures={captures} skyfriends={skyfriends} claimedIds={questRewards} speciesCaptureCounts={speciesCaptureCounts} onClaim={claimQuest} />;
 
   const skyfriendArea = <View style={styles.skyfriendArea}>
     <View style={styles.skyfriendHeader}>

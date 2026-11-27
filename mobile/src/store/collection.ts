@@ -157,6 +157,10 @@ async function writeSpeciesCaptureCounts(groups: SpeciesCountGroup[]): Promise<v
   await AsyncStorage.setItem(CAPTURE_COUNTS_KEY, JSON.stringify(groups));
 }
 
+export async function listSpeciesCaptureCounts(): Promise<SpeciesCountGroup[]> {
+  return readSpeciesCaptureCounts(await listCaptures());
+}
+
 function derivedCaptureEvents(captures: CaptureRecord[]): XpEvent[] {
   const chronological = [...captures].reverse();
   const seenKeys = new Set<string>();
