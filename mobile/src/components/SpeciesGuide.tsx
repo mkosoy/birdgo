@@ -111,7 +111,8 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
             {busy ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name={playing ? "pause" : "play"} size={17} color="#fff" />}
           </View>
           <View style={styles.soundCopy}>
-            <Text style={styles.soundTitle} numberOfLines={1}>{durationLabel(entry.durationSeconds)} · bird sound</Text>
+            <Text style={styles.soundTitle} numberOfLines={1}>{durationLabel(entry.durationSeconds)} · {entry.recordingType ?? "field recording"}</Text>
+            {entry.description ? <Text style={styles.soundDescription} numberOfLines={2}>{entry.description}</Text> : null}
             <Text style={styles.soundMeta} numberOfLines={1}>{entry.recordist ?? "Unknown recordist"}{entry.license ? ` · ${entry.license}` : ""}</Text>
           </View>
           {entry.descriptionUrl ? <Pressable accessibilityRole="link" accessibilityLabel="Open audio source" hitSlop={8} onPress={(event) => { event.stopPropagation?.(); void Linking.openURL(entry.descriptionUrl as string); }}><Ionicons name="open-outline" size={17} color="#5c6f65" /></Pressable> : null}
@@ -141,6 +142,7 @@ const styles = StyleSheet.create({
   playButtonPlaying: { backgroundColor: "#d99d21" },
   soundCopy: { flex: 1, minWidth: 0 },
   soundTitle: { color: "#263f32", fontSize: 12, fontWeight: "900" },
-  soundMeta: { color: "#68796f", fontSize: 10, fontWeight: "700", marginTop: 1 },
+  soundDescription: { color: "#4c6255", fontSize: 10, lineHeight: 14, marginTop: 2 },
+  soundMeta: { color: "#68796f", fontSize: 10, fontWeight: "700", marginTop: 2 },
   attribution: { color: "#7b8a80", fontSize: 9, lineHeight: 13, marginTop: 7 },
 });

@@ -123,6 +123,8 @@ export interface SpeciesGuideSound {
   recordist?: string;
   license?: string;
   durationSeconds?: number;
+  recordingType?: string;
+  description?: string;
 }
 
 export interface SpeciesGuide {

@@ -6,6 +6,8 @@ export interface SpeciesGuideSound {
   recordist?: string;
   license?: string;
   durationSeconds?: number;
+  recordingType?: string;
+  description?: string;
 }
 
 export interface SpeciesGuide {
@@ -84,6 +86,25 @@ function cleanHtml(value: unknown): string | undefined {
 
 function metadataText(info: CommonsVideoInfo, key: string): string | undefined {
   return cleanHtml(info.extmetadata?.[key]?.value);
+}
+
+function metadataRaw(info: CommonsVideoInfo, key: string): string | undefined {
+  const value = info.extmetadata?.[key]?.value;
+  return typeof value === "string" ? value : undefined;
+}
+
+function recordingType(info: CommonsVideoInfo): string | undefined {
+  const raw = metadataRaw(info, "ImageDescription");
+  const match = raw?.match(/<b>\s*Type:\s*<\/b>\s*([^<\n]+)/i);
+  return match?.[1]?.trim().toLowerCase().replace(/\s+/g, " ") || undefined;
+}
+
+function recordingDescription(info: CommonsVideoInfo): string | undefined {
+  const raw = metadataRaw(info, "ImageDescription");
+  if (!raw) return undefined;
+  const lead = cleanHtml(raw.split(/<dl[\s>]/i)[0]?.replace(/^\s*:\s*/, ""));
+  if (!lead) return undefined;
+  return lead.length > 170 ? `${lead.slice(0, 167).trim()}…` : lead;
 }
 
 async function fetchJson<T>(url: string, timeoutMs = 4500): Promise<T> {
@@ -196,6 +217,8 @@ async function fetchCommonsSounds(scientificName?: string, commonName?: string):
           ...(metadataText(info, "Artist") ? { recordist: metadataText(info, "Artist") } : {}),
           license,
           ...(typeof info.duration === "number" && Number.isFinite(info.duration) ? { durationSeconds: Math.round(info.duration) } : {}),
+          ...(recordingType(info) ? { recordingType: recordingType(info) } : {}),
+          ...(recordingDescription(info) ? { description: recordingDescription(info) } : {}),
         } satisfies SpeciesGuideSound,
       }];
     })
