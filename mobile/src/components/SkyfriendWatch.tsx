@@ -318,6 +318,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
             <View style={[styles.statusPill, frame.centered && styles.statusPillFocused]}><Text style={styles.statusText}>{frame.centered ? "FOCUSING" : "TRACK IT"}</Text></View>
             <Text style={styles.timerText}>{Math.ceil(frame.timeLeft)}s</Text>
           </View>
+          <View style={styles.playArea}>
           <View style={[styles.scopeOuter, { width: scopeSize, height: scopeSize, borderRadius: scopeRadius }]} {...panResponder.panHandlers}>
             <View style={[styles.scopeSky, { borderRadius: scopeRadius }]}>
               {STARS.map(([left, top]) => <View key={`${left}-${top}`} style={[styles.star, { left: `${left}%`, top: `${top}%` }]} />)}
@@ -333,6 +334,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
             <Text style={styles.meterLabel}>Focus {Math.round(frame.focus * 100)}%</Text>
           </View>
           <Text style={styles.playInstructions}>{frame.intensified ? "It’s startled — stay smooth and don’t overcorrect." : Platform.OS === "web" ? "Drag inside the scope or steer with arrow keys. Small steady movements work best." : "Drag inside the scope. Small steady movements work better than chasing wildly."}</Text>
+          </View>
         </>
       )}
 
@@ -409,6 +411,7 @@ const styles = StyleSheet.create({
   focusRingActive: { borderColor: "#72ffd8", shadowColor: "#72ffd8", shadowOpacity: 0.75, shadowRadius: 10 },
   crosshairHorizontal: { position: "absolute", left: "18%", right: "18%", top: "50%", height: 1, backgroundColor: "rgba(255,255,255,.26)" },
   crosshairVertical: { position: "absolute", top: "18%", bottom: "18%", left: "50%", width: 1, backgroundColor: "rgba(255,255,255,.26)" },
+  playArea: { flex: 1, justifyContent: "center" },
   meterWrap: { marginTop: 16, alignItems: "center" },
   meterTrack: { width: "82%", height: 12, borderRadius: 8, overflow: "hidden", backgroundColor: "rgba(255,255,255,.17)", borderWidth: 1, borderColor: "rgba(255,255,255,.14)" },
   meterFill: { height: "100%", borderRadius: 8, backgroundColor: "#72ffd8" },
