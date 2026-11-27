@@ -15,6 +15,22 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
     #atmosphere-tint { position: absolute; inset: 0; z-index: 1; pointer-events: none; transition: background 700ms; }
     #weather-orb { position: absolute; top: calc(var(--safe-top) + 116px); right: 16px; z-index: 3; width: 30px; height: 30px; border-radius: 50%; pointer-events: none; background: #ffd766; box-shadow: 0 0 20px rgba(255,214,102,.62); transition: all 700ms; }
     #weather-particles { position: absolute; inset: 0; z-index: 3; pointer-events: none; opacity: 0; transition: opacity 500ms; }
+    #sky-life { position: absolute; left: 0; right: 0; top: 0; height: 36%; z-index: 3; pointer-events: none; overflow: hidden; --peak-bird-opacity: .58; }
+    .sky-bird { position: absolute; left: 0; top: 0; width: 34px; height: 15px; color: rgba(31,69,91,.72); opacity: 0; animation: sky-bird-cross var(--cross-duration, 28s) linear infinite; animation-delay: var(--cross-delay, 0s); will-change: transform, opacity; }
+    .sky-bird svg { display: block; width: 100%; height: 100%; filter: drop-shadow(0 1px 1px rgba(255,255,255,.28)); }
+    .sky-bird-one { --cross-duration: 31s; --cross-delay: -7s; --start-y: 128px; --drift-y: 18px; --bird-scale: 1.02; }
+    .sky-bird-two { --cross-duration: 38s; --cross-delay: -21s; --start-y: 174px; --drift-y: -14px; --bird-scale: .78; }
+    .sky-bird-three { --cross-duration: 45s; --cross-delay: -33s; --start-y: 148px; --drift-y: 9px; --bird-scale: .6; }
+    body[data-period="night"] #sky-life { --peak-bird-opacity: .36; }
+    body[data-period="dawn"] #sky-life, body[data-period="dusk"] #sky-life { --peak-bird-opacity: .4; }
+    body[data-weather="rain"] #sky-life, body[data-weather="storm"] #sky-life, body[data-weather="fog"] #sky-life { --peak-bird-opacity: .18; }
+    @keyframes sky-bird-cross {
+      0% { transform: translate3d(-12vw, var(--start-y), 0) scale(var(--bird-scale)); opacity: 0; }
+      9% { opacity: var(--peak-bird-opacity); }
+      82% { opacity: var(--peak-bird-opacity); }
+      100% { transform: translate3d(112vw, calc(var(--start-y) + var(--drift-y)), 0) scale(var(--bird-scale)); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) { .sky-bird { display: none; } }
     #map-loading { position: absolute; inset: 0; z-index: 4; pointer-events: none; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 38%, rgba(213,239,182,.94), rgba(128,196,126,.96) 52%, rgba(80,153,109,.98)); opacity: 1; transition: opacity 550ms ease; }
     #map-loading.hidden { opacity: 0; }
     #map-loading-card { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 22px; border-radius: 24px; color: #173c2b; font-family: -apple-system, system-ui, sans-serif; text-align: center; text-shadow: 0 1px 0 rgba(255,255,255,.45); }
@@ -191,6 +207,11 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
   <div id="map"></div>
   <div id="atmosphere-tint"></div>
   <div id="sky-gradient"></div>
+  <div id="sky-life" aria-hidden="true">
+    <span class="sky-bird sky-bird-one"><svg viewBox="0 0 36 14"><path d="M2 9 Q9 1 18 9 Q27 1 34 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg></span>
+    <span class="sky-bird sky-bird-two"><svg viewBox="0 0 36 14"><path d="M2 9 Q9 1 18 9 Q27 1 34 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg></span>
+    <span class="sky-bird sky-bird-three"><svg viewBox="0 0 36 14"><path d="M2 9 Q9 1 18 9 Q27 1 34 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg></span>
+  </div>
   <div id="weather-orb"></div>
   <div id="weather-particles"></div>
   <div id="map-loading"><div id="map-loading-card"><div id="map-loading-ring"></div><div id="map-loading-title">Scanning the canopy</div><div id="map-loading-subtitle">Loading nearby habitat</div></div></div>
