@@ -26,6 +26,7 @@ type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: stri
 type GuideTarget = { speciesCode: string; comName: string; sciName?: string };
 let persistentTrackTarget: TrackTarget | undefined;
 const MAP_PREFERENCES_KEY = "birdgo.map-preferences-v1";
+const DISMISSED_RARE_HUNTS_KEY = "birdgo.dismissed-rare-hunts-v1";
 
 function externalSpeciesUrl(target: GuideTarget): string {
   return target.speciesCode.startsWith("inat-")
@@ -86,6 +87,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const hasRealLocation = useRef(false);
   const fallbackActive = useRef(true);
   const [dismissedRareHuntIds, setDismissedRareHuntIds] = useState<string[]>([]);
+  const rareDismissalsLoaded = useRef(false);
   const { birds, notable, loading, error, loadedArea, refresh } = useBirds(center.latitude, center.longitude);
   const weather = useWeather(location);
   const { trainer, refresh: refreshTrainer } = useTrainerProfile();
@@ -97,6 +99,30 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const [birdwalk, setBirdwalk] = useState<BirdwalkState | undefined>();
   const [birdwalkBonusClaimed, setBirdwalkBonusClaimed] = useState(false);
   const [guideTarget, setGuideTarget] = useState<GuideTarget | undefined>();
+
+  useEffect(() => {
+    let cancelled = false;
+    void AsyncStorage.getItem(DISMISSED_RARE_HUNTS_KEY).then((raw) => {
+      if (cancelled) return;
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as unknown;
+          if (Array.isArray(parsed)) setDismissedRareHuntIds(parsed.filter((id): id is string => typeof id === "string").slice(-20));
+        } catch {
+          // Ignore corrupt dismissal state.
+        }
+      }
+      rareDismissalsLoaded.current = true;
+    }).catch(() => {
+      rareDismissalsLoaded.current = true;
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!rareDismissalsLoaded.current) return;
+    void AsyncStorage.setItem(DISMISSED_RARE_HUNTS_KEY, JSON.stringify(dismissedRareHuntIds)).catch(() => undefined);
+  }, [dismissedRareHuntIds]);
   useEffect(() => {
     let cancelled = false;
     void AsyncStorage.getItem(MAP_PREFERENCES_KEY).then((raw) => {
