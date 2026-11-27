@@ -30,7 +30,7 @@ const MAP_PREFERENCES_KEY = "birdgo.map-preferences-v1";
 function externalSpeciesUrl(target: GuideTarget): string {
   return target.speciesCode.startsWith("inat-")
     ? `https://www.inaturalist.org/taxa/${target.speciesCode.slice(5)}`
-    : target.speciesCode
+    : target.speciesCode && !target.speciesCode.startsWith("bw-")
     ? `https://ebird.org/species/${target.speciesCode}`
     : `https://ebird.org/search?q=${encodeURIComponent(target.comName)}`;
 }
