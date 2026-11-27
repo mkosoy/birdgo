@@ -82,6 +82,24 @@ async function writeXpEvents(events: XpEvent[]): Promise<void> {
   await AsyncStorage.setItem(XP_EVENTS_KEY, JSON.stringify(events));
 }
 
+const QUEST_XP_PREFIX = "quest:";
+
+export async function listQuestRewardIds(): Promise<string[]> {
+  const events = await listXpEvents();
+  return events.flatMap((event) => event.captureId.startsWith(QUEST_XP_PREFIX) ? [event.captureId.slice(QUEST_XP_PREFIX.length)] : []);
+}
+
+export async function claimQuestXp(questId: string, xp: number): Promise<boolean> {
+  const normalizedId = questId.trim();
+  const normalizedXp = Math.round(xp);
+  if (!normalizedId || !Number.isFinite(normalizedXp) || normalizedXp <= 0) return false;
+  const events = await listXpEvents();
+  const eventId = `${QUEST_XP_PREFIX}${normalizedId}`;
+  if (events.some((event) => event.captureId === eventId)) return false;
+  await writeXpEvents([...events, { captureId: eventId, xp: normalizedXp }]);
+  return true;
+}
+
 async function listDiscoveredKeys(): Promise<Set<string>> {
   const raw = await AsyncStorage.getItem(DISCOVERED_KEY);
   if (!raw) return new Set();
