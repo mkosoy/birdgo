@@ -1289,14 +1289,14 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         var name = String((bird.comName || '') + ' ' + (bird.sciName || '')).toLowerCase();
         var prefix = bird.source === 'birdweather' ? 'At the audio station' : 'At the report area';
         var clue = 'listen first, then scan nearby cover and open sky';
-        if (/gull|tern|sandpiper|plover|dunlin|willet|godwit|dowitcher|curlew|stilt|avocet|oystercatcher|turnstone/.test(name)) clue = 'scan water edges, mudflats, and birds flying along the shore';
-        else if (/duck|goose|swan|grebe|loon|coot|gallinule|teal|mallard|merganser|scaup|bufflehead|canvasback|wigeon|pintail|shoveler/.test(name)) clue = 'scan open water, shoreline edges, and distant floating birds';
-        else if (/heron|egret|bittern|ibis|spoonbill|crane|rail/.test(name)) clue = 'move quietly and scan shallow water, reeds, and marsh edges';
-        else if (/hawk|eagle|falcon|kestrel|osprey|harrier|kite|vulture|accipiter|buteo/.test(name)) clue = 'scan the sky, treetops, poles, and other exposed perches';
-        else if (/owl/.test(name)) clue = 'scan dense cover, cavities, and shaded roosts without flushing birds';
-        else if (/woodpecker|flicker|sapsucker/.test(name)) clue = 'scan trunks and dead branches; listen for tapping or sharp calls';
-        else if (/hummingbird/.test(name)) clue = 'check flowers, feeders, and tiny exposed perches';
-        else if (/sparrow|warbler|finch|wren|thrush|vireo|kinglet|nuthatch|chickadee|titmouse|robin|cardinal|jay|crow|blackbird|oriole|tanager|grosbeak|mockingbird|catbird|thrasher/.test(name)) clue = 'listen first, then scan shrubs, canopy edges, and repeated movement';
+        if (/\\b(?:gull|tern|sandpiper|plover|dunlin|willet|godwit|dowitcher|curlew|stilt|avocet|oystercatcher|turnstone)\\b/.test(name)) clue = 'scan water edges, mudflats, and birds flying along the shore';
+        else if (/\\b(?:duck|goose|swan|grebe|loon|coot|gallinule|teal|mallard|merganser|scaup|bufflehead|canvasback|wigeon|pintail|shoveler)\\b/.test(name)) clue = 'scan open water, shoreline edges, and distant floating birds';
+        else if (/\\b(?:heron|egret|bittern|ibis|spoonbill|crane|rail)\\b/.test(name)) clue = 'move quietly and scan shallow water, reeds, and marsh edges';
+        else if (/\\b(?:hawk|eagle|falcon|kestrel|osprey|harrier|kite|vulture|accipiter|buteo)\\b/.test(name)) clue = 'scan the sky, treetops, poles, and other exposed perches';
+        else if (/\\bowl\\b/.test(name)) clue = 'scan dense cover, cavities, and shaded roosts without flushing birds';
+        else if (/\\b(?:woodpecker|flicker|sapsucker)\\b/.test(name)) clue = 'scan trunks and dead branches; listen for tapping or sharp calls';
+        else if (/\\bhummingbird\\b/.test(name)) clue = 'check flowers, feeders, and tiny exposed perches';
+        else if (/\\b(?:sparrow|warbler|finch|wren|thrush|vireo|kinglet|nuthatch|chickadee|titmouse|robin|cardinal|jay|crow|blackbird|oriole|tanager|grosbeak|mockingbird|catbird|thrasher)\\b/.test(name)) clue = 'listen first, then scan shrubs, canopy edges, and repeated movement';
         return prefix + ' — ' + clue;
       }
 
