@@ -27,6 +27,9 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
   const [busyId, setBusyId] = useState<string>();
   const soundRef = useRef<Audio.Sound | null>(null);
   const activeSoundIdRef = useRef<string>();
+  const busyRef = useRef(false);
+  const mountedRef = useRef(true);
+  const finishedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,41 +52,58 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
   }, [commonName, sciName]);
 
   useEffect(() => () => {
+    mountedRef.current = false;
     void soundRef.current?.unloadAsync();
     soundRef.current = null;
   }, []);
 
   const toggleSound = async (entry: SpeciesGuideSound) => {
-    if (busyId) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusyId(entry.id);
     try {
       if (playingId === entry.id && soundRef.current) {
         await soundRef.current.pauseAsync();
-        setPlayingId(undefined);
+        finishedRef.current = false;
+        if (mountedRef.current) setPlayingId(undefined);
         return;
       }
-      setBusyId(entry.id);
       if (activeSoundIdRef.current === entry.id && soundRef.current) {
+        if (finishedRef.current) await soundRef.current.setPositionAsync(0);
         await soundRef.current.playAsync();
-        setPlayingId(entry.id);
+        finishedRef.current = false;
+        if (mountedRef.current) setPlayingId(entry.id);
         return;
       }
       await soundRef.current?.unloadAsync();
+      soundRef.current = null;
+      activeSoundIdRef.current = undefined;
+      finishedRef.current = false;
       await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+      if (!mountedRef.current) return;
       const created = await Audio.Sound.createAsync(
         { uri: entry.url },
         { shouldPlay: true },
       );
+      if (!mountedRef.current) {
+        await created.sound.unloadAsync();
+        return;
+      }
       soundRef.current = created.sound;
       activeSoundIdRef.current = entry.id;
       created.sound.setOnPlaybackStatusUpdate((status) => {
         if (!status.isLoaded) return;
-        if (status.didJustFinish) setPlayingId(undefined);
+        if (status.didJustFinish) {
+          finishedRef.current = true;
+          if (mountedRef.current) setPlayingId(undefined);
+        }
       });
-      setPlayingId(entry.id);
+      if (mountedRef.current) setPlayingId(entry.id);
     } catch {
-      setPlayingId(undefined);
+      if (mountedRef.current) setPlayingId(undefined);
     } finally {
-      setBusyId(undefined);
+      busyRef.current = false;
+      if (mountedRef.current) setBusyId(undefined);
     }
   };
 
