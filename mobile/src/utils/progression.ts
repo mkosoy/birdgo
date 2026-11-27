@@ -126,13 +126,11 @@ function makeBadge(id: string, title: string, detail: string, icon: BirdBadge["i
 }
 
 function countSpeciesGroups(records: Array<Pick<CaptureRecord, "speciesCode" | "commonName" | "sciName" | "canonicalKey">>): number {
-  let groups: string[][] = [];
+  let groups: SpeciesIdentityFields[][] = [];
   records.forEach((record) => {
-    const aliases = speciesKeyAliases(record.speciesCode, record.commonName, record.sciName, record.canonicalKey);
-    if (!aliases.length) return;
-    const matching = groups.filter((group) => group.some((alias) => aliases.includes(alias)));
+    const matching = groups.filter((group) => group.some((existing) => speciesIdentitiesMatch(existing, record)));
     const remaining = groups.filter((group) => !matching.includes(group));
-    groups = [...remaining, [...new Set(matching.flat().concat(aliases))]];
+    groups = [...remaining, [...matching.flat(), record]];
   });
   return groups.length;
 }
