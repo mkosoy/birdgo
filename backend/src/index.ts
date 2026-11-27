@@ -53,6 +53,49 @@ function distanceScore(latitude: number, longitude: number, observation: EbirdOb
   return latDelta * latDelta + lngDelta * lngDelta;
 }
 
+const OBSERVATION_CACHE_TTL_MS = 2 * 60 * 1000;
+const OBSERVATION_CACHE_MAX_ENTRIES = 100;
+const observationCache = new Map<string, { expiresAt: number; value: unknown }>();
+const observationInflight = new Map<string, Promise<unknown>>();
+
+function observationCacheKey(parts: (string | number)[]): string {
+  return parts.map((part) => `${part}`).join(":");
+}
+
+function readObservationCache<T>(key: string): T | undefined {
+  const entry = observationCache.get(key);
+  if (!entry) return undefined;
+  if (entry.expiresAt <= Date.now()) {
+    observationCache.delete(key);
+    return undefined;
+  }
+  return entry.value as T;
+}
+
+function writeObservationCache(key: string, value: unknown): void {
+  if (observationCache.size >= OBSERVATION_CACHE_MAX_ENTRIES) {
+    const now = Date.now();
+    for (const [entryKey, entry] of observationCache) {
+      if (entry.expiresAt <= now) observationCache.delete(entryKey);
+    }
+    if (observationCache.size >= OBSERVATION_CACHE_MAX_ENTRIES) observationCache.delete(observationCache.keys().next().value as string);
+  }
+  observationCache.set(key, { value, expiresAt: Date.now() + OBSERVATION_CACHE_TTL_MS });
+}
+
+async function cachedObservationRequest<T>(key: string, load: () => Promise<T>): Promise<T> {
+  const cached = readObservationCache<T>(key);
+  if (cached !== undefined) return cached;
+  const pending = observationInflight.get(key);
+  if (pending) return pending as Promise<T>;
+  const request = load().then((value) => {
+    writeObservationCache(key, value);
+    return value;
+  }).finally(() => observationInflight.delete(key));
+  observationInflight.set(key, request);
+  return request;
+}
+
 function handleEbirdError(error: unknown, response: Response): void {
   if (error instanceof EbirdError) {
     response.status(error.status).json({ error: error.message, status: error.status });
@@ -96,6 +139,27 @@ function identifyRateLimited(request: Request): boolean {
   return current.count > IDENTIFY_RATE_LIMIT;
 }
 
+async function fetchRecentEbirdObservations(lat: number, lng: number, dist: number, back: number): Promise<EbirdObservation[]> {
+  const key = observationCacheKey(["ebird-recent", lat, lng, dist, back]);
+  return cachedObservationRequest(key, () => ebirdGet<EbirdObservation[]>(
+    `/data/obs/geo/recent?lat=${lat}&lng=${lng}&dist=${dist}&back=${back}`,
+    token,
+  ));
+}
+
+async function fetchRecentInatObservations(lat: number, lng: number, dist: number, back: number): Promise<EbirdObservation[]> {
+  const key = observationCacheKey(["inat-recent", lat, lng, dist, back]);
+  return cachedObservationRequest(key, () => fetchInatBirds(lat, lng, dist, back));
+}
+
+async function fetchNotableEbirdObservations(lat: number, lng: number, dist: number, detail: string): Promise<EbirdObservation[]> {
+  const key = observationCacheKey(["ebird-notable", lat, lng, dist, detail]);
+  return cachedObservationRequest(key, () => ebirdGet<EbirdObservation[]>(
+    `/data/obs/geo/recent/notable?lat=${lat}&lng=${lng}&dist=${dist}&detail=${encodeURIComponent(detail)}`,
+    token,
+  ));
+}
+
 app.get("/api/birds/recent", async (request, response) => {
   const lat = queryNumber(request, "lat", 37.7749);
   const lng = queryNumber(request, "lng", -122.4194);
@@ -103,11 +167,8 @@ app.get("/api/birds/recent", async (request, response) => {
   const back = queryNumber(request, "back", 14);
   try {
     const [ebirdResult, inatResult] = await Promise.allSettled([
-      ebirdGet<EbirdObservation[]>(
-        `/data/obs/geo/recent?lat=${lat}&lng=${lng}&dist=${dist}&back=${back}`,
-        token,
-      ),
-      fetchInatBirds(lat, lng, dist, back),
+      fetchRecentEbirdObservations(lat, lng, dist, back),
+      fetchRecentInatObservations(lat, lng, dist, back),
     ]);
     if (ebirdResult.status === "rejected" && inatResult.status === "rejected") {
       handleEbirdError(ebirdResult.reason, response);
@@ -142,10 +203,7 @@ app.get("/api/birds/notable", async (request, response) => {
   const dist = queryNumber(request, "dist", 25);
   const detail = typeof request.query.detail === "string" ? request.query.detail : "full";
   try {
-    const observations = await ebirdGet<EbirdObservation[]>(
-      `/data/obs/geo/recent/notable?lat=${lat}&lng=${lng}&dist=${dist}&detail=${encodeURIComponent(detail)}`,
-      token,
-    );
+    const observations = await fetchNotableEbirdObservations(lat, lng, dist, detail);
     const deduplicated = deduplicateObservations(observations);
     deduplicated.sort((left, right) => distanceScore(lat, lng, left) - distanceScore(lat, lng, right));
     response.json(deduplicated);
