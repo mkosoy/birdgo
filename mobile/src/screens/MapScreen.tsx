@@ -171,23 +171,34 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   useEffect(() => {
     if (!targetCapture || processedTargetCapture.current === targetCapture.timestamp) return;
     processedTargetCapture.current = targetCapture.timestamp;
-    if (!activeTrackTarget) return;
-    const targetName = activeTrackTarget.name.trim().toLowerCase().replace(/\s+/g, " ");
     const captureName = targetCapture.commonName.trim().toLowerCase().replace(/\s+/g, " ");
-    const sameSpecies = Boolean(
-      (activeTrackTarget.speciesCode && targetCapture.speciesCode && activeTrackTarget.speciesCode === targetCapture.speciesCode)
-      || (targetName && captureName && targetName === captureName)
-    );
-    const sameEncounter = activeTrackTarget.id
-      ? targetCapture.encounterId === activeTrackTarget.id
-      : sameSpecies;
-    if (!sameSpecies || !sameEncounter) return;
-    if (activeTrackTarget.id && advanceBirdwalk(activeTrackTarget.id, targetCapture.commonName)) return;
+    const matchesCapture = (target: TrackTarget) => {
+      const targetName = target.name.trim().toLowerCase().replace(/\s+/g, " ");
+      const sameSpecies = Boolean(
+        (target.speciesCode && targetCapture.speciesCode && target.speciesCode === targetCapture.speciesCode)
+        || (targetName && captureName && targetName === captureName)
+      );
+      const sameEncounter = target.id
+        ? targetCapture.encounterId === target.id
+        : sameSpecies;
+      return sameSpecies && sameEncounter;
+    };
+    const walkStop = birdwalk?.stops[birdwalk.index];
+    if (walkStop && matchesCapture({
+      latitude: walkStop.latitude,
+      longitude: walkStop.longitude,
+      name: walkStop.commonName,
+      id: walkStop.id,
+      speciesCode: walkStop.speciesCode,
+    }) && advanceBirdwalk(walkStop.id, targetCapture.commonName)) return;
+    const completionTarget = activeTrackTarget;
+    if (!completionTarget || !matchesCapture(completionTarget)) return;
+    if (completionTarget.id && advanceBirdwalk(completionTarget.id, targetCapture.commonName)) return;
     setCompletionNotice(`Encounter complete: ${targetCapture.commonName}!`);
     setActiveTrackTarget(undefined);
     setTracking(false);
     setStopTrackRequest((request) => request + 1);
-  }, [targetCapture, activeTrackTarget]);
+  }, [targetCapture, activeTrackTarget, birdwalk]);
 
   useEffect(() => {
     if (!completionNotice || !isFocused) return;
