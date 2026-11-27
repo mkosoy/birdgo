@@ -236,12 +236,36 @@ export async function pickValidatedCollectionBackup(): Promise<BackupEntries | u
   return text == null ? undefined : validateCollectionBackup(text);
 }
 
+function preserveLocalPhotoReferences(entries: BackupEntries, previousEntries: [string, string][]): BackupEntries {
+  const backupCapturesRaw = entries["birdgo.captures"];
+  const previousCapturesRaw = previousEntries.find(([key]) => key === "birdgo.captures")?.[1];
+  if (!backupCapturesRaw || !previousCapturesRaw) return entries;
+  try {
+    const backupCaptures = JSON.parse(backupCapturesRaw) as Record<string, unknown>[];
+    const previousCaptures = JSON.parse(previousCapturesRaw) as Record<string, unknown>[];
+    if (!Array.isArray(backupCaptures) || !Array.isArray(previousCaptures)) return entries;
+    const photosById = new Map<string, string>();
+    previousCaptures.forEach((capture) => {
+      if (typeof capture.id === "string" && typeof capture.photoUri === "string" && capture.photoUri) photosById.set(capture.id, capture.photoUri);
+    });
+    if (!photosById.size) return entries;
+    const merged = backupCaptures.map((capture) => {
+      const existingPhoto = typeof capture.id === "string" ? photosById.get(capture.id) : undefined;
+      return existingPhoto && capture.photoUri === undefined ? { ...capture, photoUri: existingPhoto } : capture;
+    });
+    return { ...entries, "birdgo.captures": JSON.stringify(merged) };
+  } catch {
+    return entries;
+  }
+}
+
 export async function restoreCollectionBackup(entries: BackupEntries): Promise<void> {
   const previousPairs = await AsyncStorage.multiGet([...BACKUP_KEYS]);
   const previousEntries = previousPairs.flatMap(([key, value]) => value == null ? [] : [[key, value] as [string, string]]);
   try {
+    const restoredEntries = preserveLocalPhotoReferences(entries, previousEntries);
     await AsyncStorage.multiRemove([...BACKUP_KEYS]);
-    await AsyncStorage.multiSet(Object.entries(entries));
+    await AsyncStorage.multiSet(Object.entries(restoredEntries));
   } catch (error) {
     await AsyncStorage.multiRemove([...BACKUP_KEYS]).catch(() => undefined);
     if (previousEntries.length) await AsyncStorage.multiSet(previousEntries).catch(() => undefined);
