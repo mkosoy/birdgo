@@ -6,6 +6,7 @@ import { useCollection } from "../hooks/useCollection";
 import { useTrainerProfile } from "../hooks/useTrainerProfile";
 import { releaseCaptures } from "../store/collection";
 import { Bird3DPreview } from "../components/Bird3DPreview";
+import { SpeciesGuide } from "../components/SpeciesGuide";
 import { TrainerAvatar } from "../components/TrainerAvatar";
 import { buildBirdBadges, buildSpeciesDex, levelForXp, RARITY_COLORS, RARITY_ORDER, type SpeciesDexEntry } from "../utils/progression";
 import type { TrainerAccessory, TrainerProfile } from "../types";
@@ -245,6 +246,7 @@ export function DexScreen() {
               {coordinates && <Text style={styles.detailStat}>{coordinates}</Text>}
             </View>
             <Text style={styles.detailCopy}>{detailCopy}</Text>
+            {selected && selected.identified !== false ? <SpeciesGuide commonName={selected.commonName} sciName={selected.sciName} compact /> : null}
             <View style={styles.detailActions}>
               <Pressable accessibilityRole="button" style={styles.modalKeep} onPress={() => setSelected(undefined)}><Text>Close</Text></Pressable>
               {selected?.capturedCount ? <Pressable accessibilityRole="button" style={styles.modalRelease} onPress={() => release(selected)}><Text style={styles.modalReleaseText}>Release</Text></Pressable> : null}

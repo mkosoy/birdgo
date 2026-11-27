@@ -14,6 +14,7 @@ interface LeafletMessage {
   id?: string;
   speciesCode?: string;
   comName?: string;
+  sciName?: string;
   name?: string;
   latitude?: number;
   longitude?: number;
@@ -85,7 +86,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
       } else if (message.type === "directions" && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name) {
         onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id });
       } else if (message.type === "about" && message.speciesCode && message.comName) {
-        onAbout({ speciesCode: message.speciesCode, comName: message.comName });
+        onAbout({ speciesCode: message.speciesCode, comName: message.comName, sciName: message.sciName });
       } else if (message.type === "popup") {
         onPopupChange?.(Boolean(message.open));
       } else if (message.type === "toast") {

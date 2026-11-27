@@ -34,7 +34,7 @@ export interface BirdMapProps {
   safeArea?: SafeAreaInsets;
   onCapture: (bird: EbirdObservation) => void;
   onDirections: (coordinates: Coordinates & { name: string; id?: string }) => void;
-  onAbout: (bird: { speciesCode: string; comName: string }) => void;
+  onAbout: (bird: { speciesCode: string; comName: string; sciName?: string }) => void;
   onPopupChange?: (open: boolean) => void;
   onToastChange?: (open: boolean) => void;
   onNearbyStateChange?: (state: "peek" | "half", height?: number) => void;
@@ -87,6 +87,7 @@ interface LeafletMessage {
   id?: string;
   speciesCode?: string;
   comName?: string;
+  sciName?: string;
   name?: string;
   latitude?: number;
   longitude?: number;
@@ -208,7 +209,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     } else if (message.type === "directions" && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name) {
       onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id });
     } else if (message.type === "about" && message.speciesCode && message.comName) {
-      onAbout({ speciesCode: message.speciesCode, comName: message.comName });
+      onAbout({ speciesCode: message.speciesCode, comName: message.comName, sciName: message.sciName });
     } else if (message.type === "popup") {
       onPopupChange?.(Boolean(message.open));
     } else if (message.type === "toast") {

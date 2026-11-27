@@ -12,6 +12,7 @@ import {
 import { fetchInatBirdAbundance, fetchInatBirds, fetchSpeciesReferenceImage } from "./inaturalist.js";
 import { identifyBird, type BirdIdProvider } from "./birdId.js";
 import { canonicalizeSpecies, type SpeciesIdentityInput } from "./taxonomy.js";
+import { fetchSpeciesGuide } from "./speciesGuide.js";
 
 dotenv.config();
 export const app = express();
@@ -150,6 +151,21 @@ app.get("/api/birds/notable", async (request, response) => {
     response.json(deduplicated);
   } catch (error) {
     handleEbirdError(error, response);
+  }
+});
+
+app.get("/api/species/guide", async (request, response) => {
+  const sciName = typeof request.query.sciName === "string" ? request.query.sciName.trim().slice(0, 160) : undefined;
+  const commonName = typeof request.query.commonName === "string" ? request.query.commonName.trim().slice(0, 160) : undefined;
+  if (!sciName && !commonName) {
+    response.status(400).json({ error: "sciName or commonName is required", status: 400 });
+    return;
+  }
+  try {
+    response.json(await fetchSpeciesGuide(sciName || undefined, commonName || undefined));
+  } catch (error) {
+    console.error(error);
+    response.status(502).json({ error: "Unable to load species guide", status: 502 });
   }
 });
 
