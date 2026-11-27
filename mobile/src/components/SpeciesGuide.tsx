@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   summary: { color: "#40564a", fontSize: 13, lineHeight: 19 },
   sourceLink: { color: "#2878d1", fontSize: 12, fontWeight: "800", marginTop: 5 },
   listenTitle: { color: "#173c2b", fontSize: 12, fontWeight: "900", marginTop: 12, marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.7 },
-  soundRow: { flexDirection: "row", alignItems: "center", gap: 9, minHeight: 50, borderRadius: 12, paddingHorizontal: 7, paddingVertical: 6, backgroundColor: "#fff", marginTop: 5, gap: 2 },
+  soundRow: { flexDirection: "row", alignItems: "center", gap: 2, minHeight: 50, borderRadius: 12, paddingHorizontal: 7, paddingVertical: 6, backgroundColor: "#fff", marginTop: 5 },
   soundRowPlaying: { backgroundColor: "#e0f2e7" },
   playButton: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: "#2f7d5b" },
   playButtonPlaying: { backgroundColor: "#d99d21" },
