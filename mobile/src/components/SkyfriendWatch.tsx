@@ -71,6 +71,33 @@ function skyfriendKindFor(commonName: string, sciName?: string | null): Skyfrien
   return "songbird";
 }
 
+
+interface FlightStyle {
+  dartRate: number;
+  dartX: number;
+  dartY: number;
+  dartMix: number;
+  orbitRate: number;
+  orbitYRatio: number;
+  orbitExtra: number;
+  weaveXRate: number;
+  weaveXAmplitude: number;
+  weaveYRate: number;
+  weaveYAmplitude: number;
+  wingRate: number;
+  copy: string;
+}
+
+const FLIGHT_STYLES: Record<SkyfriendKind, FlightStyle> = {
+  songbird: { dartRate: 1.18, dartX: 72, dartY: 50, dartMix: 0.62, orbitRate: 1.08, orbitYRatio: 0.76, orbitExtra: 0, weaveXRate: 3.25, weaveXAmplitude: 11, weaveYRate: 2.55, weaveYAmplitude: 9, wingRate: 18, copy: "flits unpredictably" },
+  wader: { dartRate: 1.75, dartX: 84, dartY: 25, dartMix: 0.78, orbitRate: 1.12, orbitYRatio: 0.45, orbitExtra: -4, weaveXRate: 4.1, weaveXAmplitude: 13, weaveYRate: 2.1, weaveYAmplitude: 6, wingRate: 22, copy: "dashes low over the ground" },
+  owl: { dartRate: 0.48, dartX: 44, dartY: 38, dartMix: 0.38, orbitRate: 0.82, orbitYRatio: 0.68, orbitExtra: 4, weaveXRate: 1.7, weaveXAmplitude: 13, weaveYRate: 1.45, weaveYAmplitude: 10, wingRate: 9, copy: "drifts silently, then shifts" },
+  raptor: { dartRate: 0.32, dartX: 28, dartY: 22, dartMix: 0.24, orbitRate: 0.72, orbitYRatio: 0.92, orbitExtra: 16, weaveXRate: 1.1, weaveXAmplitude: 8, weaveYRate: 0.95, weaveYAmplitude: 7, wingRate: 7, copy: "soars in wide circles" },
+  waterfowl: { dartRate: 0.52, dartX: 48, dartY: 20, dartMix: 0.34, orbitRate: 0.92, orbitYRatio: 0.34, orbitExtra: 8, weaveXRate: 1.55, weaveXAmplitude: 14, weaveYRate: 1.1, weaveYAmplitude: 5, wingRate: 13, copy: "glides low and steady" },
+  hummingbird: { dartRate: 2.2, dartX: 86, dartY: 58, dartMix: 0.9, orbitRate: 0.62, orbitYRatio: 0.46, orbitExtra: -10, weaveXRate: 5.6, weaveXAmplitude: 7, weaveYRate: 4.8, weaveYAmplitude: 6, wingRate: 38, copy: "hovers, then darts" },
+  woodpecker: { dartRate: 0.95, dartX: 55, dartY: 42, dartMix: 0.48, orbitRate: 1.0, orbitYRatio: 0.64, orbitExtra: 2, weaveXRate: 2.5, weaveXAmplitude: 12, weaveYRate: 4.15, weaveYAmplitude: 18, wingRate: 16, copy: "bounds in roller-coaster flight" },
+};
+
 interface HoloShape {
   scale: number;
   body: { left: number; top: number; width: number; height: number; radius: number };
@@ -118,6 +145,7 @@ function HoloBird({ x, y, facing, wing, large = false, centered = false, prismat
 export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: SkyfriendWatchProps) {
   const speciesName = bird.comName ?? "Skyfriend";
   const skyfriendKind = skyfriendKindFor(speciesName, bird.sciName);
+  const flight = FLIGHT_STYLES[skyfriendKind];
   const rarity = rarityForSpecies(bird.speciesCode, speciesName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount);
   const difficulty = DIFFICULTY[rarity];
   const prismatic = Boolean(bird.prismatic);
@@ -194,16 +222,16 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
       if (focus >= 0.6) intensified = true;
       const speed = difficulty.speed * (intensified ? 1.1 : 1);
       const dartBoost = intensified ? 1.1 : 1;
-      const dartClock = elapsed * (1.18 + speed * 0.28);
+      const dartClock = elapsed * flight.dartRate * (0.9 + speed * 0.2);
       const dartStep = Math.floor(dartClock);
       const dartProgress = dartClock - dartStep;
       const dartShape = Math.sin(dartProgress * Math.PI);
-      const dartX = (noise(seed + dartStep * 17) - 0.5) * 72 * dartShape * dartBoost;
-      const dartY = (noise(seed + 91 + dartStep * 23) - 0.5) * 50 * dartShape * dartBoost;
-      const orbitRadius = difficulty.focusRadius + difficulty.orbitPadding;
-      const orbitAngle = elapsed * 1.08 * speed + seed * 0.037;
-      const baseX = Math.cos(orbitAngle) * orbitRadius + Math.sin(elapsed * 3.25 * speed + seed * 0.11) * 11 + dartX * 0.62;
-      const baseY = Math.sin(orbitAngle * 0.91 + seed * 0.021) * orbitRadius * 0.76 + Math.cos(elapsed * 2.55 * speed + seed * 0.05) * 9 + dartY * 0.62;
+      const dartX = (noise(seed + dartStep * 17) - 0.5) * flight.dartX * dartShape * dartBoost;
+      const dartY = (noise(seed + 91 + dartStep * 23) - 0.5) * flight.dartY * dartShape * dartBoost;
+      const orbitRadius = Math.max(difficulty.focusRadius + 18, difficulty.focusRadius + difficulty.orbitPadding + flight.orbitExtra);
+      const orbitAngle = elapsed * flight.orbitRate * speed;
+      const baseX = Math.cos(orbitAngle) * orbitRadius + (Math.sin(elapsed * flight.weaveXRate * speed + seed * 0.11) - Math.sin(seed * 0.11)) * flight.weaveXAmplitude + dartX * flight.dartMix;
+      const baseY = Math.sin(orbitAngle * 0.91 + seed * 0.021) * orbitRadius * flight.orbitYRatio + (Math.cos(elapsed * flight.weaveYRate * speed + seed * 0.05) - Math.cos(seed * 0.05)) * flight.weaveYAmplitude + dartY * flight.dartMix;
       const unclampedX = baseX + panRef.current.x;
       const unclampedY = baseY + panRef.current.y;
       const maxCenterDistance = scopeRadius - 34;
@@ -231,7 +259,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
           centered,
           facing: facing ?? current.facing,
           intensified,
-          wing: -18 + Math.sin(elapsed * 18) * 18,
+          wing: -18 + Math.sin(elapsed * flight.wingRate) * 18,
         }));
       }
 
@@ -253,7 +281,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
       active = false;
       cancelAnimationFrame(animationFrame);
     };
-  }, [difficulty, finish, phase, scopeRadius, seed]);
+  }, [difficulty, finish, flight, phase, scopeRadius, seed]);
 
   useEffect(() => {
     if (phase !== "playing" || Platform.OS !== "web") return undefined;
@@ -331,7 +359,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
           <Text style={styles.introHeading}>Spot it through the binoculars.</Text>
           <Text style={styles.introCopy}>Drag anywhere inside the scope{Platform.OS === "web" ? " or use the arrow keys" : ""} to keep the holographic bird inside the focus ring. Fill the focus meter before time runs out, or it slips away for a while.</Text>
           {prismatic ? <Text style={styles.prismaticCopy}>A rare shimmering variant — keep your focus steady.</Text> : null}
-          <Text style={styles.difficultyCopy}>{difficulty.copy} · {difficulty.focusSeconds.toFixed(1)} seconds of clean focus needed</Text>
+          <Text style={styles.difficultyCopy}>{difficulty.copy} · {flight.copy} · {difficulty.focusSeconds.toFixed(1)} seconds of clean focus needed</Text>
           <Pressable accessibilityLabel="Start Skyfriend watch" style={styles.primaryButton} onPress={startWatch}><Text style={styles.primaryButtonText}>Start watching</Text></Pressable>
           <Pressable accessibilityLabel="Not now" style={styles.secondaryButton} onPress={onClose}><Text style={styles.secondaryButtonText}>Not now</Text></Pressable>
         </View>
