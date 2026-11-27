@@ -45,6 +45,13 @@ function queryNumber(request: Request, key: string, fallback: number): number {
   return Number.isFinite(value) ? value : fallback;
 }
 
+function distanceScore(latitude: number, longitude: number, observation: EbirdObservation): number {
+  if (typeof observation.lat !== "number" || typeof observation.lng !== "number") return Number.POSITIVE_INFINITY;
+  const latDelta = observation.lat - latitude;
+  const lngDelta = (observation.lng - longitude) * Math.cos(latitude * Math.PI / 180);
+  return latDelta * latDelta + lngDelta * lngDelta;
+}
+
 function handleEbirdError(error: unknown, response: Response): void {
   if (error instanceof EbirdError) {
     response.status(error.status).json({ error: error.message, status: error.status });
@@ -138,7 +145,9 @@ app.get("/api/birds/notable", async (request, response) => {
       `/data/obs/geo/recent/notable?lat=${lat}&lng=${lng}&dist=${dist}&detail=${encodeURIComponent(detail)}`,
       token,
     );
-    response.json(observations.filter(isSpeciesObservation));
+    const deduplicated = deduplicateObservations(observations);
+    deduplicated.sort((left, right) => distanceScore(lat, lng, left) - distanceScore(lat, lng, right));
+    response.json(deduplicated.slice(0, 120));
   } catch (error) {
     handleEbirdError(error, response);
   }

@@ -35,7 +35,7 @@ export function fetchBirdAbundance(latitude: number, longitude: number): Promise
 }
 
 export function fetchNotableBirds(latitude: number, longitude: number): Promise<EbirdObservation[]> {
-  return request<RawEbirdObservation[]>(`/api/birds/notable?lat=${latitude}&lng=${longitude}&dist=25&detail=full`)
+  return request<RawEbirdObservation[]>(`/api/birds/notable?lat=${latitude}&lng=${longitude}&dist=25&detail=simple`)
     .then((observations) => observations.flatMap((observation) => mapObservation(observation, true)));
 }
 
