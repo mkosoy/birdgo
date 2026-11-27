@@ -9,9 +9,10 @@ import { useFocusEffect } from "@react-navigation/native";
 import { canonicalizeSpecies, identifyBird } from "../api";
 import { SF_COORDS } from "../config";
 import { useCollection } from "../hooks/useCollection";
-import type { Coordinates } from "../types";
+import type { BirdRarity, Coordinates } from "../types";
 import type { SeenSpecies } from "../types";
 import { Bird3DPreview } from "../components/Bird3DPreview";
+import { CaptureCelebration } from "../components/CaptureCelebration";
 import { rarityForSpecies, xpForCapture } from "../utils/progression";
 
 type Props = { hint?: SeenSpecies; onHintConsumed?: () => void; onCaptureSaved?: (capture: { speciesCode?: string; commonName: string; sciName?: string | null; encounterId?: string }) => void };
@@ -46,7 +47,6 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [result, setResult] = useState<Awaited<ReturnType<typeof identifyBird>> | null>(null);
   const [busy, setBusy] = useState(false);
-  const [confirmation, setConfirmation] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedPhotoUri, setSavedPhotoUri] = useState<string | null>(null);
@@ -54,6 +54,17 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
   const [encounterHint, setEncounterHint] = useState<SeenSpecies | undefined>(hint);
   const [visualMode, setVisualMode] = useState<"reference" | "model">("reference");
   const [confirmingHonor, setConfirmingHonor] = useState(false);
+  const [celebration, setCelebration] = useState<{
+    commonName: string;
+    sciName?: string | null;
+    rarity: BirdRarity;
+    xp: number;
+    firstSpecies: boolean;
+    verified: boolean;
+    honorSystem: boolean;
+    photoUri?: string | null;
+    referenceImageUrl?: string;
+  }>();
   const previousHint = useRef<SeenSpecies | undefined>(hint);
 
   useFocusEffect(useCallback(() => {
@@ -68,7 +79,6 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
       if (hintChanged) {
         setPhotoUri(null);
         setResult(null);
-        setConfirmation(null);
         setNotice(null);
         setConfirmingHonor(false);
       }
@@ -81,7 +91,6 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
     setEncounterHint(hint);
     setPhotoUri(uri);
     setResult(null);
-    setConfirmation(null);
     setNotice(null);
     setSavedPhotoUri(null);
     setVisualMode("reference");
@@ -122,7 +131,6 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
   const quickLogEncounter = async () => {
     if (!encounterHint || saving) return;
     setSaving(true);
-    setConfirmation(null);
     setNotice(null);
     try {
       let location: Coordinates = SF_COORDS;
@@ -159,8 +167,19 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
         rarity,
         verified: false,
       });
+      const earnedXp = record.xpAwarded ?? 0;
+      const firstSpecies = earnedXp > xpForCapture({ rarity, verified: false, speciesCode: contextSpecies.speciesCode, commonName: contextSpecies.comName, sciName: contextSpecies.sciName }, false);
       onCaptureSaved?.({ speciesCode: contextSpecies.speciesCode, commonName: contextSpecies.comName, sciName: contextSpecies.sciName, encounterId: contextSpecies.encounterId });
-      setConfirmation(`${contextSpecies.comName} honor-logged in your Bird-dex. +${record.xpAwarded ?? 0} XP.`);
+      setCelebration({
+        commonName: contextSpecies.comName,
+        sciName: contextSpecies.sciName,
+        rarity,
+        xp: earnedXp,
+        firstSpecies,
+        verified: false,
+        honorSystem: true,
+        ...(contextSpecies.imageUrl ? { referenceImageUrl: contextSpecies.imageUrl } : {}),
+      });
       onHintConsumed?.();
     } catch {
       setNotice("Could not save this honor log. Try again.");
@@ -216,9 +235,17 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
       });
       const earnedXp = record.xpAwarded ?? 0;
       const firstSpecies = earnedXp > xpForCapture({ rarity, verified, speciesCode: contextSpecies?.speciesCode, commonName, sciName: contextSpecies?.sciName ?? result.sciName }, false);
-      const progressionNote = firstSpecies ? " First species bonus!" : earnedXp > 0 ? " Duplicate species — diminishing XP." : "";
       onCaptureSaved?.({ speciesCode: contextSpecies?.speciesCode, commonName, sciName: contextSpecies?.sciName ?? result.sciName, encounterId: contextSpecies?.encounterId });
-      setConfirmation(`${commonName} joined your Bird-dex. +${earnedXp} XP.${progressionNote}`);
+      setCelebration({
+        commonName,
+        sciName,
+        rarity,
+        xp: earnedXp,
+        firstSpecies,
+        verified,
+        honorSystem: false,
+        photoUri,
+      });
       setSavedPhotoUri(photoUri);
       if (encounterHint) onHintConsumed?.();
     } catch {
@@ -241,6 +268,13 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
   const encounterMismatch = Boolean(encounterHint && result && (result.commonName || result.sciName) && !couldBeSpecies(encounterHint, result));
   const targetHintApplied = Boolean(encounterHint && contextSpecies === encounterHint);
   const targetHintUnverified = Boolean(targetHintApplied && (!result?.isBird || result.provider === "heuristic"));
+
+  const closeCelebration = () => {
+    setCelebration(undefined);
+    setPhotoUri(null);
+    setResult(null);
+    setSavedPhotoUri(null);
+  };
 
   return <View style={styles.container}>
     {!photoUri
@@ -272,7 +306,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
         </View>
       </View>}
       {!photoUri && permission?.granted && <Pressable style={styles.shutter} onPress={() => void takePhoto()}><Text style={styles.shutterText}>●</Text></Pressable>}
-      {photoUri && <View style={styles.buttonRow}><Pressable style={[styles.button, styles.flexButton]} onPress={() => { setPhotoUri(null); setResult(null); setConfirmation(null); setSavedPhotoUri(null); }}><Text style={styles.buttonText}>Try another</Text></Pressable><Pressable style={[styles.secondaryDark, styles.flexButton]} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Library</Text></Pressable></View>}
+      {photoUri && <View style={styles.buttonRow}><Pressable style={[styles.button, styles.flexButton]} onPress={() => { setPhotoUri(null); setResult(null); setSavedPhotoUri(null); }}><Text style={styles.buttonText}>Try another</Text></Pressable><Pressable style={[styles.secondaryDark, styles.flexButton]} onPress={() => void pickPhoto()}><Text style={styles.lightText}>Library</Text></Pressable></View>}
       {busy && <ActivityIndicator color="#fff" />}
       {result && !busy && <View style={styles.result}>
         {(result.isBird || contextSpecies) ? (
@@ -297,9 +331,9 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
             : <Text style={styles.confidence}>No species identified. You can save this as an unidentified photo.</Text>}
         <Pressable disabled={saving || savedPhotoUri === photoUri} style={[styles.button, (saving || savedPhotoUri === photoUri) && styles.disabledButton]} onPress={() => void addToCollection()}><Text style={styles.buttonText}>{savedPhotoUri === photoUri ? "Added to collection" : targetHintApplied || result.isBird ? "Add to collection" : "Save unidentified photo"}</Text></Pressable>
       </View>}
-      {confirmation && <Text style={styles.confirmation}>✓ {confirmation}</Text>}
       {notice && <Text style={styles.notice}>{notice}</Text>}
     </View>
+    {celebration ? <CaptureCelebration {...celebration} onClose={closeCelebration} /> : null}
   </View>;
 }
 
@@ -346,6 +380,5 @@ const styles = StyleSheet.create({
   honorCancelText: { color: "#d7e8da", fontWeight: "800" },
   honorConfirmButton: { flex: 1, minHeight: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "#f2cf5b" },
   honorConfirmButtonText: { color: "#263019", fontWeight: "900" },
-  confirmation: { color: "#bde8c9", fontWeight: "700", textAlign: "center" },
   notice: { color: "#ffd0a8", fontWeight: "700", textAlign: "center" },
 });
