@@ -106,17 +106,19 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
       {guide.sounds.map((entry) => {
         const playing = playingId === entry.id;
         const busy = busyId === entry.id;
-        return <Pressable key={entry.id} accessibilityRole="button" accessibilityLabel={`${playing ? "Pause" : "Play"} ${entry.title}`} style={[styles.soundRow, playing && styles.soundRowPlaying]} onPress={() => void toggleSound(entry)}>
-          <View style={[styles.playButton, playing && styles.playButtonPlaying]}>
-            {busy ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name={playing ? "pause" : "play"} size={17} color="#fff" />}
-          </View>
-          <View style={styles.soundCopy}>
-            <Text style={styles.soundTitle} numberOfLines={1}>{durationLabel(entry.durationSeconds)} · {entry.recordingType ?? "field recording"}</Text>
-            {entry.description ? <Text style={styles.soundDescription} numberOfLines={2}>{entry.description}</Text> : null}
-            <Text style={styles.soundMeta} numberOfLines={1}>{entry.recordist ?? "Unknown recordist"}{entry.license ? ` · ${entry.license}` : ""}</Text>
-          </View>
-          {entry.descriptionUrl ? <Pressable accessibilityRole="link" accessibilityLabel="Open audio source" hitSlop={8} onPress={(event) => { event.stopPropagation?.(); void Linking.openURL(entry.descriptionUrl as string); }}><Ionicons name="open-outline" size={17} color="#5c6f65" /></Pressable> : null}
-        </Pressable>;
+        return <View key={entry.id} style={[styles.soundRow, playing && styles.soundRowPlaying]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${playing ? "Pause" : "Play"} ${entry.title}`} style={styles.soundMain} onPress={() => void toggleSound(entry)}>
+            <View style={[styles.playButton, playing && styles.playButtonPlaying]}>
+              {busy ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name={playing ? "pause" : "play"} size={17} color="#fff" />}
+            </View>
+            <View style={styles.soundCopy}>
+              <Text style={styles.soundTitle} numberOfLines={1}>{durationLabel(entry.durationSeconds)} · {entry.recordingType ?? "field recording"}</Text>
+              {entry.description ? <Text style={styles.soundDescription} numberOfLines={2}>{entry.description}</Text> : null}
+              <Text style={styles.soundMeta} numberOfLines={1}>{entry.recordist ?? "Unknown recordist"}{entry.license ? ` · ${entry.license}` : ""}</Text>
+            </View>
+          </Pressable>
+          {entry.descriptionUrl ? <Pressable accessibilityRole="link" accessibilityLabel={`Open audio source for ${entry.title}`} hitSlop={8} style={styles.sourceButton} onPress={() => void Linking.openURL(entry.descriptionUrl as string)}><Ionicons name="open-outline" size={17} color="#5c6f65" /></Pressable> : null}
+        </View>;
       })}
       <Text style={styles.attribution}>Audio from Wikimedia Commons / xeno-canto contributors; licenses shown per recording.</Text>
     </> : null}
@@ -136,11 +138,13 @@ const styles = StyleSheet.create({
   summary: { color: "#40564a", fontSize: 13, lineHeight: 19 },
   sourceLink: { color: "#2878d1", fontSize: 12, fontWeight: "800", marginTop: 5 },
   listenTitle: { color: "#173c2b", fontSize: 12, fontWeight: "900", marginTop: 12, marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.7 },
-  soundRow: { flexDirection: "row", alignItems: "center", gap: 9, minHeight: 50, borderRadius: 12, paddingHorizontal: 7, paddingVertical: 6, backgroundColor: "#fff", marginTop: 5 },
+  soundRow: { flexDirection: "row", alignItems: "center", gap: 9, minHeight: 50, borderRadius: 12, paddingHorizontal: 7, paddingVertical: 6, backgroundColor: "#fff", marginTop: 5, gap: 2 },
   soundRowPlaying: { backgroundColor: "#e0f2e7" },
   playButton: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: "#2f7d5b" },
   playButtonPlaying: { backgroundColor: "#d99d21" },
+  soundMain: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 9 },
   soundCopy: { flex: 1, minWidth: 0 },
+  sourceButton: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: "#eef4ef" },
   soundTitle: { color: "#263f32", fontSize: 12, fontWeight: "900" },
   soundDescription: { color: "#4c6255", fontSize: 10, lineHeight: 14, marginTop: 2 },
   soundMeta: { color: "#68796f", fontSize: 10, fontWeight: "700", marginTop: 2 },
