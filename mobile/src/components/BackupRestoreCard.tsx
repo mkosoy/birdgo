@@ -1,17 +1,60 @@
-import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import * as Clipboard from "expo-clipboard";
 import { exportCollectionBackup, pickValidatedCollectionBackup, restoreCollectionBackup } from "../utils/collectionBackup";
+import {
+  CloudSyncError,
+  downloadEncryptedCloudBackup,
+  fetchCloudSyncEnabled,
+  generateCloudSyncKey,
+  isCloudSyncKeyValid,
+  loadCloudSyncCredentials,
+  normalizeCloudSyncKey,
+  saveCloudSyncCredentials,
+  uploadEncryptedCloudBackup,
+} from "../utils/cloudSync";
+
+type BusyAction = "export" | "import" | "cloud-enable" | "cloud-upload" | "cloud-restore" | null;
 
 export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
-  const [busy, setBusy] = useState<"export" | "import" | null>(null);
+  const [busy, setBusy] = useState<BusyAction>(null);
   const [confirmingImport, setConfirmingImport] = useState(false);
+  const [confirmingCloudRestore, setConfirmingCloudRestore] = useState(false);
+  const [linkingCloud, setLinkingCloud] = useState(false);
+  const [syncKeyDraft, setSyncKeyDraft] = useState("");
+  const [cloudAvailable, setCloudAvailable] = useState(false);
+  const [cloudKey, setCloudKey] = useState<string>();
+  const [cloudRevision, setCloudRevision] = useState(0);
+  const [showSyncKey, setShowSyncKey] = useState(false);
   const [message, setMessage] = useState<string>();
   const [messageTone, setMessageTone] = useState<"good" | "bad">("good");
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const [enabled, credentials] = await Promise.all([fetchCloudSyncEnabled(), loadCloudSyncCredentials()]);
+      if (cancelled) return;
+      setCloudAvailable(enabled);
+      if (!credentials) return;
+      setCloudKey(credentials.key);
+      setCloudRevision(credentials.revision);
+    })().catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
 
   const showMessage = (text: string, tone: "good" | "bad" = "good") => {
     setMessage(text);
     setMessageTone(tone);
+  };
+
+  const cloudErrorMessage = (error: unknown, fallback: string): string => {
+    if (error instanceof CloudSyncError) {
+      if (error.status === 409) return "Cloud backup changed on another device. Export a local backup first if this device has newer captures, then restore the latest cloud backup before overwriting it.";
+      if (error.status === 503) return "Cloud sync storage is not configured yet.";
+      return error.message;
+    }
+    return error instanceof Error ? error.message : fallback;
   };
 
   const runExport = async () => {
@@ -49,12 +92,98 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
     }
   };
 
+  const uploadCloud = async (key: string, expectedRevision: number, successCopy: string) => {
+    const record = await uploadEncryptedCloudBackup(key, expectedRevision);
+    await saveCloudSyncCredentials(key, record.revision);
+    setCloudKey(key);
+    setCloudRevision(record.revision);
+    showMessage(successCopy.replace("{revision}", String(record.revision)));
+  };
+
+  const copySyncKey = async () => {
+    if (!cloudKey) return;
+    try {
+      const copied = await Clipboard.setStringAsync(cloudKey);
+      if (copied === false) throw new Error("copy failed");
+      showMessage("Private sync key copied. Store it somewhere safe and do not share it publicly.");
+    } catch {
+      showMessage("Copy failed. Select the key text above and copy it manually before leaving setup.", "bad");
+    }
+  };
+
+  const enableCloudSync = async () => {
+    if (busy) return;
+    setBusy("cloud-enable");
+    setMessage(undefined);
+    try {
+      const key = await generateCloudSyncKey();
+      await uploadCloud(key, 0, "Encrypted cloud backup saved · revision {revision}. Save your private sync key below before switching devices.");
+      setShowSyncKey(true);
+    } catch (error) {
+      showMessage(cloudErrorMessage(error, "Cloud sync setup failed."), "bad");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const uploadExistingCloud = async () => {
+    if (busy || !cloudKey) return;
+    setBusy("cloud-upload");
+    setMessage(undefined);
+    try {
+      await uploadCloud(cloudKey, cloudRevision, "Encrypted cloud backup updated · revision {revision}.");
+    } catch (error) {
+      showMessage(cloudErrorMessage(error, "Cloud backup failed."), "bad");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const restoreCloud = async (key: string) => {
+    const downloaded = await downloadEncryptedCloudBackup(key);
+    if (!downloaded) throw new Error("No encrypted cloud backup exists for this sync key yet.");
+    await restoreCollectionBackup(downloaded.entries);
+    await saveCloudSyncCredentials(key, downloaded.record.revision);
+    setCloudKey(key);
+    setCloudRevision(downloaded.record.revision);
+    setConfirmingCloudRestore(false);
+    setLinkingCloud(false);
+    setSyncKeyDraft("");
+    onRestored();
+    showMessage(`Encrypted cloud backup restored · revision ${downloaded.record.revision}.`);
+  };
+
+  const runCloudRestore = async (key?: string) => {
+    const targetKey = key ?? cloudKey;
+    if (busy || !targetKey) return;
+    setBusy("cloud-restore");
+    setMessage(undefined);
+    try {
+      await restoreCloud(targetKey);
+    } catch (error) {
+      showMessage(cloudErrorMessage(error, "Cloud restore failed."), "bad");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const linkCloudKey = () => {
+    const normalized = normalizeCloudSyncKey(syncKeyDraft);
+    if (!isCloudSyncKeyValid(normalized)) {
+      showMessage("Enter the full 43-character sync key from your other device.", "bad");
+      return;
+    }
+    void runCloudRestore(normalized);
+  };
+
+  const cloudConfigured = Boolean(cloudKey);
+
   return <View style={styles.card}>
     <View style={styles.titleRow}>
       <View style={styles.iconWrap}><Ionicons name="cloud-download-outline" size={17} color="#235040" /></View>
       <View style={styles.copyWrap}>
         <Text style={styles.title}>Collection backup</Text>
-        <Text style={styles.copy}>Export or restore species records, journal metadata, XP, Skyfriends, and trainer identity. Photo image files are not included yet; cloud sync is not enabled.</Text>
+        <Text style={styles.copy}>Export or restore species records, journal metadata, XP, Skyfriends, and trainer identity. Photo image files are not included yet.</Text>
       </View>
     </View>
     {!confirmingImport ? <View style={styles.actions}>
@@ -73,6 +202,69 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
         </Pressable>
       </View>
     </View>}
+
+    {cloudAvailable ? <View style={styles.cloudSection}>
+      <View style={styles.cloudTitleRow}>
+        <Ionicons name="shield-checkmark-outline" size={15} color="#235040" />
+        <Text style={styles.cloudTitle}>Encrypted cloud backup</Text>
+      </View>
+      <Text style={styles.copy}>Your backup is encrypted on this device before upload. Anyone with your private sync key can restore it, so keep that key secret.</Text>
+
+      {!cloudConfigured && !linkingCloud ? <View style={styles.actions}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Enable encrypted cloud sync" disabled={Boolean(busy)} style={[styles.button, styles.exportButton, Boolean(busy) && styles.buttonDisabled]} onPress={() => void enableCloudSync()}>
+          {busy === "cloud-enable" ? <ActivityIndicator size="small" color="#ffffff" /> : <Text style={styles.exportText}>Enable</Text>}
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Use an existing cloud sync key" disabled={Boolean(busy)} style={[styles.button, styles.importButton, Boolean(busy) && styles.buttonDisabled]} onPress={() => { setMessage(undefined); setLinkingCloud(true); }}>
+          <Text style={styles.importText}>Use key</Text>
+        </Pressable>
+      </View> : null}
+
+      {cloudConfigured && !confirmingCloudRestore ? <View style={styles.actions}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Back up collection to encrypted cloud sync" disabled={Boolean(busy)} style={[styles.button, styles.exportButton, Boolean(busy) && styles.buttonDisabled]} onPress={() => void uploadExistingCloud()}>
+          {busy === "cloud-upload" ? <ActivityIndicator size="small" color="#ffffff" /> : <Text style={styles.exportText}>Back up now</Text>}
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Restore encrypted cloud backup" disabled={Boolean(busy)} style={[styles.button, styles.importButton, Boolean(busy) && styles.buttonDisabled]} onPress={() => { setMessage(undefined); setConfirmingCloudRestore(true); }}>
+          <Text style={styles.importText}>Restore</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Show private cloud sync key" disabled={Boolean(busy)} style={[styles.button, styles.cancelButton, Boolean(busy) && styles.buttonDisabled]} onPress={() => setShowSyncKey((current) => !current)}>
+          <Text style={styles.cancelText}>{showSyncKey ? "Hide key" : "Key"}</Text>
+        </Pressable>
+      </View> : null}
+
+      {cloudConfigured ? <Text style={styles.revisionText}>Cloud revision {cloudRevision} on this device</Text> : null}
+
+      {confirmingCloudRestore ? <View style={styles.confirmArea}>
+        <Text style={styles.confirmCopy}>Restoring replaces BirdGo collection data currently stored on this device.</Text>
+        <View style={styles.actions}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Cancel cloud restore" disabled={Boolean(busy)} style={[styles.button, styles.cancelButton]} onPress={() => setConfirmingCloudRestore(false)}><Text style={styles.cancelText}>Cancel</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Download encrypted cloud backup and replace device data" disabled={Boolean(busy)} style={[styles.button, styles.importButton, Boolean(busy) && styles.buttonDisabled]} onPress={() => void runCloudRestore()}>
+            {busy === "cloud-restore" ? <ActivityIndicator size="small" color="#235040" /> : <Text style={styles.importText}>Download</Text>}
+          </Pressable>
+        </View>
+      </View> : null}
+
+      {linkingCloud ? <View style={styles.linkArea}>
+        <Text style={styles.confirmCopy}>Paste the private sync key from your other device. Downloading replaces collection data currently stored here.</Text>
+        <TextInput value={syncKeyDraft} onChangeText={setSyncKeyDraft} autoCapitalize="none" autoCorrect={false} placeholder="43-character sync key" style={styles.keyInput} />
+        <View style={styles.actions}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Cancel cloud sync key entry" disabled={Boolean(busy)} style={[styles.button, styles.cancelButton]} onPress={() => { setLinkingCloud(false); setSyncKeyDraft(""); }}><Text style={styles.cancelText}>Cancel</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Download encrypted cloud backup with sync key" disabled={Boolean(busy)} style={[styles.button, styles.importButton, Boolean(busy) && styles.buttonDisabled]} onPress={linkCloudKey}>
+            {busy === "cloud-restore" ? <ActivityIndicator size="small" color="#235040" /> : <Text style={styles.importText}>Download</Text>}
+          </Pressable>
+        </View>
+      </View> : null}
+
+      {showSyncKey && cloudKey ? <View style={styles.linkArea}>
+        <Text style={styles.confirmCopy}>Private sync key — copy it somewhere safe. Anyone with it can restore this collection.</Text>
+        <TextInput value={cloudKey} editable={false} selectTextOnFocus autoCapitalize="none" autoCorrect={false} style={styles.keyInput} />
+        <View style={styles.actions}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Copy private cloud sync key" style={[styles.button, styles.importButton]} onPress={() => void copySyncKey()}>
+            <Text style={styles.importText}>Copy key</Text>
+          </Pressable>
+        </View>
+      </View> : null}
+    </View> : null}
+
     {message ? <Text style={[styles.message, messageTone === "bad" && styles.messageBad]}>{message}</Text> : null}
   </View>;
 }
@@ -95,6 +287,12 @@ const styles = StyleSheet.create({
   cancelText: { color: "#6d6241", fontSize: 12, fontWeight: "900" },
   confirmArea: { marginTop: 2 },
   confirmCopy: { color: "#814f2d", fontSize: 11, lineHeight: 15, fontWeight: "700" },
+  cloudSection: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: "#e3d7b7" },
+  cloudTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  cloudTitle: { color: "#3d3419", fontSize: 13, fontWeight: "900" },
+  revisionText: { color: "#74683f", fontSize: 10, fontWeight: "800", marginTop: 8 },
+  linkArea: { marginTop: 10, gap: 8 },
+  keyInput: { minHeight: 38, borderRadius: 10, borderWidth: 1, borderColor: "#d1c294", backgroundColor: "#fffaf0", paddingHorizontal: 10, color: "#3d3419", fontSize: 12, fontWeight: "700" },
   message: { color: "#2f7d5b", fontSize: 11, lineHeight: 15, fontWeight: "800", marginTop: 10 },
   messageBad: { color: "#a33f32" },
 });
