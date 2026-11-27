@@ -103,6 +103,31 @@ export async function listQuestRewardIds(): Promise<string[]> {
   return events.flatMap((event) => event.captureId.startsWith(QUEST_XP_PREFIX) ? [event.captureId.slice(QUEST_XP_PREFIX.length)] : []);
 }
 
+const BONUS_XP_PREFIX = "bonus:";
+
+function dailyBonusKey(kind: string): string {
+  return `${localQuestDayKey()}:${kind}`;
+}
+
+export async function hasDailyBonus(kind: string): Promise<boolean> {
+  const eventId = `${BONUS_XP_PREFIX}${dailyBonusKey(kind)}`;
+  const events = await listXpEvents();
+  return events.some((event) => event.captureId === eventId);
+}
+
+export async function claimDailyBonusXp(kind: string, xp: number): Promise<boolean> {
+  const normalizedKind = kind.trim().toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 40);
+  const normalizedXp = Math.round(xp);
+  if (!normalizedKind || !Number.isFinite(normalizedXp) || normalizedXp <= 0) return false;
+  return enqueueXpEvents(async () => {
+    const events = await listXpEvents();
+    const eventId = `${BONUS_XP_PREFIX}${dailyBonusKey(normalizedKind)}`;
+    if (events.some((event) => event.captureId === eventId)) return false;
+    await writeXpEvents([...events, { captureId: eventId, xp: normalizedXp }]);
+    return true;
+  });
+}
+
 export async function claimQuestXp(questId: string, xp: number): Promise<boolean> {
   const normalizedId = questId.trim();
   const normalizedXp = Math.round(xp);
