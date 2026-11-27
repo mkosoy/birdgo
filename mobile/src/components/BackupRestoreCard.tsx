@@ -11,6 +11,7 @@ import {
   isCloudSyncKeyValid,
   loadCloudSyncCredentials,
   normalizeCloudSyncKey,
+  readCloudSyncRecord,
   reconcileAutomaticCloudBackup,
   restoreEncryptedCloudBackup,
   saveCloudSyncCredentials,
@@ -30,6 +31,7 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
   const [cloudAvailable, setCloudAvailable] = useState(false);
   const [cloudKey, setCloudKey] = useState<string>();
   const [cloudRevision, setCloudRevision] = useState(0);
+  const [remoteCloudRevision, setRemoteCloudRevision] = useState<number>();
   const [showSyncKey, setShowSyncKey] = useState(false);
   const [message, setMessage] = useState<string>();
   const [messageTone, setMessageTone] = useState<"good" | "bad">("good");
@@ -49,6 +51,9 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
       if (!credentials) return;
       setCloudKey(credentials.key);
       setCloudRevision(credentials.revision);
+      if (!enabled) return;
+      const remote = await readCloudSyncRecord(credentials.key).catch(() => undefined);
+      if (!cancelled) setRemoteCloudRevision(remote?.revision);
     })().catch(() => undefined);
     return () => { cancelled = true; };
   }, []);
@@ -108,6 +113,7 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
     await saveCloudSyncCredentials(key, record.revision);
     setCloudKey(key);
     setCloudRevision(record.revision);
+    setRemoteCloudRevision(record.revision);
     showMessage(successCopy.replace("{revision}", String(record.revision)));
   };
 
@@ -145,6 +151,7 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
       const record = await uploadLatestEncryptedCloudBackup();
       if (!record) throw new Error("Cloud sync is not set up on this device yet.");
       setCloudRevision(record.revision);
+      setRemoteCloudRevision(record.revision);
       showMessage(`Encrypted cloud backup updated · revision ${record.revision}.`);
     } catch (error) {
       showMessage(cloudErrorMessage(error, "Cloud backup failed."), "bad");
@@ -159,6 +166,7 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
     reconcileAutomaticCloudBackup(record.revision);
     setCloudKey(key);
     setCloudRevision(record.revision);
+    setRemoteCloudRevision(record.revision);
     setConfirmingCloudRestore(false);
     setLinkingCloud(false);
     setSyncKeyDraft("");
@@ -190,6 +198,7 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
   };
 
   const cloudConfigured = Boolean(cloudKey);
+  const newerCloudBackup = remoteCloudRevision !== undefined && remoteCloudRevision > cloudRevision;
 
   return <View style={styles.card}>
     <View style={styles.titleRow}>
@@ -245,6 +254,7 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
       </View> : null}
 
       {cloudConfigured ? <Text style={styles.revisionText}>Cloud revision {cloudRevision} on this device</Text> : null}
+      {newerCloudBackup ? <Text style={styles.autoConflictText}>Newer encrypted cloud backup found · revision {remoteCloudRevision}. Export local data first if needed, then restore before backing up.</Text> : null}
       {cloudConfigured && automaticBackup.conflict ? <Text style={styles.autoConflictText}>Automatic backup paused — cloud data changed on another device.</Text> : null}
       {cloudConfigured && !automaticBackup.conflict && (automaticBackup.pending || automaticBackup.running) ? <Text style={styles.revisionText}>{automaticBackup.running ? "Automatic cloud backup updating…" : "Automatic cloud backup queued…"}</Text> : null}
       {cloudConfigured && !automaticBackup.conflict && automaticBackup.error ? <Text style={styles.autoConflictText}>Automatic backup failed and will retry after the next collection change.</Text> : null}
