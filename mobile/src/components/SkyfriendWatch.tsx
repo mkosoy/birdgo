@@ -228,10 +228,10 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
       const dartShape = Math.sin(dartProgress * Math.PI);
       const dartX = (noise(seed + dartStep * 17) - 0.5) * flight.dartX * dartShape * dartBoost;
       const dartY = (noise(seed + 91 + dartStep * 23) - 0.5) * flight.dartY * dartShape * dartBoost;
-      const orbitRadius = difficulty.focusRadius + difficulty.orbitPadding + flight.orbitExtra;
-      const orbitAngle = elapsed * flight.orbitRate * speed + seed * 0.037;
-      const baseX = Math.cos(orbitAngle) * orbitRadius + Math.sin(elapsed * flight.weaveXRate * speed + seed * 0.11) * flight.weaveXAmplitude + dartX * flight.dartMix;
-      const baseY = Math.sin(orbitAngle * 0.91 + seed * 0.021) * orbitRadius * flight.orbitYRatio + Math.cos(elapsed * flight.weaveYRate * speed + seed * 0.05) * flight.weaveYAmplitude + dartY * flight.dartMix;
+      const orbitRadius = Math.max(difficulty.focusRadius + 18, difficulty.focusRadius + difficulty.orbitPadding + flight.orbitExtra);
+      const orbitAngle = elapsed * flight.orbitRate * speed;
+      const baseX = Math.cos(orbitAngle) * orbitRadius + (Math.sin(elapsed * flight.weaveXRate * speed + seed * 0.11) - Math.sin(seed * 0.11)) * flight.weaveXAmplitude + dartX * flight.dartMix;
+      const baseY = Math.sin(orbitAngle * 0.91 + seed * 0.021) * orbitRadius * flight.orbitYRatio + (Math.cos(elapsed * flight.weaveYRate * speed + seed * 0.05) - Math.cos(seed * 0.05)) * flight.weaveYAmplitude + dartY * flight.dartMix;
       const unclampedX = baseX + panRef.current.x;
       const unclampedY = baseY + panRef.current.y;
       const maxCenterDistance = scopeRadius - 34;
