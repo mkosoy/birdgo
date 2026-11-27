@@ -40,9 +40,27 @@ function timestampSlug(date = new Date()): string {
   return date.toISOString().slice(0, 19).replace(/[T:]/g, "-");
 }
 
+function withoutPhotoReferences(raw: string | undefined): string | undefined {
+  if (!raw) return raw;
+  try {
+    const captures = JSON.parse(raw) as Record<string, unknown>[];
+    if (!Array.isArray(captures)) return raw;
+    return JSON.stringify(captures.map((capture) => {
+      if (!capture || typeof capture !== "object") return capture;
+      const { photoUri: _photoUri, ...metadata } = capture;
+      return metadata;
+    }));
+  } catch {
+    return raw;
+  }
+}
+
 export async function createCollectionBackupJson(): Promise<string> {
   const pairs = await AsyncStorage.multiGet([...BACKUP_KEYS]);
-  const entries = Object.fromEntries(pairs.flatMap(([key, value]) => value == null ? [] : [[key, value]]));
+  const entries = Object.fromEntries(pairs.flatMap(([key, value]) => {
+    if (value == null) return [];
+    return [[key, key === "birdgo.captures" ? withoutPhotoReferences(value) ?? value : value]];
+  }));
   const backup: BackupFile = {
     app: "birdgo",
     kind: "collection-backup",
@@ -50,7 +68,9 @@ export async function createCollectionBackupJson(): Promise<string> {
     exportedAt: new Date().toISOString(),
     entries,
   };
-  return JSON.stringify(backup, null, 2);
+  const json = JSON.stringify(backup, null, 2);
+  if (json.length > MAX_BACKUP_BYTES) throw new Error("This collection is too large for a portable backup right now.");
+  return json;
 }
 
 async function downloadBackupWeb(json: string): Promise<void> {
