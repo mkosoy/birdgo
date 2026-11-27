@@ -53,14 +53,15 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function HoloBird({ x, y, facing, wing, large = false, centered = false }: { x: number; y: number; facing: number; wing: number; large?: boolean; centered?: boolean }) {
+function HoloBird({ x, y, facing, wing, large = false, centered = false, prismatic = false }: { x: number; y: number; facing: number; wing: number; large?: boolean; centered?: boolean; prismatic?: boolean }) {
   return (
     <View pointerEvents="none" style={[styles.birdAnchor, { transform: [{ translateX: x }, { translateY: y }, { scaleX: facing * (large ? 1.35 : 1) }, { scaleY: large ? 1.35 : 1 }] }]}>
-      <View style={[styles.birdGlow, centered && styles.birdGlowCentered]} />
-      <View style={styles.birdTail} />
-      <View style={styles.birdBody} />
-      <View style={[styles.birdWing, { transform: [{ rotate: `${wing}deg` }] }]} />
-      <View style={styles.birdHead} />
+      <View style={[styles.birdGlow, centered && styles.birdGlowCentered, prismatic && styles.birdGlowPrismatic]} />
+      {prismatic ? <><View style={[styles.prismaticSparkle, styles.sparkleOne]} /><View style={[styles.prismaticSparkle, styles.sparkleTwo]} /><View style={[styles.prismaticSparkle, styles.sparkleThree]} /></> : null}
+      <View style={[styles.birdTail, prismatic && styles.birdTailPrismatic]} />
+      <View style={[styles.birdBody, prismatic && styles.birdBodyPrismatic]} />
+      <View style={[styles.birdWing, prismatic && styles.birdWingPrismatic, { transform: [{ rotate: `${wing}deg` }] }]} />
+      <View style={[styles.birdHead, prismatic && styles.birdHeadPrismatic]} />
       <View style={styles.birdEye} />
     </View>
   );
@@ -255,7 +256,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
       {phase === "intro" && (
         <View style={styles.introCard}>
           <View style={styles.introScope}>
-            <HoloBird x={0} y={0} facing={1} wing={-8} large centered />
+            <HoloBird x={0} y={0} facing={1} wing={-8} large centered prismatic={prismatic} />
           </View>
           <View style={[styles.rarityPill, { backgroundColor: rarityColor }, prismatic && styles.rarityPillPrismatic]}><Text style={styles.rarityText}>{prismatic ? "PRISMATIC SKYFRIEND" : `${rarity.toUpperCase()} SKYFRIEND`}</Text></View>
           <Text style={styles.introHeading}>Spot it through the binoculars.</Text>
@@ -277,7 +278,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
             <View style={[styles.scopeSky, { borderRadius: scopeRadius }]}>
               {STARS.map(([left, top]) => <View key={`${left}-${top}`} style={[styles.star, { left: `${left}%`, top: `${top}%` }]} />)}
               <View style={styles.scopeHorizon} />
-              <HoloBird x={frame.x} y={frame.y} facing={frame.facing} wing={frame.wing} centered={frame.centered} />
+              <HoloBird x={frame.x} y={frame.y} facing={frame.facing} wing={frame.wing} centered={frame.centered} prismatic={prismatic} />
               <View style={[styles.focusRing, { width: difficulty.focusRadius * 2, height: difficulty.focusRadius * 2, borderRadius: difficulty.focusRadius, marginLeft: -difficulty.focusRadius, marginTop: -difficulty.focusRadius }, frame.centered && styles.focusRingActive]} />
               <View style={styles.crosshairHorizontal} />
               <View style={styles.crosshairVertical} />
@@ -295,7 +296,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
         <View style={styles.resultCard}>
           <View style={[styles.resultBadge, phase === "success" ? styles.resultSuccess : styles.resultEscaped]}>
             {phase === "success"
-              ? <HoloBird x={0} y={0} facing={1} wing={-10} large centered />
+              ? <HoloBird x={0} y={0} facing={1} wing={-10} large centered prismatic={prismatic} />
               : <Ionicons name="airplane" size={34} color="#fff" />}
           </View>
           <Text style={styles.resultTitle}>{phase === "success" ? prismatic ? "Prismatic Skyfriend collected!" : "Skyfriend collected!" : "It slipped away"}</Text>
@@ -341,7 +342,16 @@ const styles = StyleSheet.create({
   birdAnchor: { position: "absolute", left: "50%", top: "50%", width: 62, height: 44, marginLeft: -31, marginTop: -22 },
   birdGlow: { position: "absolute", left: -13, top: -14, width: 86, height: 72, borderRadius: 42, backgroundColor: "rgba(80,226,255,.13)" },
   birdGlowCentered: { backgroundColor: "rgba(130,255,226,.24)" },
+  birdGlowPrismatic: { backgroundColor: "rgba(255,215,102,.28)" },
+  prismaticSparkle: { position: "absolute", width: 5, height: 5, borderRadius: 3, backgroundColor: "#fff3bd", shadowColor: "#ffd766", shadowOpacity: 0.9, shadowRadius: 5 },
+  sparkleOne: { left: 8, top: 4 },
+  sparkleTwo: { right: 2, top: 20 },
+  sparkleThree: { left: 20, bottom: 0 },
   birdBody: { position: "absolute", left: 15, top: 15, width: 33, height: 22, borderRadius: 16, backgroundColor: "#65e9ff", borderWidth: 2, borderColor: "#d9fbff" },
+  birdBodyPrismatic: { backgroundColor: "#ffd766", borderColor: "#fff8cf" },
+  birdHeadPrismatic: { backgroundColor: "#ffd766", borderColor: "#fff8cf" },
+  birdWingPrismatic: { backgroundColor: "#8f78ff", borderColor: "#fff3bd" },
+  birdTailPrismatic: { backgroundColor: "#28e0c8", borderWidth: 1, borderColor: "#fff3bd" },
   birdWing: { position: "absolute", left: 18, top: 10, width: 28, height: 13, borderRadius: 9, backgroundColor: "#7569f2", borderWidth: 1, borderColor: "#bff8ff" },
   birdHead: { position: "absolute", left: 39, top: 7, width: 18, height: 18, borderRadius: 9, backgroundColor: "#65e9ff", borderWidth: 2, borderColor: "#d9fbff" },
   birdEye: { position: "absolute", left: 50, top: 12, width: 4, height: 4, borderRadius: 2, backgroundColor: "#18244e" },
