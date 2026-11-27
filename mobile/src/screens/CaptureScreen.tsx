@@ -9,13 +9,36 @@ import { useFocusEffect } from "@react-navigation/native";
 import { canonicalizeSpecies, identifyBird } from "../api";
 import { SF_COORDS } from "../config";
 import { useCollection } from "../hooks/useCollection";
-import type { BirdRarity, Coordinates } from "../types";
+import type { BirdRarity, CaptureRecord, Coordinates, SkyfriendRecord } from "../types";
 import type { SeenSpecies } from "../types";
 import { Bird3DPreview } from "../components/Bird3DPreview";
 import { CaptureCelebration } from "../components/CaptureCelebration";
-import { rarityForSpecies, xpForCapture } from "../utils/progression";
+import { applySpeciesCaptureCount, rarityForSpecies, speciesKeyAliases, xpForCapture, type SpeciesCountGroup } from "../utils/progression";
+import { buildDailyQuests } from "../utils/quests";
 
 type Props = { hint?: SeenSpecies; onHintConsumed?: () => void; onCaptureSaved?: (capture: { speciesCode?: string; commonName: string; sciName?: string | null; encounterId?: string }) => void };
+
+interface CelebrationQuestUpdate {
+  title: string;
+  detail: string;
+}
+
+function questUpdatesForCapture(captures: CaptureRecord[], skyfriends: SkyfriendRecord[], speciesCaptureCounts: SpeciesCountGroup[], record: CaptureRecord): CelebrationQuestUpdate[] {
+  const before = buildDailyQuests(captures, skyfriends, speciesCaptureCounts);
+  const aliases = speciesKeyAliases(record.speciesCode, record.commonName, record.sciName, record.canonicalKey);
+  const projectedCounts = applySpeciesCaptureCount(speciesCaptureCounts, aliases).groups;
+  const after = buildDailyQuests([record, ...captures], skyfriends, projectedCounts);
+  return after.flatMap((quest) => {
+    const prior = before.find((entry) => entry.id === quest.id);
+    if (!prior || quest.progress <= prior.progress) return [];
+    return [{
+      title: quest.title,
+      detail: quest.completed && !prior.completed
+        ? `Complete — claim +${quest.rewardXp} XP in Bird-dex`
+        : `Progress ${quest.progress}/${quest.target}`,
+    }];
+  });
+}
 
 function normalizeName(value?: string | null): string {
   return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
@@ -50,7 +73,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedPhotoUri, setSavedPhotoUri] = useState<string | null>(null);
-  const { saveCapture, seenSpecies, refresh: refreshCollection } = useCollection();
+  const { saveCapture, seenSpecies, captures, skyfriends, speciesCaptureCounts, refresh: refreshCollection } = useCollection();
   const [encounterHint, setEncounterHint] = useState<SeenSpecies | undefined>(hint);
   const [visualMode, setVisualMode] = useState<"reference" | "model">("reference");
   const [confirmingHonor, setConfirmingHonor] = useState(false);
@@ -64,6 +87,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
     honorSystem: boolean;
     photoUri?: string | null;
     referenceImageUrl?: string;
+    questUpdates?: CelebrationQuestUpdate[];
   }>();
   const previousHint = useRef<SeenSpecies | undefined>(hint);
 
@@ -168,6 +192,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
         verified: false,
       });
       const earnedXp = record.xpAwarded ?? 0;
+      const questUpdates = questUpdatesForCapture(captures, skyfriends, speciesCaptureCounts, record);
       const firstSpecies = earnedXp > xpForCapture({ rarity, verified: false, speciesCode: contextSpecies.speciesCode, commonName: contextSpecies.comName, sciName: contextSpecies.sciName }, false);
       onCaptureSaved?.({ speciesCode: contextSpecies.speciesCode, commonName: contextSpecies.comName, sciName: contextSpecies.sciName, encounterId: contextSpecies.encounterId });
       setCelebration({
@@ -178,6 +203,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
         firstSpecies,
         verified: false,
         honorSystem: true,
+        questUpdates,
         ...(contextSpecies.imageUrl ? { referenceImageUrl: contextSpecies.imageUrl } : {}),
       });
       onHintConsumed?.();
@@ -234,6 +260,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
         verified,
       });
       const earnedXp = record.xpAwarded ?? 0;
+      const questUpdates = questUpdatesForCapture(captures, skyfriends, speciesCaptureCounts, record);
       const firstSpecies = earnedXp > xpForCapture({ rarity, verified, speciesCode: contextSpecies?.speciesCode, commonName, sciName: contextSpecies?.sciName ?? result.sciName }, false);
       onCaptureSaved?.({ speciesCode: contextSpecies?.speciesCode, commonName, sciName: contextSpecies?.sciName ?? result.sciName, encounterId: contextSpecies?.encounterId });
       setCelebration({
@@ -245,6 +272,7 @@ export function CaptureScreen({ hint, onHintConsumed, onCaptureSaved }: Props) {
         verified,
         honorSystem: false,
         photoUri,
+        questUpdates,
       });
       setSavedPhotoUri(photoUri);
       if (encounterHint) onHintConsumed?.();
