@@ -322,6 +322,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
       var currentAudio = null;
       var currentAudioKey = null;
       var audioRequest = 0;
+      var guideCache = Object.create(null);
       var apiBaseUrl = ${serializedApiBaseUrl};
       var routeDistanceM = null;
       var routeGeometryCoordinates = [];
@@ -789,6 +790,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
             postOutward({ type: 'popup', open: false });
           }
         });
+        prefetchSpeciesGuide(bird);
         setTimeout(function () { attachPopupActions(popup, bird); }, 0);
       }
 
@@ -1421,6 +1423,27 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         return apiBaseUrl + '/api/species/guide?' + params.toString();
       }
 
+      function speciesGuideCacheKey(bird) {
+        return String(bird.sciName || bird.comName || '').toLowerCase();
+      }
+
+      function fetchSpeciesGuide(bird) {
+        var key = speciesGuideCacheKey(bird);
+        if (!guideCache[key]) {
+          var request = fetch(speciesGuideUrl(bird))
+            .then(function (response) { if (!response.ok) throw new Error('guide unavailable'); return response.json(); });
+          guideCache[key] = request;
+          request.catch(function () {
+            if (guideCache[key] === request) delete guideCache[key];
+          });
+        }
+        return guideCache[key];
+      }
+
+      function prefetchSpeciesGuide(bird) {
+        fetchSpeciesGuide(bird).catch(function () { /* Listen will surface the failure if needed. */ });
+      }
+
       function resetListenButtons() {
         document.querySelectorAll('[data-action="listen"]').forEach(function (button) {
           button.disabled = false;
@@ -1445,8 +1468,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         var requestId = audioRequest;
         button.disabled = true;
         button.textContent = 'Loading';
-        fetch(speciesGuideUrl(bird))
-          .then(function (response) { if (!response.ok) throw new Error('guide unavailable'); return response.json(); })
+        fetchSpeciesGuide(bird)
           .then(function (guide) {
             if (requestId !== audioRequest) return;
             var sound = guide && Array.isArray(guide.sounds) && guide.sounds[0];
