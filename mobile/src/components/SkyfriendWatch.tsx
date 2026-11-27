@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dimensions, PanResponder, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Dimensions, Modal, PanResponder, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import type { BirdRarity, EbirdObservation } from "../types";
 import { RARITY_COLORS, rarityForSpecies } from "../utils/progression";
@@ -290,6 +290,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
   };
 
   return (
+    <Modal visible animationType="fade" onRequestClose={closeIntroOrResult}>
     <View style={styles.overlay}>
       <View style={styles.topBar}>
         <View style={styles.titleBlock}>
@@ -357,6 +358,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
         </View>
       )}
     </View>
+    </Modal>
   );
 }
 

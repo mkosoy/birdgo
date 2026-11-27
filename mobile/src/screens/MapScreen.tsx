@@ -618,14 +618,12 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         <Pressable accessibilityLabel="Back to me" style={[styles.actionButton, styles.classicRecenter, { top: insets.top + 112 }]} onPress={() => setRecenterRequest((request) => request + 1)}><Ionicons name="locate" size={27} color="#2878d1" /></Pressable>
       )}
       {watchTarget && (
-        <Modal visible animationType="fade" onRequestClose={() => setWatchTarget(undefined)}>
-          <SkyfriendWatch
-            bird={watchTarget}
-            onSuccess={() => void completeSkyfriendCollection(watchTarget)}
-            onEscape={() => void escapeSkyfriend(watchTarget)}
-            onClose={() => setWatchTarget(undefined)}
-          />
-        </Modal>
+        <SkyfriendWatch
+          bird={watchTarget}
+          onSuccess={() => void completeSkyfriendCollection(watchTarget)}
+          onEscape={() => void escapeSkyfriend(watchTarget)}
+          onClose={() => setWatchTarget(undefined)}
+        />
       )}
       {guideTarget && (
         <Modal visible transparent animationType="slide" onRequestClose={() => setGuideTarget(undefined)}>
