@@ -202,9 +202,77 @@ export function buildMapLibreHtml(): string {
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script>
     (function () {
+      var adventureMapStyle = {
+        version: 8,
+        sources: {
+          openmaptiles: { type: 'vector', url: 'https://tiles.openfreemap.org/backup_planet', maxzoom: 13 }
+        },
+        layers: [
+          { id: 'background', type: 'background', paint: { 'background-color': '#a9d88f' } },
+          {
+            id: 'landuse-urban', type: 'fill', source: 'openmaptiles', 'source-layer': 'landuse',
+            filter: ['match', ['get', 'class'], ['residential', 'neighbourhood', 'commercial', 'industrial', 'school', 'hospital', 'suburb'], true, false],
+            paint: { 'fill-color': '#b9d99d', 'fill-opacity': 0.42 }
+          },
+          {
+            id: 'park', type: 'fill', source: 'openmaptiles', 'source-layer': 'park',
+            filter: ['match', ['geometry-type'], ['MultiPolygon', 'Polygon'], true, false],
+            paint: { 'fill-color': '#83c979', 'fill-opacity': 1 }
+          },
+          {
+            id: 'landcover-grass', type: 'fill', source: 'openmaptiles', 'source-layer': 'landcover',
+            filter: ['match', ['get', 'class'], ['grass', 'wood'], true, false],
+            paint: { 'fill-color': '#82c978', 'fill-opacity': 1 }
+          },
+          {
+            id: 'water', type: 'fill', source: 'openmaptiles', 'source-layer': 'water',
+            paint: { 'fill-color': '#5cc4ea', 'fill-opacity': 1 }
+          },
+          {
+            id: 'waterway', type: 'line', source: 'openmaptiles', 'source-layer': 'waterway',
+            filter: ['match', ['get', 'class'], ['canal', 'river', 'stream'], true, false],
+            paint: { 'line-color': '#6cc7e8', 'line-width': ['interpolate', ['exponential', 1.25], ['zoom'], 10, 0.7, 16, 4, 20, 8], 'line-opacity': 0.82 }
+          },
+          {
+            id: 'highway-minor-casing', type: 'line', source: 'openmaptiles', 'source-layer': 'transportation',
+            filter: ['all', ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false], ['match', ['get', 'class'], ['minor', 'service', 'track'], true, false]],
+            paint: { 'line-color': '#c4cbb8', 'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 13, 1.2, 16, 4.5, 20, 9], 'line-opacity': 0.28 },
+            layout: { 'line-cap': 'round', 'line-join': 'round' }
+          },
+          {
+            id: 'highway-major-casing', type: 'line', source: 'openmaptiles', 'source-layer': 'transportation',
+            filter: ['all', ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false], ['match', ['get', 'class'], ['motorway', 'trunk', 'primary', 'secondary', 'tertiary'], true, false]],
+            paint: { 'line-color': '#c4cbb8', 'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 8, 1, 15, 5.5, 20, 14], 'line-opacity': 0.38 },
+            layout: { 'line-cap': 'round', 'line-join': 'round' }
+          },
+          {
+            id: 'highway-minor', type: 'line', source: 'openmaptiles', 'source-layer': 'transportation',
+            filter: ['all', ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false], ['match', ['get', 'class'], ['minor', 'service', 'track'], true, false]],
+            paint: { 'line-color': '#f4edda', 'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 13, 0.7, 16, 3, 20, 7], 'line-opacity': 0.62 },
+            layout: { 'line-cap': 'round', 'line-join': 'round' }
+          },
+          {
+            id: 'highway-major', type: 'line', source: 'openmaptiles', 'source-layer': 'transportation',
+            filter: ['all', ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false], ['match', ['get', 'class'], ['motorway', 'trunk', 'primary', 'secondary', 'tertiary'], true, false]],
+            paint: { 'line-color': '#ffe1a3', 'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 8, 0.6, 15, 3.8, 20, 11], 'line-opacity': 0.84 },
+            layout: { 'line-cap': 'round', 'line-join': 'round' }
+          },
+          {
+            id: 'highway-path', type: 'line', source: 'openmaptiles', 'source-layer': 'transportation',
+            filter: ['all', ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false], ['==', ['get', 'class'], 'path']],
+            paint: { 'line-color': '#eef0ce', 'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 14, 0.8, 18, 2.6, 20, 4.5], 'line-opacity': 0.55 },
+            layout: { 'line-cap': 'round', 'line-join': 'round' }
+          },
+          {
+            id: 'railway', type: 'line', source: 'openmaptiles', 'source-layer': 'transportation',
+            filter: ['all', ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false], ['match', ['get', 'class'], ['rail', 'transit'], true, false]],
+            paint: { 'line-color': '#aebaa5', 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.5, 18, 2], 'line-opacity': 0.5 }
+          }
+        ]
+      };
       var map = new maplibregl.Map({
         container: 'map',
-        style: 'https://tiles.openfreemap.org/styles/bright',
+        style: adventureMapStyle,
         center: [-122.4194, 37.7749],
         zoom: 15.5,
         pitch: 58,
@@ -1367,43 +1435,6 @@ export function buildMapLibreHtml(): string {
       }
 
       function styleAdventureMap() {
-        var layers = map.getStyle().layers || [];
-        layers.forEach(function (layer) {
-          try {
-            var sl = layer['source-layer'];
-            if (layer.type === 'symbol') { map.setLayoutProperty(layer.id, 'visibility', 'none'); return; }
-            if (layer.type === 'background') { map.setPaintProperty(layer.id, 'background-color', '#a9d88f'); return; }
-            if (layer.type === 'fill') {
-              if (sl === 'water') { map.setPaintProperty(layer.id, 'fill-color', '#5cc4ea'); }
-              else if (sl === 'building') { map.setLayoutProperty(layer.id, 'visibility', 'none'); }
-              else {
-                var cls = (layer.id || '').toLowerCase();
-                var green = (cls.indexOf('wood') >= 0 || cls.indexOf('forest') >= 0 || cls.indexOf('park') >= 0 || cls.indexOf('grass') >= 0 || cls.indexOf('pitch') >= 0) ? '#82c978' : '#a9d88f';
-                map.setPaintProperty(layer.id, 'fill-color', green);
-                map.setPaintProperty(layer.id, 'fill-opacity', 1);
-              }
-              return;
-            }
-            if (layer.type === 'line') {
-              if (sl === 'transportation') {
-                var roadId = (layer.id || '').toLowerCase();
-                if (roadId.indexOf('railway') < 0 && roadId.indexOf('ferry') < 0 && roadId.indexOf('cablecar') < 0) {
-                  var casing = roadId.indexOf('casing') >= 0;
-                  var minorRoad = roadId.indexOf('minor') >= 0 || roadId.indexOf('path') >= 0 || roadId.indexOf('service') >= 0 || roadId.indexOf('track') >= 0 || roadId.indexOf('link') >= 0;
-                  var majorRoad = roadId.indexOf('motorway') >= 0 || roadId.indexOf('trunk') >= 0 || roadId.indexOf('primary') >= 0;
-                  var roadColor = casing ? '#c4cbb8' : majorRoad ? '#ffe1a3' : '#f4edda';
-                  var widthStops = minorRoad
-                    ? casing ? [14, 1.4, 18, 4, 20, 7] : [14, 0.8, 18, 3, 20, 5]
-                    : casing ? [8, 1.2, 18, 6, 20, 12] : [8, 0.7, 18, 4.5, 20, 9];
-                  map.setPaintProperty(layer.id, 'line-color', roadColor);
-                  map.setPaintProperty(layer.id, 'line-width', ['interpolate', ['linear'], ['zoom']].concat(widthStops));
-                  map.setPaintProperty(layer.id, 'line-opacity', casing ? (minorRoad ? 0.24 : 0.42) : minorRoad ? 0.58 : 0.82);
-                }
-              }
-              else if (sl === 'waterway') map.setPaintProperty(layer.id, 'line-color', '#6cc7e8');
-            }
-          } catch (_) {}
-        });
         if (!map.getSource('presence-radius')) {
           map.addSource('presence-radius', {
             type: 'geojson',
