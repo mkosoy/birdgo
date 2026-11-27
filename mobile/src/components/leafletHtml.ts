@@ -55,6 +55,7 @@ export function buildLeafletHtml(): string {
       var popupBirdId = null;
       var restoringPopup = false;
       var latestData = null;
+      var latestMarkers = [];
       var programmaticCameraMove = false;
       var userGesture = false;
       function markProgrammaticCameraMove() { programmaticCameraMove = true; }
@@ -159,7 +160,8 @@ export function buildLeafletHtml(): string {
 
       function render(data) {
         if (!data || !data.center) return;
-        latestData = Object.assign({}, data, { command: null });
+        if (Array.isArray(data.markers)) latestMarkers = data.markers;
+        latestData = Object.assign({}, data, { command: null, markers: latestMarkers });
         var restorePopupId = popupBirdId;
         var restoreMarker = null;
         if (data.userLocation) lastUserLocation = data.userLocation;
@@ -183,7 +185,7 @@ export function buildLeafletHtml(): string {
         var minSpacing = zoom >= 16 ? 18 : zoom >= 15 ? 24 : zoom >= 13 ? 38 : 48;
         var visibleBounds = map.getBounds().pad(0.08);
         var referenceLocation = lastUserLocation || data.center;
-        var sortedBirds = (data.markers || []).slice().sort(function (left, right) {
+        var sortedBirds = latestMarkers.slice().sort(function (left, right) {
           function score(bird) {
             var distance = haversineKm(referenceLocation, bird);
             return (distance == null ? 999 : distance) - (bird.isNotable ? 0.35 : 0) - (bird.captureCount ? 0.1 : 0) - (bird.virtual ? 0.05 : 0);

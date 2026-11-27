@@ -12,6 +12,13 @@ export function buildMapLibreHtml(): string {
     #atmosphere-tint { position: absolute; inset: 0; z-index: 1; pointer-events: none; transition: background 700ms; }
     #weather-orb { position: absolute; top: calc(var(--safe-top) + 116px); right: 16px; z-index: 3; width: 30px; height: 30px; border-radius: 50%; pointer-events: none; background: #ffd766; box-shadow: 0 0 20px rgba(255,214,102,.62); transition: all 700ms; }
     #weather-particles { position: absolute; inset: 0; z-index: 3; pointer-events: none; opacity: 0; transition: opacity 500ms; }
+    #map-loading { position: absolute; inset: 0; z-index: 4; pointer-events: none; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 38%, rgba(213,239,182,.94), rgba(128,196,126,.96) 52%, rgba(80,153,109,.98)); opacity: 1; transition: opacity 550ms ease; }
+    #map-loading.hidden { opacity: 0; }
+    #map-loading-card { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 22px; border-radius: 24px; color: #173c2b; font-family: -apple-system, system-ui, sans-serif; text-align: center; text-shadow: 0 1px 0 rgba(255,255,255,.45); }
+    #map-loading-ring { width: 54px; height: 54px; border-radius: 50%; border: 5px solid rgba(255,255,255,.45); border-top-color: #fff; box-shadow: 0 4px 18px rgba(31,91,55,.2); animation: map-loading-spin 1.1s linear infinite; }
+    #map-loading-title { font-size: 18px; font-weight: 900; letter-spacing: .1px; }
+    #map-loading-subtitle { font-size: 12px; font-weight: 700; color: rgba(23,60,43,.72); }
+    @keyframes map-loading-spin { to { transform: rotate(360deg); } }
     body[data-period="dawn"] #sky-gradient { background: linear-gradient(to bottom, rgba(255,157,118,.78), rgba(119,173,222,.34) 52%, rgba(153,216,242,0)); }
     body[data-period="dusk"] #sky-gradient { background: linear-gradient(to bottom, rgba(245,126,103,.82), rgba(108,111,190,.38) 52%, rgba(153,216,242,0)); }
     body[data-period="night"] #sky-gradient { background: linear-gradient(to bottom, rgba(12,24,70,.92), rgba(31,56,111,.42) 52%, rgba(31,56,111,0)); }
@@ -170,6 +177,7 @@ export function buildMapLibreHtml(): string {
   <div id="sky-gradient"></div>
   <div id="weather-orb"></div>
   <div id="weather-particles"></div>
+  <div id="map-loading"><div id="map-loading-card"><div id="map-loading-ring"></div><div id="map-loading-title">Scanning the canopy</div><div id="map-loading-subtitle">Loading nearby habitat</div></div></div>
   <div id="track-hud"><div id="track-arrow">⬆</div></div>
   <div id="nearby-panel" class="collapsed peek">
     <div id="nearby-handle" aria-hidden="true"></div>
@@ -202,15 +210,92 @@ export function buildMapLibreHtml(): string {
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script>
     (function () {
+      var adventureMapStyle = {
+        version: 8,
+        sources: {
+          openmaptiles: { type: 'vector', url: 'https://tiles.openfreemap.org/backup_planet', maxzoom: 13 }
+        },
+        layers: [
+          { id: 'background', type: 'background', paint: { 'background-color': '#a9d88f' } },
+          {
+            id: 'landuse-urban', type: 'fill', source: 'openmaptiles', 'source-layer': 'landuse',
+            filter: ['match', ['get', 'class'], ['residential', 'neighbourhood', 'commercial', 'industrial', 'school', 'hospital', 'suburb'], true, false],
+            paint: { 'fill-color': '#b9d99d', 'fill-opacity': 0.42 }
+          },
+          {
+            id: 'park', type: 'fill', source: 'openmaptiles', 'source-layer': 'park',
+            filter: ['match', ['geometry-type'], ['MultiPolygon', 'Polygon'], true, false],
+            paint: { 'fill-color': '#83c979', 'fill-opacity': 1 }
+          },
+          {
+            id: 'landcover-grass', type: 'fill', source: 'openmaptiles', 'source-layer': 'landcover',
+            filter: ['match', ['get', 'class'], ['grass', 'wood'], true, false],
+            paint: { 'fill-color': '#82c978', 'fill-opacity': 1 }
+          },
+          {
+            id: 'water', type: 'fill', source: 'openmaptiles', 'source-layer': 'water',
+            paint: { 'fill-color': '#5cc4ea', 'fill-opacity': 1 }
+          },
+          {
+            id: 'waterway', type: 'line', source: 'openmaptiles', 'source-layer': 'waterway',
+            filter: ['match', ['get', 'class'], ['canal', 'river', 'stream'], true, false],
+            paint: { 'line-color': '#6cc7e8', 'line-width': ['interpolate', ['exponential', 1.25], ['zoom'], 10, 0.7, 16, 4, 20, 8], 'line-opacity': 0.82 }
+          },
+          {
+            id: 'highway-minor-casing', type: 'line', source: 'openmaptiles', 'source-layer': 'transportation',
+            filter: ['all', ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false], ['match', ['get', 'class'], ['minor', 'service', 'track'], true, false]],
+            paint: { 'line-color': '#c4cbb8', 'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 13, 1.2, 16, 4.5, 20, 9], 'line-opacity': 0.28 },
+            layout: { 'line-cap': 'round', 'line-join': 'round' }
+          },
+          {
+            id: 'highway-major-casing', type: 'line', source: 'openmaptiles', 'source-layer': 'transportation',
+            filter: ['all', ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false], ['match', ['get', 'class'], ['motorway', 'trunk', 'primary', 'secondary', 'tertiary'], true, false]],
+            paint: { 'line-color': '#c4cbb8', 'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 8, 1, 15, 5.5, 20, 14], 'line-opacity': 0.38 },
+            layout: { 'line-cap': 'round', 'line-join': 'round' }
+          },
+          {
+            id: 'highway-minor', type: 'line', source: 'openmaptiles', 'source-layer': 'transportation',
+            filter: ['all', ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false], ['match', ['get', 'class'], ['minor', 'service', 'track'], true, false]],
+            paint: { 'line-color': '#f4edda', 'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 13, 0.7, 16, 3, 20, 7], 'line-opacity': 0.62 },
+            layout: { 'line-cap': 'round', 'line-join': 'round' }
+          },
+          {
+            id: 'highway-major', type: 'line', source: 'openmaptiles', 'source-layer': 'transportation',
+            filter: ['all', ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false], ['match', ['get', 'class'], ['motorway', 'trunk', 'primary', 'secondary', 'tertiary'], true, false]],
+            paint: { 'line-color': '#ffe1a3', 'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 8, 0.6, 15, 3.8, 20, 11], 'line-opacity': 0.84 },
+            layout: { 'line-cap': 'round', 'line-join': 'round' }
+          },
+          {
+            id: 'highway-path', type: 'line', source: 'openmaptiles', 'source-layer': 'transportation',
+            filter: ['all', ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false], ['==', ['get', 'class'], 'path']],
+            paint: { 'line-color': '#eef0ce', 'line-width': ['interpolate', ['exponential', 1.2], ['zoom'], 14, 0.8, 18, 2.6, 20, 4.5], 'line-opacity': 0.55 },
+            layout: { 'line-cap': 'round', 'line-join': 'round' }
+          },
+          {
+            id: 'railway', type: 'line', source: 'openmaptiles', 'source-layer': 'transportation',
+            filter: ['all', ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false], ['match', ['get', 'class'], ['rail', 'transit'], true, false]],
+            paint: { 'line-color': '#aebaa5', 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.5, 18, 2], 'line-opacity': 0.5 }
+          }
+        ]
+      };
       var map = new maplibregl.Map({
         container: 'map',
-        style: 'https://tiles.openfreemap.org/styles/bright',
+        style: adventureMapStyle,
         center: [-122.4194, 37.7749],
         zoom: 15.5,
         pitch: 58,
         bearing: 0,
         attributionControl: false
       });
+      var mapLoading = document.getElementById('map-loading');
+      var mapLoadingHidden = false;
+      function hideMapLoading() {
+        if (mapLoadingHidden) return;
+        mapLoadingHidden = true;
+        if (mapLoading) mapLoading.classList.add('hidden');
+      }
+      map.once('idle', hideMapLoading);
+      setTimeout(hideMapLoading, 6500);
       var birdMarkers = [];
       var currentPopup = null;
       var userMarker = null;
@@ -250,6 +335,9 @@ export function buildMapLibreHtml(): string {
       var sortMode = 'nearest';
       var birdsLoading = true;
       var panelState = 'peek';
+      var lastMarkerRenderSignature = '';
+      var lastMarkerInput = null;
+      var lastMarkerInputSignature = '';
       var paddingAnimationActive = false;
       var paddingAnimationToken = 0;
       var deferredCompassHeading = null;
@@ -1364,43 +1452,6 @@ export function buildMapLibreHtml(): string {
       }
 
       function styleAdventureMap() {
-        var layers = map.getStyle().layers || [];
-        layers.forEach(function (layer) {
-          try {
-            var sl = layer['source-layer'];
-            if (layer.type === 'symbol') { map.setLayoutProperty(layer.id, 'visibility', 'none'); return; }
-            if (layer.type === 'background') { map.setPaintProperty(layer.id, 'background-color', '#a9d88f'); return; }
-            if (layer.type === 'fill') {
-              if (sl === 'water') { map.setPaintProperty(layer.id, 'fill-color', '#5cc4ea'); }
-              else if (sl === 'building') { map.setLayoutProperty(layer.id, 'visibility', 'none'); }
-              else {
-                var cls = (layer.id || '').toLowerCase();
-                var green = (cls.indexOf('wood') >= 0 || cls.indexOf('forest') >= 0 || cls.indexOf('park') >= 0 || cls.indexOf('grass') >= 0 || cls.indexOf('pitch') >= 0) ? '#82c978' : '#a9d88f';
-                map.setPaintProperty(layer.id, 'fill-color', green);
-                map.setPaintProperty(layer.id, 'fill-opacity', 1);
-              }
-              return;
-            }
-            if (layer.type === 'line') {
-              if (sl === 'transportation') {
-                var roadId = (layer.id || '').toLowerCase();
-                if (roadId.indexOf('railway') < 0 && roadId.indexOf('ferry') < 0 && roadId.indexOf('cablecar') < 0) {
-                  var casing = roadId.indexOf('casing') >= 0;
-                  var minorRoad = roadId.indexOf('minor') >= 0 || roadId.indexOf('path') >= 0 || roadId.indexOf('service') >= 0 || roadId.indexOf('track') >= 0 || roadId.indexOf('link') >= 0;
-                  var majorRoad = roadId.indexOf('motorway') >= 0 || roadId.indexOf('trunk') >= 0 || roadId.indexOf('primary') >= 0;
-                  var roadColor = casing ? '#c4cbb8' : majorRoad ? '#ffe1a3' : '#f4edda';
-                  var widthStops = minorRoad
-                    ? casing ? [14, 1.4, 18, 4, 20, 7] : [14, 0.8, 18, 3, 20, 5]
-                    : casing ? [8, 1.2, 18, 6, 20, 12] : [8, 0.7, 18, 4.5, 20, 9];
-                  map.setPaintProperty(layer.id, 'line-color', roadColor);
-                  map.setPaintProperty(layer.id, 'line-width', ['interpolate', ['linear'], ['zoom']].concat(widthStops));
-                  map.setPaintProperty(layer.id, 'line-opacity', casing ? (minorRoad ? 0.24 : 0.42) : minorRoad ? 0.58 : 0.82);
-                }
-              }
-              else if (sl === 'waterway') map.setPaintProperty(layer.id, 'line-color', '#6cc7e8');
-            }
-          } catch (_) {}
-        });
         if (!map.getSource('presence-radius')) {
           map.addSource('presence-radius', {
             type: 'geojson',
@@ -1512,9 +1563,22 @@ export function buildMapLibreHtml(): string {
       map.on('pitch', scheduleArrow);
 
 
+      function hashString(input) {
+        var hash = 5381;
+        for (var index = 0; index < input.length; index += 1) {
+          hash = ((hash << 5) + hash + input.charCodeAt(index)) >>> 0;
+        }
+        return String(hash);
+      }
+
+      function markerDataSignature(markers) {
+        if (markers === lastMarkerInput) return lastMarkerInputSignature;
+        lastMarkerInput = markers;
+        lastMarkerInputSignature = hashString(JSON.stringify(markers || []));
+        return lastMarkerInputSignature;
+      }
+
       function renderBirdMarkers(markers) {
-        birdMarkers.forEach(function (marker) { marker.remove(); });
-        birdMarkers = [];
         var zoom = map.getZoom();
         var minSpacing = zoom >= 15 ? 30 : zoom >= 13 ? 48 : 64;
         var maxMarkers = zoom >= 15 ? 64 : zoom >= 13 ? 32 : 20;
@@ -1569,12 +1633,23 @@ export function buildMapLibreHtml(): string {
           chosen.push(entry.bird);
           chosenPoints.push(entry.point);
         }
-        chosen.forEach(function (bird) {
-          var element = document.createElement('div');
+        var visualStates = chosen.map(function (bird) {
           var distance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
-          var inRange = distance != null && distance <= 0.06;
-          var presenceClass = distance == null ? 'presence-mid' : distance <= 0.06 ? 'presence-close' : distance <= 0.12 ? 'presence-near' : distance <= 0.25 ? 'presence-mid' : 'presence-far';
-          element.className = 'bird-marker ' + presenceClass + (bird.virtual ? ' virtual' : '') + (bird.isNotable ? ' notable' : '') + (inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
+          return {
+            inRange: distance != null && distance <= 0.06,
+            presenceClass: distance == null ? 'presence-mid' : distance <= 0.06 ? 'presence-close' : distance <= 0.12 ? 'presence-near' : distance <= 0.25 ? 'presence-mid' : 'presence-far'
+          };
+        });
+        var signature = String(trackId || '') + '|' + markerDataSignature(markers) + '|' + JSON.stringify(chosen.map(function (bird, chosenIndex) {
+          return [bird.id, visualStates[chosenIndex].presenceClass, visualStates[chosenIndex].inRange ? 1 : 0];
+        }));
+        if (signature === lastMarkerRenderSignature) return;
+        lastMarkerRenderSignature = signature;
+        birdMarkers.forEach(function (marker) { marker.remove(); });
+        birdMarkers = [];
+        chosen.forEach(function (bird, chosenIndex) {
+          var element = document.createElement('div');
+          element.className = 'bird-marker ' + visualStates[chosenIndex].presenceClass + (bird.virtual ? ' virtual' : '') + (bird.isNotable ? ' notable' : '') + (visualStates[chosenIndex].inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
           element.innerHTML = markerInnerHtml(bird);
           var marker = new maplibregl.Marker({ element: element })
             .setLngLat([wrappedLongitude(bird.longitude), bird.latitude])
@@ -1612,7 +1687,7 @@ export function buildMapLibreHtml(): string {
           }
           if (data.heading != null) updateBearing(data.heading);
         }
-        latestMarkers = data.markers || [];
+        if (Array.isArray(data.markers)) latestMarkers = data.markers;
         birdsLoading = Boolean(data.loading);
         refreshNearby();
         if (firstData) {
@@ -1725,7 +1800,7 @@ export function buildMapLibreHtml(): string {
           }
         }
         if (trackId) updateRoute();
-        renderBirdMarkers(data.markers || []);
+        renderBirdMarkers(latestMarkers);
         if (data.userLocation) {
           if (!userElement) {
             userElement = document.createElement('div');
@@ -1744,7 +1819,7 @@ export function buildMapLibreHtml(): string {
           if (data.trainer && data.trainer.avatarColor) userElement.style.background = data.trainer.avatarColor;
         }
         if (currentPopup && currentPopupBirdId) {
-          var freshPopupBird = (data.markers || []).find(function (entry) { return String(entry.id) === String(currentPopupBirdId); });
+          var freshPopupBird = latestMarkers.find(function (entry) { return String(entry.id) === String(currentPopupBirdId); });
           var popupElement = currentPopup.getElement && currentPopup.getElement();
           var captureCopy = popupElement && popupElement.querySelector('[data-capture-copy]');
           if (freshPopupBird && captureCopy) {
