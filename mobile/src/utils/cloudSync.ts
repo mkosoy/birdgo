@@ -171,9 +171,10 @@ export async function fetchCloudSyncEnabled(): Promise<boolean> {
   }
 }
 
-export async function readCloudSyncRecord(key: string): Promise<CloudSyncRecord | undefined> {
+export async function readCloudSyncRecord(key: string, revision?: number): Promise<CloudSyncRecord | undefined> {
   try {
-    return await cloudSyncRequest<CloudSyncRecord>("/api/sync", key);
+    const suffix = revision === undefined ? "" : `?revision=${encodeURIComponent(revision)}`;
+    return await cloudSyncRequest<CloudSyncRecord>(`/api/sync${suffix}`, key);
   } catch (error) {
     if (error instanceof CloudSyncError && error.status === 404) return undefined;
     throw error;
@@ -291,16 +292,16 @@ export async function uploadEncryptedCloudBackup(key: string, expectedRevision: 
   return writeCloudSyncRecord(key, encryptedPayload, expectedRevision);
 }
 
-export async function downloadEncryptedCloudBackup(key: string): Promise<{ entries: Record<string, string>; record: CloudSyncRecord } | undefined> {
-  const record = await readCloudSyncRecord(key);
+export async function downloadEncryptedCloudBackup(key: string, revision?: number): Promise<{ entries: Record<string, string>; record: CloudSyncRecord } | undefined> {
+  const record = await readCloudSyncRecord(key, revision);
   if (!record) return undefined;
   const backupJson = decryptBackupPayload(record.payload, key);
   return { entries: validateCollectionBackup(backupJson), record };
 }
 
-export async function restoreEncryptedCloudBackup(key: string): Promise<CloudSyncRecord | undefined> {
+export async function restoreEncryptedCloudBackup(key: string, targetRevision?: number): Promise<CloudSyncRecord | undefined> {
   return enqueueCloudUpload(async () => {
-    const downloaded = await downloadEncryptedCloudBackup(key);
+    const downloaded = await downloadEncryptedCloudBackup(key, targetRevision);
     if (!downloaded) return undefined;
     await restoreCollectionBackup(downloaded.entries);
     await saveCloudSyncCredentials(key, downloaded.record.revision);
