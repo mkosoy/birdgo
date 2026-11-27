@@ -202,7 +202,7 @@ export function DexScreen() {
         <Text style={styles.skyfriendName} numberOfLines={2}>{record.commonName}</Text>
         <Text style={styles.skyfriendMeta}>{record.variant === "prismatic" ? "Prismatic · " : ""}{shortDate(record.timestamp)}</Text>
       </View>)}
-    </ScrollView> : <Text style={styles.skyfriendEmpty}>Explore low-activity areas and look for glowing holographic birds.</Text>}
+    </ScrollView> : <Text style={styles.skyfriendEmpty}>Look for glowing holographic birds nearby — they are separate virtual learning encounters.</Text>}
   </View>;
 
   const modeSwitch = <View style={styles.modeSwitch}>
