@@ -114,3 +114,24 @@ export interface CanonicalSpeciesResult {
   canonicalKey?: string;
   canonicalSciName?: string;
 }
+
+export interface SpeciesGuideSound {
+  id: string;
+  title: string;
+  url: string;
+  descriptionUrl?: string;
+  recordist?: string;
+  license?: string;
+  durationSeconds?: number;
+}
+
+export interface SpeciesGuide {
+  summary?: string;
+  summaryUrl?: string;
+  imageUrl?: string;
+  sounds: SpeciesGuideSound[];
+  sources: {
+    encyclopedia?: string;
+    audio?: string;
+  };
+}

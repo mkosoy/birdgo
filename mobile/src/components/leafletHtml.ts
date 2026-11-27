@@ -138,7 +138,7 @@ export function buildLeafletHtml(): string {
           postOutward({ type: 'directions', id: bird.id, latitude: bird.latitude, longitude: bird.longitude, name: bird.comName });
         });
         element.querySelector('[data-action="about"]').addEventListener('click', function () {
-          postOutward({ type: 'about', speciesCode: bird.speciesCode, comName: bird.comName });
+          postOutward({ type: 'about', speciesCode: bird.speciesCode, comName: bird.comName, sciName: bird.sciName });
         });
         fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(bird.comName || 'Bird'))
           .then(function (response) { if (!response.ok) throw new Error('Wikipedia unavailable'); return response.json(); })

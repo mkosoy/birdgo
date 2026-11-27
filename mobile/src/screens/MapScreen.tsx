@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Linking, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, AppState, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SF_COORDS } from "../config";
 import { BirdMap } from "../components/BirdMap";
 import { SkyfriendWatch } from "../components/SkyfriendWatch";
+import { SpeciesGuide } from "../components/SpeciesGuide";
 import type { BirdMapMode } from "../components/BirdMap";
 import { useBirds } from "../hooks/useBirds";
 import { useCollection } from "../hooks/useCollection";
@@ -18,7 +19,16 @@ import { rarityForSpecies, speciesKeyAliases } from "../utils/progression";
 import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround } from "../utils/skyfriends";
 
 type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string };
+type GuideTarget = { speciesCode: string; comName: string; sciName?: string };
 let persistentTrackTarget: TrackTarget | undefined;
+
+function externalSpeciesUrl(target: GuideTarget): string {
+  return target.speciesCode.startsWith("inat-")
+    ? `https://www.inaturalist.org/taxa/${target.speciesCode.slice(5)}`
+    : target.speciesCode
+    ? `https://ebird.org/species/${target.speciesCode}`
+    : `https://ebird.org/search?q=${encodeURIComponent(target.comName)}`;
+}
 
 export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: SeenSpecies) => void; targetCapture?: { speciesCode?: string; commonName: string; sciName?: string | null; encounterId?: string; timestamp: number } }) {
   const navigation = useNavigation();
@@ -60,6 +70,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const [spawnSpeciesAssignments, setSpawnSpeciesAssignments] = useState<Record<string, string[]> | null>(null);
   const [fledSkyfriends, setFledSkyfriends] = useState<Record<string, number>>({});
   const [watchTarget, setWatchTarget] = useState<EbirdObservation | undefined>();
+  const [guideTarget, setGuideTarget] = useState<GuideTarget | undefined>();
   useFocusEffect(useCallback(() => {
     void refreshCollection();
     void refreshTrainer();
@@ -451,14 +462,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           setActiveTrackTarget(target);
           setTrackRequest(target);
         }}
-        onAbout={({ speciesCode, comName }) => {
-          const url = speciesCode.startsWith("inat-")
-            ? `https://www.inaturalist.org/taxa/${speciesCode.slice(5)}`
-            : speciesCode
-            ? `https://ebird.org/species/${speciesCode}`
-            : `https://ebird.org/search?q=${encodeURIComponent(comName)}`;
-          void Linking.openURL(url);
-        }}
+        onAbout={setGuideTarget}
         onPopupChange={setPopupOpen}
         onToastChange={setToastOpen}
         onNearbyStateChange={setNearbyState}
@@ -507,6 +511,29 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           onClose={() => setWatchTarget(undefined)}
         />
       )}
+      {guideTarget && (
+        <Modal visible transparent animationType="slide" onRequestClose={() => setGuideTarget(undefined)}>
+          <View style={styles.guideBackdrop}>
+            <Pressable accessibilityLabel="Close field guide" style={styles.guideBackdropPress} onPress={() => setGuideTarget(undefined)} />
+            <View style={styles.guideCard}>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.guideScroll}>
+                <View style={styles.guideHeaderRow}>
+                  <View style={styles.guideTitleWrap}>
+                    <Text style={styles.guideTitle}>{guideTarget.comName}</Text>
+                    {guideTarget.sciName ? <Text style={styles.guideScientific}>{guideTarget.sciName}</Text> : null}
+                  </View>
+                  <Pressable accessibilityLabel="Close field guide" style={styles.guideClose} onPress={() => setGuideTarget(undefined)}><Ionicons name="close" size={22} color="#31513d" /></Pressable>
+                </View>
+                <SpeciesGuide commonName={guideTarget.comName} sciName={guideTarget.sciName} showImage />
+                <Pressable accessibilityRole="link" style={styles.externalGuideButton} onPress={() => void Linking.openURL(externalSpeciesUrl(guideTarget))}>
+                  <Text style={styles.externalGuideText}>Open full species page</Text>
+                  <Ionicons name="open-outline" size={16} color="#2878d1" />
+                </Pressable>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -528,4 +555,15 @@ const styles = StyleSheet.create({
   actionButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#ffffffee", alignItems: "center", justifyContent: "center", elevation: 4 },
   recenterAttention: { borderWidth: 3, borderColor: "#d99d21", backgroundColor: "#fff7df" },
   classicRecenter: { position: "absolute", right: 16 },
+  guideBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(12, 31, 22, 0.42)" },
+  guideBackdropPress: { ...StyleSheet.absoluteFillObject },
+  guideCard: { width: "100%", maxWidth: 540, maxHeight: "84%", alignSelf: "center", backgroundColor: "#fffdf6", borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: "hidden", borderWidth: 1, borderColor: "#e0e8df" },
+  guideScroll: { padding: 18, paddingBottom: 26 },
+  guideHeaderRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, marginBottom: 4 },
+  guideTitleWrap: { flex: 1 },
+  guideTitle: { color: "#173c2b", fontSize: 24, fontWeight: "900", lineHeight: 29 },
+  guideScientific: { color: "#68796f", fontSize: 13, fontStyle: "italic", marginTop: 2 },
+  guideClose: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "#edf4ef" },
+  externalGuideButton: { marginTop: 12, minHeight: 44, borderRadius: 13, backgroundColor: "#edf5ff", borderWidth: 1, borderColor: "#d2e5f7", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6 },
+  externalGuideText: { color: "#2878d1", fontSize: 13, fontWeight: "900" },
 });
