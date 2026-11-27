@@ -82,6 +82,14 @@ async function writeXpEvents(events: XpEvent[]): Promise<void> {
   await AsyncStorage.setItem(XP_EVENTS_KEY, JSON.stringify(events));
 }
 
+let xpEventsQueue: Promise<void> = Promise.resolve();
+
+function enqueueXpEvents<T>(operation: () => Promise<T>): Promise<T> {
+  const result = xpEventsQueue.then(operation);
+  xpEventsQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
+
 const QUEST_XP_PREFIX = "quest:";
 
 export async function listQuestRewardIds(): Promise<string[]> {
@@ -93,11 +101,13 @@ export async function claimQuestXp(questId: string, xp: number): Promise<boolean
   const normalizedId = questId.trim();
   const normalizedXp = Math.round(xp);
   if (!normalizedId || !Number.isFinite(normalizedXp) || normalizedXp <= 0) return false;
-  const events = await listXpEvents();
-  const eventId = `${QUEST_XP_PREFIX}${normalizedId}`;
-  if (events.some((event) => event.captureId === eventId)) return false;
-  await writeXpEvents([...events, { captureId: eventId, xp: normalizedXp }]);
-  return true;
+  return enqueueXpEvents(async () => {
+    const events = await listXpEvents();
+    const eventId = `${QUEST_XP_PREFIX}${normalizedId}`;
+    if (events.some((event) => event.captureId === eventId)) return false;
+    await writeXpEvents([...events, { captureId: eventId, xp: normalizedXp }]);
+    return true;
+  });
 }
 
 async function listDiscoveredKeys(): Promise<Set<string>> {
@@ -171,43 +181,47 @@ export async function addCapture(capture: CaptureRecord): Promise<CaptureRecord>
   await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify([record, ...captures]));
   aliases.forEach((alias) => discovered.add(alias));
   await Promise.all([writeDiscoveredKeys(discovered), writeSpeciesCaptureCounts(countResult.groups)]);
-  const events = await listXpEvents();
-  if (!events.some((event) => event.captureId === record.id)) {
-    await writeXpEvents([...events, { captureId: record.id, xp: xpAwarded }]);
-  }
+  await enqueueXpEvents(async () => {
+    const events = await listXpEvents();
+    if (!events.some((event) => event.captureId === record.id)) {
+      await writeXpEvents([...events, { captureId: record.id, xp: xpAwarded }]);
+    }
+  });
   return record;
 }
 
 export async function getCollectionXp(): Promise<number> {
-  const captures = await listCaptures();
-  let events = await listXpEvents();
-  const migrated = await AsyncStorage.getItem(XP_MIGRATION_KEY);
+  return enqueueXpEvents(async () => {
+    const captures = await listCaptures();
+    let events = await listXpEvents();
+    const migrated = await AsyncStorage.getItem(XP_MIGRATION_KEY);
 
-  if (!migrated) {
-    const derivedEvents = derivedCaptureEvents(captures);
-    const derivedXp = derivedEvents.reduce((total, event) => total + event.xp, 0);
-    const legacyXp = await readNumber(XP_KEY);
-    const bankedXp = Math.max(0, legacyXp - derivedXp);
-    const discovered = await listDiscoveredKeys();
-    captures.forEach((capture) => speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey).forEach((alias) => discovered.add(alias)));
-    events = derivedEvents;
-    await Promise.all([
-      writeXpEvents(events),
-      writeNumber(XP_BANK_KEY, bankedXp),
-      writeDiscoveredKeys(discovered),
-      AsyncStorage.setItem(XP_MIGRATION_KEY, "1"),
-    ]);
-  } else {
-    const known = new Set(events.map((event) => event.captureId));
-    const missing = derivedCaptureEvents(captures).filter((event) => !known.has(event.captureId));
-    if (missing.length) {
-      events = [...events, ...missing];
-      await writeXpEvents(events);
+    if (!migrated) {
+      const derivedEvents = derivedCaptureEvents(captures);
+      const derivedXp = derivedEvents.reduce((total, event) => total + event.xp, 0);
+      const legacyXp = await readNumber(XP_KEY);
+      const bankedXp = Math.max(0, legacyXp - derivedXp);
+      const discovered = await listDiscoveredKeys();
+      captures.forEach((capture) => speciesKeyAliases(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey).forEach((alias) => discovered.add(alias)));
+      events = derivedEvents;
+      await Promise.all([
+        writeXpEvents(events),
+        writeNumber(XP_BANK_KEY, bankedXp),
+        writeDiscoveredKeys(discovered),
+        AsyncStorage.setItem(XP_MIGRATION_KEY, "1"),
+      ]);
+    } else {
+      const known = new Set(events.map((event) => event.captureId));
+      const missing = derivedCaptureEvents(captures).filter((event) => !known.has(event.captureId));
+      if (missing.length) {
+        events = [...events, ...missing];
+        await writeXpEvents(events);
+      }
     }
-  }
 
-  const bankedXp = await readNumber(XP_BANK_KEY);
-  return bankedXp + events.reduce((total, event) => total + event.xp, 0);
+    const bankedXp = await readNumber(XP_BANK_KEY);
+    return bankedXp + events.reduce((total, event) => total + event.xp, 0);
+  });
 }
 
 export function captureMatchesSpecies(
