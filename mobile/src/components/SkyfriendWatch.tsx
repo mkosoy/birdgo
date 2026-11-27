@@ -53,22 +53,66 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function HoloBird({ x, y, facing, wing, large = false, centered = false, prismatic = false }: { x: number; y: number; facing: number; wing: number; large?: boolean; centered?: boolean; prismatic?: boolean }) {
+type SkyfriendKind = "songbird" | "wader" | "owl" | "raptor" | "waterfowl" | "hummingbird" | "woodpecker";
+
+function skyfriendKindFor(commonName: string, sciName?: string | null): SkyfriendKind {
+  const lowerName = `${commonName} ${sciName ?? ""}`.toLowerCase();
+  if (/heron|egret|crane|bittern|sandpiper|plover|curlew|godwit|dowitcher|snipe|stilt|avocet|yellowlegs/.test(lowerName)) return "wader";
+  if (/\bowl/.test(lowerName)) return "owl";
+  if (/hawk|eagle|falcon|osprey|kite|harrier|vulture/.test(lowerName)) return "raptor";
+  if (/duck|goose|swan|mallard|teal|merganser|grebe|pelican|cormorant|gull|tern|coot/.test(lowerName)) return "waterfowl";
+  if (/hummingbird/.test(lowerName)) return "hummingbird";
+  if (/woodpecker|flicker|sapsucker/.test(lowerName)) return "woodpecker";
+  return "songbird";
+}
+
+interface HoloShape {
+  scale: number;
+  body: { left: number; top: number; width: number; height: number; radius: number };
+  head: { left: number; top: number; size: number };
+  wing: { left: number; top: number; width: number; height: number };
+  tail: { left: number; top: number; width: number; height: number };
+  beak: { length: number; height: number };
+  legs?: boolean;
+}
+
+const HOLO_SHAPES: Record<SkyfriendKind, HoloShape> = {
+  songbird: { scale: 1, body: { left: 15, top: 15, width: 33, height: 22, radius: 16 }, head: { left: 39, top: 7, size: 18 }, wing: { left: 18, top: 10, width: 28, height: 13 }, tail: { left: 2, top: 20, width: 20, height: 8 }, beak: { length: 10, height: 6 } },
+  wader: { scale: 1.03, body: { left: 14, top: 14, width: 30, height: 18, radius: 15 }, head: { left: 38, top: 4, size: 15 }, wing: { left: 17, top: 10, width: 26, height: 11 }, tail: { left: 3, top: 20, width: 17, height: 7 }, beak: { length: 24, height: 4 }, legs: true },
+  owl: { scale: 1.02, body: { left: 13, top: 13, width: 36, height: 25, radius: 18 }, head: { left: 35, top: 5, size: 21 }, wing: { left: 18, top: 13, width: 25, height: 12 }, tail: { left: 5, top: 24, width: 16, height: 8 }, beak: { length: 7, height: 5 } },
+  raptor: { scale: 1.05, body: { left: 13, top: 15, width: 35, height: 21, radius: 17 }, head: { left: 38, top: 7, size: 17 }, wing: { left: 12, top: 7, width: 38, height: 15 }, tail: { left: 1, top: 21, width: 20, height: 9 }, beak: { length: 11, height: 8 } },
+  waterfowl: { scale: 1.04, body: { left: 10, top: 17, width: 39, height: 20, radius: 17 }, head: { left: 42, top: 8, size: 16 }, wing: { left: 17, top: 15, width: 28, height: 11 }, tail: { left: 1, top: 21, width: 16, height: 7 }, beak: { length: 11, height: 7 } },
+  hummingbird: { scale: 0.82, body: { left: 17, top: 17, width: 26, height: 16, radius: 13 }, head: { left: 39, top: 10, size: 14 }, wing: { left: 20, top: 8, width: 20, height: 9 }, tail: { left: 5, top: 22, width: 17, height: 6 }, beak: { length: 23, height: 3 } },
+  woodpecker: { scale: 0.95, body: { left: 15, top: 14, width: 31, height: 21, radius: 15 }, head: { left: 39, top: 6, size: 17 }, wing: { left: 18, top: 11, width: 24, height: 11 }, tail: { left: 0, top: 22, width: 24, height: 7 }, beak: { length: 15, height: 5 } },
+};
+
+function HoloBird({ x, y, facing, wing, large = false, centered = false, prismatic = false, kind = "songbird" }: { x: number; y: number; facing: number; wing: number; large?: boolean; centered?: boolean; prismatic?: boolean; kind?: SkyfriendKind }) {
+  const shape = HOLO_SHAPES[kind];
+  const visualScale = (large ? 1.35 : 1) * shape.scale;
+  const beakLeft = shape.head.left + shape.head.size - 1;
+  const beakTop = shape.head.top + shape.head.size * 0.42;
   return (
-    <View pointerEvents="none" style={[styles.birdAnchor, { transform: [{ translateX: x }, { translateY: y }, { scaleX: facing * (large ? 1.35 : 1) }, { scaleY: large ? 1.35 : 1 }] }]}>
+    <View pointerEvents="none" style={[styles.birdAnchor, { transform: [{ translateX: x }, { translateY: y }, { scaleX: facing * visualScale }, { scaleY: visualScale }] }]}>
       <View style={[styles.birdGlow, centered && styles.birdGlowCentered, prismatic && styles.birdGlowPrismatic]} />
       {prismatic ? <><View style={[styles.prismaticSparkle, styles.sparkleOne]} /><View style={[styles.prismaticSparkle, styles.sparkleTwo]} /><View style={[styles.prismaticSparkle, styles.sparkleThree]} /></> : null}
-      <View style={[styles.birdTail, prismatic && styles.birdTailPrismatic]} />
-      <View style={[styles.birdBody, prismatic && styles.birdBodyPrismatic]} />
-      <View style={[styles.birdWing, prismatic && styles.birdWingPrismatic, { transform: [{ rotate: `${wing}deg` }] }]} />
-      <View style={[styles.birdHead, prismatic && styles.birdHeadPrismatic]} />
-      <View style={styles.birdEye} />
+      <View style={[styles.birdTail, prismatic && styles.birdTailPrismatic, { left: shape.tail.left, top: shape.tail.top, width: shape.tail.width, height: shape.tail.height }]} />
+      <View style={[styles.birdBody, prismatic && styles.birdBodyPrismatic, { left: shape.body.left, top: shape.body.top, width: shape.body.width, height: shape.body.height, borderRadius: shape.body.radius }]} />
+      <View style={[styles.birdWing, prismatic && styles.birdWingPrismatic, { left: shape.wing.left, top: shape.wing.top, width: shape.wing.width, height: shape.wing.height, transform: [{ rotate: `${wing}deg` }] }]} />
+      <View style={[styles.birdHead, prismatic && styles.birdHeadPrismatic, { left: shape.head.left, top: shape.head.top, width: shape.head.size, height: shape.head.size, borderRadius: shape.head.size / 2 }]} />
+      <View style={[styles.birdBeak, prismatic && styles.birdBeakPrismatic, { left: beakLeft, top: beakTop, borderLeftWidth: shape.beak.length, borderTopWidth: shape.beak.height / 2, borderBottomWidth: shape.beak.height / 2 }]} />
+      {kind === "owl" ? <>
+        <View style={[styles.owlTuft, prismatic && styles.owlTuftPrismatic, { left: shape.head.left + 1, top: shape.head.top - 5, transform: [{ rotate: "-18deg" }] }]} />
+        <View style={[styles.owlTuft, prismatic && styles.owlTuftPrismatic, { left: shape.head.left + shape.head.size - 8, top: shape.head.top - 5, transform: [{ rotate: "18deg" }] }]} />
+      </> : null}
+      <View style={[styles.birdEye, { left: shape.head.left + shape.head.size * 0.62, top: shape.head.top + shape.head.size * 0.28 }]} />
+      {shape.legs ? <><View style={[styles.birdLeg, { left: 25 }]} /><View style={[styles.birdLeg, { left: 34 }]} /></> : null}
     </View>
   );
 }
 
 export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: SkyfriendWatchProps) {
   const speciesName = bird.comName ?? "Skyfriend";
+  const skyfriendKind = skyfriendKindFor(speciesName, bird.sciName);
   const rarity = rarityForSpecies(bird.speciesCode, speciesName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount);
   const difficulty = DIFFICULTY[rarity];
   const prismatic = Boolean(bird.prismatic);
@@ -256,7 +300,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
       {phase === "intro" && (
         <View style={styles.introCard}>
           <View style={styles.introScope}>
-            <HoloBird x={0} y={0} facing={1} wing={-8} large centered prismatic={prismatic} />
+            <HoloBird x={0} y={0} facing={1} wing={-8} large centered prismatic={prismatic} kind={skyfriendKind} />
           </View>
           <View style={[styles.rarityPill, { backgroundColor: rarityColor }, prismatic && styles.rarityPillPrismatic]}><Text style={styles.rarityText}>{prismatic ? "PRISMATIC SKYFRIEND" : `${rarity.toUpperCase()} SKYFRIEND`}</Text></View>
           <Text style={styles.introHeading}>Spot it through the binoculars.</Text>
@@ -278,7 +322,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
             <View style={[styles.scopeSky, { borderRadius: scopeRadius }]}>
               {STARS.map(([left, top]) => <View key={`${left}-${top}`} style={[styles.star, { left: `${left}%`, top: `${top}%` }]} />)}
               <View style={styles.scopeHorizon} />
-              <HoloBird x={frame.x} y={frame.y} facing={frame.facing} wing={frame.wing} centered={frame.centered} prismatic={prismatic} />
+              <HoloBird x={frame.x} y={frame.y} facing={frame.facing} wing={frame.wing} centered={frame.centered} prismatic={prismatic} kind={skyfriendKind} />
               <View style={[styles.focusRing, { width: difficulty.focusRadius * 2, height: difficulty.focusRadius * 2, borderRadius: difficulty.focusRadius, marginLeft: -difficulty.focusRadius, marginTop: -difficulty.focusRadius }, frame.centered && styles.focusRingActive]} />
               <View style={styles.crosshairHorizontal} />
               <View style={styles.crosshairVertical} />
@@ -296,7 +340,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
         <View style={styles.resultCard}>
           <View style={[styles.resultBadge, phase === "success" ? styles.resultSuccess : styles.resultEscaped]}>
             {phase === "success"
-              ? <HoloBird x={0} y={0} facing={1} wing={-10} large centered prismatic={prismatic} />
+              ? <HoloBird x={0} y={0} facing={1} wing={-10} large centered prismatic={prismatic} kind={skyfriendKind} />
               : <Ionicons name="airplane" size={34} color="#fff" />}
           </View>
           <Text style={styles.resultTitle}>{phase === "success" ? prismatic ? "Prismatic Skyfriend collected!" : "Skyfriend collected!" : "It slipped away"}</Text>
@@ -311,7 +355,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
 }
 
 const styles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, zIndex: 30, backgroundColor: "rgba(5,17,39,.92)", paddingHorizontal: 18, paddingTop: 18, paddingBottom: 22 },
+  overlay: { ...StyleSheet.absoluteFillObject, zIndex: 30, backgroundColor: "#051127", paddingHorizontal: 18, paddingTop: 18, paddingBottom: 22 },
   topBar: { flexDirection: "row", alignItems: "center", gap: 12 },
   titleBlock: { flex: 1, minWidth: 0 },
   kicker: { color: "#73e5ff", fontSize: 12, fontWeight: "900", letterSpacing: 1.1, textTransform: "uppercase" },
@@ -354,7 +398,12 @@ const styles = StyleSheet.create({
   birdTailPrismatic: { backgroundColor: "#28e0c8", borderWidth: 1, borderColor: "#fff3bd" },
   birdWing: { position: "absolute", left: 18, top: 10, width: 28, height: 13, borderRadius: 9, backgroundColor: "#7569f2", borderWidth: 1, borderColor: "#bff8ff" },
   birdHead: { position: "absolute", left: 39, top: 7, width: 18, height: 18, borderRadius: 9, backgroundColor: "#65e9ff", borderWidth: 2, borderColor: "#d9fbff" },
-  birdEye: { position: "absolute", left: 50, top: 12, width: 4, height: 4, borderRadius: 2, backgroundColor: "#18244e" },
+  birdBeak: { position: "absolute", width: 0, height: 0, borderLeftColor: "#ffd766", borderTopColor: "transparent", borderBottomColor: "transparent" },
+  birdBeakPrismatic: { borderLeftColor: "#fff8cf" },
+  owlTuft: { position: "absolute", width: 0, height: 0, borderLeftWidth: 4, borderRightWidth: 4, borderBottomWidth: 9, borderLeftColor: "transparent", borderRightColor: "transparent", borderBottomColor: "#65e9ff" },
+  owlTuftPrismatic: { borderBottomColor: "#ffd766" },
+  birdLeg: { position: "absolute", top: 34, width: 2, height: 19, borderRadius: 1, backgroundColor: "#d9fbff", opacity: 0.86 },
+  birdEye: { position: "absolute", width: 4, height: 4, borderRadius: 2, backgroundColor: "#18244e" },
   birdTail: { position: "absolute", left: 2, top: 20, width: 20, height: 8, borderRadius: 5, backgroundColor: "#7569f2", transform: [{ rotate: "-16deg" }] },
   focusRing: { position: "absolute", left: "50%", top: "50%", borderWidth: 3, borderColor: "rgba(255,255,255,.56)" },
   focusRingActive: { borderColor: "#72ffd8", shadowColor: "#72ffd8", shadowOpacity: 0.75, shadowRadius: 10 },
