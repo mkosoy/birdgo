@@ -51,14 +51,8 @@ export function skyfriendCellKeyFromEncounterId(encounterId?: string): string | 
 
 const ASSIGNMENTS_KEY = "birdgo.skyfriend-spawn-species-v1";
 const FLED_KEY = "birdgo.skyfriend-fled-v1";
-const CELL_SIZE_DEGREES = 0.0012;
+const CELL_SIZE_DEGREES = 0.00045;
 export const SKYFRIEND_COLLECT_KM = 0.06;
-
-export function skyfriendCellKey(userLocation: Coordinates, now = new Date()): string {
-  const gridLat = `${Math.floor((userLocation.latitude + 90) / CELL_SIZE_DEGREES)}`;
-  const gridLng = `${Math.floor((userLocation.longitude + 180) / CELL_SIZE_DEGREES)}`;
-  return `${gridLat}:${gridLng}:${now.toISOString().slice(0, 10)}`;
-}
 
 export function skyfriendCellKeysAround(userLocation: Coordinates, now = new Date()): string[] {
   const day = now.toISOString().slice(0, 10);
@@ -126,11 +120,7 @@ export async function markSkyfriendFled(encounterId: string, until: number): Pro
   return write;
 }
 
-export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation: Coordinates, now = new Date(), preferredSpecies: (string | undefined)[] = [], cellKeyOverride?: string, forceWhenRealNearby = false): EbirdObservation[] {
-  const nearbyRealCount = realBirds.filter((bird) => !bird.virtual && distanceKm(bird, userLocation) <= 0.12).length;
-  const targetCount = nearbyRealCount && !forceWhenRealNearby ? 0 : 1;
-  if (!targetCount) return [];
-
+export function buildSkyfriendSpawns(realBirds: EbirdObservation[], preferredSpecies: (string | undefined)[], cellKey: string): EbirdObservation[] {
   const speciesPool = new Map<string, { bird: EbirdObservation; weight: number }>();
   realBirds.forEach((bird) => {
     if (bird.virtual || !bird.comName || !bird.speciesCode) return;
@@ -142,8 +132,8 @@ export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation
   });
   const pool = [...speciesPool.values()];
   if (!pool.length) return [];
+  const targetCount = Math.min(2, pool.length);
 
-  const cellKey = cellKeyOverride ?? skyfriendCellKey(userLocation, now);
   const [gridLat, gridLng, day] = cellKey.split(":");
   const usedSpecies = new Set<string>();
   const spawns: EbirdObservation[] = [];
@@ -169,8 +159,8 @@ export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation
       .sort((left, right) => right.score - left.score)[0]?.entry;
     if (!selected) continue;
     usedSpecies.add(selected.bird.speciesCode);
-    const bearing = hash(`${seed}:bearing`) % 360;
-    const distance = 20 + (hash(`${seed}:distance`) % 65);
+    const bearing = (hash(`${seed}:bearing`) + index * 150) % 360;
+    const distance = 8 + (hash(`${seed}:distance`) % 10) + index * 4;
     const anchor = {
       latitude: Number(gridLat) * CELL_SIZE_DEGREES - 90 + CELL_SIZE_DEGREES / 2,
       longitude: Number(gridLng) * CELL_SIZE_DEGREES - 180 + CELL_SIZE_DEGREES / 2,
@@ -182,7 +172,7 @@ export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation
       latitude: coordinates.latitude,
       longitude: coordinates.longitude,
       locId,
-      locName: "Skyfriend habitat",
+      locName: "Skyfriend grove",
       obsDt: undefined,
       howMany: 1,
       source: "virtual",

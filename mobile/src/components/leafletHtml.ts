@@ -10,10 +10,11 @@ export function buildLeafletHtml(options: { apiBaseUrl?: string } = {}): string 
   <style>
     html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }
     .bird-marker, .user-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 18px; font-weight: bold; }
+    @keyframes skyfriendArrive { 0% { opacity: 0; filter: brightness(2.2) saturate(1.6); } 55% { opacity: 1; filter: brightness(1.45) saturate(1.35); } 100% { opacity: 1; filter: none; } }
     .bird-marker { position: relative; width: 32px; height: 32px; background: #2f7d5b; border: 2px solid white; }
     .bird-marker.notable { background: #d99d21; }
     .bird-marker.captured { background: #61776c; border-color: #a9f0bf; }
-    .bird-marker.virtual { background: linear-gradient(145deg, #7d64f2, #28b9d7); border-color: #d9fbff; box-shadow: 0 0 12px rgba(92,220,255,.72); }
+    .bird-marker.virtual { animation: skyfriendArrive .65s ease-out; background: linear-gradient(145deg, #7d64f2, #28b9d7); border-color: #d9fbff; box-shadow: 0 0 12px rgba(92,220,255,.72); }
     .bird-marker.prismatic { background: linear-gradient(145deg, #ffd766, #7d64f2 48%, #28e0c8); border-color: #fff3bd; box-shadow: 0 0 15px rgba(255,215,102,.85); }
     .bird-marker .caught-badge, .bird-marker .skyfriend-badge { position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; }
     .bird-marker .skyfriend-badge { background: #72e7ff; color: #273075; }

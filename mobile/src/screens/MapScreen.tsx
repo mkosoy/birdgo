@@ -216,7 +216,12 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     });
     return counts;
   }, {}), [captures]);
-  const skyfriendCellsKey = useMemo(() => skyfriendCellKeysAround(location).join("|"), [location]);
+  const trackedSkyfriendCellKey = skyfriendCellKeyFromEncounterId(activeTrackTarget?.id);
+  const skyfriendCellsKey = useMemo(() => {
+    const keys = skyfriendCellKeysAround(location);
+    if (trackedSkyfriendCellKey && !keys.includes(trackedSkyfriendCellKey)) keys.push(trackedSkyfriendCellKey);
+    return keys.join("|");
+  }, [location, trackedSkyfriendCellKey]);
   const skyfriendCells = useMemo(() => skyfriendCellsKey.split("|"), [skyfriendCellsKey]);
   useEffect(() => {
     let active = true;
@@ -228,12 +233,11 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     });
     return () => { active = false; };
   }, [skyfriendCells, skyfriendCellsKey]);
-  const trackedSkyfriendCellKey = skyfriendCellKeyFromEncounterId(activeTrackTarget?.id);
   const skyfriendSpawnGroups = useMemo(
     () => spawnSpeciesAssignments
       ? skyfriendCells.map((cellKey) => ({
         cellKey,
-        spawns: buildSkyfriendSpawns(birds, location, new Date(), spawnSpeciesAssignments[cellKey] ?? [], cellKey, cellKey === trackedSkyfriendCellKey),
+        spawns: buildSkyfriendSpawns(birds, spawnSpeciesAssignments[cellKey] ?? [], cellKey),
       }))
       : [],
     [birds, location, skyfriendCells, spawnSpeciesAssignments, trackedSkyfriendCellKey],
@@ -262,19 +266,19 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         const encounterId = observationMarkerId(bird);
         return !collectedSkyfriendIds.has(encounterId) && (fledSkyfriends[encounterId] ?? 0) <= Date.now();
       });
-      const prioritized = available.sort((left, right) => {
-        const leftTracked = activeTrackTarget?.id === observationMarkerId(left) ? 0 : 1;
-        const rightTracked = activeTrackTarget?.id === observationMarkerId(right) ? 0 : 1;
-        return leftTracked - rightTracked;
-      });
-      const spaced: EbirdObservation[] = [];
-      prioritized.forEach((bird) => {
-        if (spaced.length >= 3) return;
-        if (activeTrackTarget?.id === observationMarkerId(bird) || spaced.every((other) => distanceKm(bird, other) >= 0.07)) spaced.push(bird);
-      });
-      return spaced;
+      const realInReach = birds.filter((bird) => !bird.virtual && distanceKm(location, bird) <= SKYFRIEND_COLLECT_KM).length;
+      const targetVirtualCount = Math.max(0, 2 - realInReach);
+      const trackedBird = activeTrackTarget
+        ? available.find((bird) => observationMarkerId(bird) === activeTrackTarget.id)
+        : undefined;
+      const nearest = available
+        .filter((bird) => bird !== trackedBird)
+        .sort((left, right) => distanceKm(location, left) - distanceKm(location, right));
+      const trackedCountsTowardTarget = Boolean(trackedBird && distanceKm(location, trackedBird) <= SKYFRIEND_COLLECT_KM);
+      const nearestCount = Math.max(0, targetVirtualCount - (trackedCountsTowardTarget ? 1 : 0));
+      return [...(trackedBird ? [trackedBird] : []), ...nearest.slice(0, nearestCount)].slice(0, 3);
     },
-    [skyfriendSpawns, collectedSkyfriendIds, activeTrackTarget, fledSkyfriends],
+    [birds, location, skyfriendSpawns, collectedSkyfriendIds, activeTrackTarget, fledSkyfriends],
   );
   const mapBirds = useMemo(() => [...birds, ...activeSkyfriendSpawns], [birds, activeSkyfriendSpawns]);
   const birdwalkPlan = useMemo(() => buildBirdwalkPlan(location, mapBirds, captureCounts), [location, mapBirds, captureCounts]);

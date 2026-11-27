@@ -47,12 +47,14 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
     @keyframes fog-drift { from { transform: translateX(-6%); } to { transform: translateX(6%); } }
     .bird-marker, .user-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 18px; font-weight: bold; }
     .bird-marker { position: absolute; width: 42px; height: 42px; background: linear-gradient(145deg, #39a874, #23684d); border: 3px solid white; cursor: pointer; box-shadow: 0 3px 9px rgba(0,0,0,.32); }
+    @keyframes skyfriendArrive { 0% { opacity: 0; filter: brightness(2.2) saturate(1.6); } 55% { opacity: 1; filter: brightness(1.45) saturate(1.35); } 100% { opacity: 1; filter: none; } }
     .bird-scale { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transform-origin: center; transition: transform .18s ease-out; }
     .bird-scale img { position: absolute; left: 2px; top: 2px; width: 36px; height: 36px; object-fit: cover; border-radius: 50%; }
     .bird-marker.presence-close .bird-scale { transform: scale(1.24); }
     .bird-marker.presence-near .bird-scale { transform: scale(1.1); }
     .bird-marker.presence-mid .bird-scale { transform: scale(.92); }
     .bird-marker.presence-far .bird-scale { transform: scale(.72); }
+    .bird-marker.virtual .bird-scale { animation: skyfriendArrive .65s ease-out; }
     .bird-marker.virtual.presence-close .bird-scale { transform: scale(1.38); }
     .bird-marker.virtual.presence-near .bird-scale { transform: scale(1.2); }
     .bird-marker.virtual.presence-mid .bird-scale { transform: scale(1); }
