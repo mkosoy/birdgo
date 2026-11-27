@@ -10,6 +10,7 @@ import { createCollectionBackupJson, PORTABLE_BACKUP_MAX_BYTES, restoreCollectio
 
 const SYNC_KEY_STORAGE_KEY = "birdgo.cloud-sync-key-v1";
 const SYNC_REVISION_STORAGE_KEY = "birdgo.cloud-sync-revision-v1";
+const AUTOMATIC_BACKUP_DIRTY_KEY = "birdgo.cloud-sync-pending-v1";
 const BASE64URL_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 const SYNC_AAD = encodeUtf8("birdgo-sync-v1");
 
@@ -226,6 +227,7 @@ export async function uploadLatestEncryptedCloudBackup(): Promise<CloudSyncRecor
     if (!credentials) return undefined;
     const record = await uploadEncryptedCloudBackup(credentials.key, credentials.revision);
     await saveCloudSyncCredentials(credentials.key, record.revision);
+    await AsyncStorage.removeItem(AUTOMATIC_BACKUP_DIRTY_KEY).catch(() => undefined);
     return record;
   });
 }
@@ -258,9 +260,17 @@ export function reconcileAutomaticCloudBackup(revision: number): void {
   updateAutomaticBackupState({ conflict: false, error: undefined, revision });
 }
 
+export async function resumePendingAutomaticCloudBackup(): Promise<boolean> {
+  const pending = await AsyncStorage.getItem(AUTOMATIC_BACKUP_DIRTY_KEY).catch(() => null);
+  if (pending !== "1") return false;
+  scheduleAutomaticCloudBackup();
+  return true;
+}
+
 export function scheduleAutomaticCloudBackup(): void {
   if (automaticBackupPaused) return;
   if (automaticBackupTimer) clearTimeout(automaticBackupTimer);
+  void AsyncStorage.setItem(AUTOMATIC_BACKUP_DIRTY_KEY, "1").catch(() => undefined);
   updateAutomaticBackupState({ pending: true, error: undefined });
   automaticBackupTimer = setTimeout(() => {
     automaticBackupTimer = undefined;
