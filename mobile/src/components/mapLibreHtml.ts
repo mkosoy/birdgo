@@ -1284,6 +1284,22 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         return 'Birds nearby';
       }
 
+
+      function habitatSearchCopy(bird) {
+        var name = String((bird.comName || '') + ' ' + (bird.sciName || '')).toLowerCase();
+        var prefix = bird.source === 'birdweather' ? 'At the audio station' : 'At the report area';
+        var clue = 'listen first, then scan nearby cover and open sky';
+        if (/gull|tern|sandpiper|plover|dunlin|willet|godwit|dowitcher|curlew|stilt|avocet|oystercatcher|turnstone/.test(name)) clue = 'scan water edges, mudflats, and birds flying along the shore';
+        else if (/duck|goose|swan|grebe|loon|coot|gallinule|teal|mallard|merganser|scaup|bufflehead|canvasback|wigeon|pintail|shoveler/.test(name)) clue = 'scan open water, shoreline edges, and distant floating birds';
+        else if (/heron|egret|bittern|ibis|spoonbill|crane|rail/.test(name)) clue = 'move quietly and scan shallow water, reeds, and marsh edges';
+        else if (/hawk|eagle|falcon|kestrel|osprey|harrier|kite|vulture|accipiter|buteo/.test(name)) clue = 'scan the sky, treetops, poles, and other exposed perches';
+        else if (/owl/.test(name)) clue = 'scan dense cover, cavities, and shaded roosts without flushing birds';
+        else if (/woodpecker|flicker|sapsucker/.test(name)) clue = 'scan trunks and dead branches; listen for tapping or sharp calls';
+        else if (/hummingbird/.test(name)) clue = 'check flowers, feeders, and tiny exposed perches';
+        else if (/sparrow|warbler|finch|wren|thrush|vireo|kinglet|nuthatch|chickadee|titmouse|robin|cardinal|jay|crow|blackbird|oriole|tanager|grosbeak|mockingbird|catbird|thrasher/.test(name)) clue = 'listen first, then scan shrubs, canopy edges, and repeated movement';
+        return prefix + ' — ' + clue;
+      }
+
       function updateTrackCard() {
         if (!trackId) return;
         var entry = latestMarkers.find(function (bird) { return bird.id === trackId; });
@@ -1301,7 +1317,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           if (routeSteps.length || routeGeometryCoordinates.length) clearRoute();
           trackSnap.classList.add('ready');
           trackSnap.textContent = entry.virtual ? 'Collect!' : 'Snap!';
-          trackDist.textContent = entry.virtual ? 'You’re here! Collect it' : entry.source === 'birdweather' ? 'At the audio station — scan within earshot' : 'You’re here! Snap it';
+          trackDist.textContent = entry.virtual ? 'You’re here! Collect it' : habitatSearchCopy(entry);
         } else if (distance != null && routeDistanceM != null && lastRouteTargetKey && lastRouteTargetKey.indexOf(trackId + ':') === 0) {
           trackSnap.classList.remove('ready');
           trackSnap.textContent = entry.virtual ? 'Collect' : 'Snap';
