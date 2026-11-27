@@ -1240,14 +1240,14 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           var closest = nearest[0];
           if (closest && closest.distance * 1000 <= SNAP_M) {
             var closestName = closest.bird.comName || closest.bird.sciName || 'Bird';
-            var closestLabel = (closest.bird.virtual ? closest.bird.prismatic ? 'Prismatic Skyfriend ' : 'Skyfriend ' : '') + closestName;
-            snapToastCopy.textContent = (compactToast() ? '' : closest.bird.virtual ? 'Collect ' : 'Snap ') + closestLabel + ' · ' + fmtDist(closest.distance);
+            var closestLabel = (closest.bird.virtual ? closest.bird.prismatic ? '✦ Skyfriend ' : 'Skyfriend ' : '') + closestName;
+            snapToastCopy.textContent = closestLabel + ' · ' + fmtDist(closest.distance);
             snapToastGo.textContent = closest.bird.virtual ? 'Collect' : 'Snap';
             setToast(true);
             snapToastAction = function () { capture(closest.bird.id); };
           } else if (closest && closest.distance * 1000 <= 180) {
             var nearbyName = closest.bird.comName || closest.bird.sciName || 'Bird';
-            snapToastCopy.textContent = (compactToast() && !closest.bird.virtual ? '' : closest.bird.virtual ? closest.bird.prismatic ? 'Prismatic Skyfriend ' : 'Skyfriend ' : 'Nearby ') + nearbyName + ' · ' + fmtDist(closest.distance);
+            snapToastCopy.textContent = (closest.bird.virtual ? closest.bird.prismatic ? '✦ Skyfriend ' : 'Skyfriend ' : '') + nearbyName + ' · ' + fmtDist(closest.distance);
             snapToastGo.textContent = 'Go';
             setToast(true);
             snapToastAction = function () { startTrack(closest.bird); };
