@@ -229,7 +229,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
       var adventureMapStyle = {
         version: 8,
         sources: {
-          openmaptiles: { type: 'vector', url: 'https://tiles.openfreemap.org/backup_planet', maxzoom: 13 }
+          openmaptiles: { type: 'vector', url: 'https://tiles.openfreemap.org/backup_planet', maxzoom: 14 }
         },
         layers: [
           { id: 'background', type: 'background', paint: { 'background-color': '#a9d88f' } },
@@ -245,8 +245,13 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           },
           {
             id: 'landcover-grass', type: 'fill', source: 'openmaptiles', 'source-layer': 'landcover',
-            filter: ['match', ['get', 'class'], ['grass', 'wood'], true, false],
-            paint: { 'fill-color': '#82c978', 'fill-opacity': 1 }
+            filter: ['==', ['get', 'class'], 'grass'],
+            paint: { 'fill-color': '#86cc79', 'fill-opacity': 1 }
+          },
+          {
+            id: 'landcover-wood', type: 'fill', source: 'openmaptiles', 'source-layer': 'landcover',
+            filter: ['==', ['get', 'class'], 'wood'],
+            paint: { 'fill-color': '#67b96b', 'fill-opacity': 1 }
           },
           {
             id: 'water', type: 'fill', source: 'openmaptiles', 'source-layer': 'water',
@@ -291,6 +296,24 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
             id: 'railway', type: 'line', source: 'openmaptiles', 'source-layer': 'transportation',
             filter: ['all', ['match', ['geometry-type'], ['LineString', 'MultiLineString'], true, false], ['match', ['get', 'class'], ['rail', 'transit'], true, false]],
             paint: { 'line-color': '#aebaa5', 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 0.5, 18, 2], 'line-opacity': 0.5 }
+          },
+          {
+            id: 'building-footprint', type: 'fill', source: 'openmaptiles', 'source-layer': 'building',
+            minzoom: 15,
+            filter: ['!', ['has', 'hide_3d']],
+            paint: { 'fill-color': '#d6d0bd', 'fill-opacity': 0.35, 'fill-outline-color': '#aa9f7e' }
+          },
+          {
+            id: 'building-3d', type: 'fill-extrusion', source: 'openmaptiles', 'source-layer': 'building',
+            minzoom: 15,
+            filter: ['!', ['has', 'hide_3d']],
+            paint: {
+              'fill-extrusion-color': '#ddd8ca',
+              'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 15, 0, 15.4, ['*', ['coalesce', ['get', 'render_height'], 8], 0.38]],
+              'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+              'fill-extrusion-opacity': 0.48,
+              'fill-extrusion-vertical-gradient': true
+            }
           }
         ]
       };
