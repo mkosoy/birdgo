@@ -185,6 +185,89 @@ async function writeCloudSyncRecord(key: string, payload: string, expectedRevisi
   });
 }
 
+
+export interface AutomaticCloudBackupState {
+  pending: boolean;
+  running: boolean;
+  conflict: boolean;
+  error?: string;
+  lastSyncedAt?: string;
+  revision?: number;
+}
+
+type AutomaticCloudBackupListener = (state: AutomaticCloudBackupState) => void;
+
+const automaticBackupListeners = new Set<AutomaticCloudBackupListener>();
+let automaticBackupState: AutomaticCloudBackupState = { pending: false, running: false, conflict: false };
+let automaticBackupTimer: ReturnType<typeof setTimeout> | undefined;
+let automaticBackupPaused = false;
+let cloudUploadQueue: Promise<unknown> = Promise.resolve();
+
+function updateAutomaticBackupState(update: Partial<AutomaticCloudBackupState>): void {
+  automaticBackupState = { ...automaticBackupState, ...update };
+  automaticBackupListeners.forEach((listener) => listener(automaticBackupState));
+}
+
+export function subscribeAutomaticCloudBackup(listener: AutomaticCloudBackupListener): () => void {
+  automaticBackupListeners.add(listener);
+  listener(automaticBackupState);
+  return () => automaticBackupListeners.delete(listener);
+}
+
+function enqueueCloudUpload<T>(operation: () => Promise<T>): Promise<T> {
+  const result = cloudUploadQueue.then(operation, operation);
+  cloudUploadQueue = result.catch(() => undefined);
+  return result;
+}
+
+export async function uploadLatestEncryptedCloudBackup(): Promise<CloudSyncRecord | undefined> {
+  return enqueueCloudUpload(async () => {
+    const credentials = await loadCloudSyncCredentials();
+    if (!credentials) return undefined;
+    const record = await uploadEncryptedCloudBackup(credentials.key, credentials.revision);
+    await saveCloudSyncCredentials(credentials.key, record.revision);
+    return record;
+  });
+}
+
+async function runAutomaticCloudBackup(): Promise<void> {
+  updateAutomaticBackupState({ pending: false, running: true });
+  try {
+    const record = await uploadLatestEncryptedCloudBackup();
+    updateAutomaticBackupState({
+      running: false,
+      error: undefined,
+      lastSyncedAt: record?.updatedAt ?? automaticBackupState.lastSyncedAt,
+      revision: record?.revision ?? automaticBackupState.revision,
+    });
+  } catch (error) {
+    if (error instanceof CloudSyncError && error.status === 409) {
+      automaticBackupPaused = true;
+      updateAutomaticBackupState({ running: false, conflict: true, error: undefined });
+      return;
+    }
+    updateAutomaticBackupState({
+      running: false,
+      error: error instanceof Error ? error.message : "Automatic cloud backup failed.",
+    });
+  }
+}
+
+export function reconcileAutomaticCloudBackup(revision: number): void {
+  automaticBackupPaused = false;
+  updateAutomaticBackupState({ conflict: false, error: undefined, revision });
+}
+
+export function scheduleAutomaticCloudBackup(): void {
+  if (automaticBackupPaused) return;
+  if (automaticBackupTimer) clearTimeout(automaticBackupTimer);
+  updateAutomaticBackupState({ pending: true, error: undefined });
+  automaticBackupTimer = setTimeout(() => {
+    automaticBackupTimer = undefined;
+    void runAutomaticCloudBackup();
+  }, 12_000);
+}
+
 export async function uploadEncryptedCloudBackup(key: string, expectedRevision: number): Promise<CloudSyncRecord> {
   const backupJson = await createCollectionBackupJson();
   if (backupJson.length > PORTABLE_BACKUP_MAX_BYTES) {
