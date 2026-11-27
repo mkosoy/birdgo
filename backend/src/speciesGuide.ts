@@ -155,7 +155,18 @@ function playableAudioUrl(info: CommonsVideoInfo): string | undefined {
   return undefined;
 }
 
+function hasBirdRecordingEvidence(page: CommonsPage, info: CommonsVideoInfo): boolean {
+  const haystack = [
+    page.title,
+    metadataText(info, "Categories"),
+    metadataText(info, "ImageDescription"),
+    metadataText(info, "Credit"),
+  ].filter(Boolean).join(" ").toLowerCase();
+  return haystack.includes("xeno-canto") || haystack.includes("audio files of");
+}
+
 function relevantToSpecies(page: CommonsPage, info: CommonsVideoInfo, scientificName?: string, commonName?: string): boolean {
+  if (!hasBirdRecordingEvidence(page, info)) return false;
   const haystack = [
     page.title,
     metadataText(info, "Categories"),
