@@ -203,7 +203,9 @@ function speciesIdentitiesMatch(left: SpeciesIdentityFields, right: SpeciesIdent
   if (leftScientific && leftScientific === rightScientific) return true;
   const leftCommon = normalizedSpeciesName(left.commonName ?? left.comName);
   const rightCommon = normalizedSpeciesName(right.commonName ?? right.comName);
-  return Boolean(leftCommon && leftCommon === rightCommon);
+  const meaningfulLeftCommon = leftCommon === "unidentified bird" ? "" : leftCommon;
+  const meaningfulRightCommon = rightCommon === "unidentified bird" ? "" : rightCommon;
+  return Boolean(meaningfulLeftCommon && meaningfulLeftCommon === meaningfulRightCommon);
 }
 
 function captureName(capture: CaptureRecord): string {
