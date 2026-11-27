@@ -3,6 +3,7 @@ import * as Crypto from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { XChaCha20Poly1305 } from "@stablelib/xchacha20poly1305";
+import { gzip, ungzip } from "pako";
 import { decode as decodeUtf8, encode as encodeUtf8 } from "@stablelib/utf8";
 import { API_BASE_URL } from "../config";
 import { createCollectionBackupJson, restoreCollectionBackup, validateCollectionBackup } from "./collectionBackup";
@@ -17,6 +18,7 @@ interface EncryptedSyncEnvelope {
   kind: "encrypted-collection-backup";
   version: 1;
   algorithm: "xchacha20poly1305";
+  compression?: "gzip";
   nonce: string;
   ciphertext: string;
 }
@@ -93,13 +95,14 @@ async function encryptBackupJson(json: string, key: string): Promise<string> {
   if (!keyBytes || keyBytes.length !== 32) throw new Error("This sync key is invalid.");
   const nonce = await Crypto.getRandomBytesAsync(24);
   const cipher = new XChaCha20Poly1305(keyBytes);
-  const ciphertext = cipher.seal(nonce, encodeUtf8(json), SYNC_AAD);
+  const ciphertext = cipher.seal(nonce, gzip(encodeUtf8(json)), SYNC_AAD);
   cipher.clean();
   const envelope: EncryptedSyncEnvelope = {
     app: "birdgo",
     kind: "encrypted-collection-backup",
     version: 1,
     algorithm: "xchacha20poly1305",
+    compression: "gzip",
     nonce: bytesToBase64Url(nonce),
     ciphertext: bytesToBase64Url(ciphertext),
   };
@@ -117,6 +120,7 @@ function parseEncryptedEnvelope(payload: string): EncryptedSyncEnvelope {
     || parsed.kind !== "encrypted-collection-backup"
     || parsed.version !== 1
     || parsed.algorithm !== "xchacha20poly1305"
+    || (parsed.compression !== undefined && parsed.compression !== "gzip")
     || typeof parsed.nonce !== "string"
     || typeof parsed.ciphertext !== "string") {
     throw new Error("This is not a supported encrypted BirdGo backup.");
@@ -135,7 +139,8 @@ function decryptBackupPayload(payload: string, key: string): string {
   const plaintext = cipher.open(nonce, ciphertext, SYNC_AAD);
   cipher.clean();
   if (!plaintext) throw new Error("This sync key cannot decrypt the cloud backup.");
-  return decodeUtf8(plaintext);
+  const backupBytes = envelope.compression === "gzip" ? ungzip(plaintext) : plaintext;
+  return decodeUtf8(backupBytes);
 }
 
 async function cloudAccessToken(key: string): Promise<string> {
