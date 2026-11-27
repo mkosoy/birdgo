@@ -101,6 +101,19 @@ function validJsonObject(value: string | undefined): boolean {
   }
 }
 
+function optionalString(value: unknown, allowNull = false): boolean {
+  return value === undefined || (allowNull && value === null) || typeof value === "string";
+}
+
+function validCoordinates(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const coordinates = value as Record<string, unknown>;
+  return typeof coordinates.latitude === "number"
+    && Number.isFinite(coordinates.latitude)
+    && typeof coordinates.longitude === "number"
+    && Number.isFinite(coordinates.longitude);
+}
+
 function validateCaptureList(raw: string | undefined): boolean {
   if (raw == null) return true;
   try {
@@ -108,13 +121,35 @@ function validateCaptureList(raw: string | undefined): boolean {
     return Array.isArray(captures) && captures.every((capture) => {
       if (!capture || typeof capture !== "object") return false;
       const record = capture as Record<string, unknown>;
-      const location = record.location as Record<string, unknown> | undefined;
       return typeof record.id === "string"
         && typeof record.commonName === "string"
         && typeof record.timestamp === "string"
-        && Boolean(location)
-        && typeof location?.latitude === "number"
-        && typeof location?.longitude === "number";
+        && validCoordinates(record.location)
+        && optionalString(record.speciesCode)
+        && optionalString(record.sciName, true)
+        && optionalString(record.canonicalKey)
+        && optionalString(record.photoUri)
+        && (record.rarity === undefined || ["common", "uncommon", "rare", "epic", "legendary"].includes(String(record.rarity)))
+        && (record.verified === undefined || typeof record.verified === "boolean")
+        && (record.xpAwarded === undefined || typeof record.xpAwarded === "number");
+    });
+  } catch {
+    return false;
+  }
+}
+
+function validateSeenSpeciesList(raw: string | undefined): boolean {
+  if (raw == null) return true;
+  try {
+    const seen = JSON.parse(raw) as unknown[];
+    return Array.isArray(seen) && seen.every((species) => {
+      if (!species || typeof species !== "object") return false;
+      const record = species as Record<string, unknown>;
+      return typeof record.speciesCode === "string"
+        && typeof record.comName === "string"
+        && optionalString(record.sciName)
+        && optionalString(record.canonicalKey)
+        && (record.location === undefined || validCoordinates(record.location));
     });
   } catch {
     return false;
@@ -142,7 +177,7 @@ export function validateCollectionBackup(json: string): BackupEntries {
   }
   if (!Object.keys(entries).length) throw new Error("This backup is empty.");
   if (!validateCaptureList(entries["birdgo.captures"])) throw new Error("The capture records in this backup are corrupted.");
-  if (!validJsonArray(entries["birdgo.seen"])
+  if (!validateSeenSpeciesList(entries["birdgo.seen"])
     || !validJsonArray(entries["birdgo.xp-events"])
     || !validJsonArray(entries["birdgo.discovered-species"])
     || !validJsonArray(entries["birdgo.species-capture-count-groups-v1"])
