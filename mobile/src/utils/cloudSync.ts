@@ -7,9 +7,11 @@ import { gzip, ungzip } from "pako";
 import { decode as decodeUtf8, encode as encodeUtf8 } from "@stablelib/utf8";
 import { API_BASE_URL } from "../config";
 import { createCollectionBackupJson, PORTABLE_BACKUP_MAX_BYTES, restoreCollectionBackup, validateCollectionBackup } from "./collectionBackup";
+import { getCollectionChangeVersion } from "./collectionEvents";
 
 const SYNC_KEY_STORAGE_KEY = "birdgo.cloud-sync-key-v1";
 const SYNC_REVISION_STORAGE_KEY = "birdgo.cloud-sync-revision-v1";
+const AUTOMATIC_BACKUP_DIRTY_KEY = "birdgo.cloud-sync-pending-v1";
 const BASE64URL_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 const SYNC_AAD = encodeUtf8("birdgo-sync-v1");
 
@@ -185,6 +187,101 @@ async function writeCloudSyncRecord(key: string, payload: string, expectedRevisi
   });
 }
 
+
+export interface AutomaticCloudBackupState {
+  pending: boolean;
+  running: boolean;
+  conflict: boolean;
+  error?: string;
+  lastSyncedAt?: string;
+  revision?: number;
+}
+
+type AutomaticCloudBackupListener = (state: AutomaticCloudBackupState) => void;
+
+const automaticBackupListeners = new Set<AutomaticCloudBackupListener>();
+let automaticBackupState: AutomaticCloudBackupState = { pending: false, running: false, conflict: false };
+let automaticBackupTimer: ReturnType<typeof setTimeout> | undefined;
+let automaticBackupPaused = false;
+let cloudUploadQueue: Promise<unknown> = Promise.resolve();
+
+function updateAutomaticBackupState(update: Partial<AutomaticCloudBackupState>): void {
+  automaticBackupState = { ...automaticBackupState, ...update };
+  automaticBackupListeners.forEach((listener) => listener(automaticBackupState));
+}
+
+export function subscribeAutomaticCloudBackup(listener: AutomaticCloudBackupListener): () => void {
+  automaticBackupListeners.add(listener);
+  listener(automaticBackupState);
+  return () => automaticBackupListeners.delete(listener);
+}
+
+function enqueueCloudUpload<T>(operation: () => Promise<T>): Promise<T> {
+  const result = cloudUploadQueue.then(operation, operation);
+  cloudUploadQueue = result.catch(() => undefined);
+  return result;
+}
+
+export async function uploadLatestEncryptedCloudBackup(): Promise<CloudSyncRecord | undefined> {
+  return enqueueCloudUpload(async () => {
+    const startingChangeVersion = getCollectionChangeVersion();
+    const credentials = await loadCloudSyncCredentials();
+    if (!credentials) return undefined;
+    const record = await uploadEncryptedCloudBackup(credentials.key, credentials.revision);
+    await saveCloudSyncCredentials(credentials.key, record.revision);
+    if (getCollectionChangeVersion() === startingChangeVersion) {
+      await AsyncStorage.removeItem(AUTOMATIC_BACKUP_DIRTY_KEY).catch(() => undefined);
+    }
+    return record;
+  });
+}
+
+async function runAutomaticCloudBackup(): Promise<void> {
+  updateAutomaticBackupState({ pending: false, running: true });
+  try {
+    const record = await uploadLatestEncryptedCloudBackup();
+    updateAutomaticBackupState({
+      running: false,
+      error: undefined,
+      lastSyncedAt: record?.updatedAt ?? automaticBackupState.lastSyncedAt,
+      revision: record?.revision ?? automaticBackupState.revision,
+    });
+  } catch (error) {
+    if (error instanceof CloudSyncError && error.status === 409) {
+      automaticBackupPaused = true;
+      updateAutomaticBackupState({ running: false, conflict: true, error: undefined });
+      return;
+    }
+    updateAutomaticBackupState({
+      running: false,
+      error: error instanceof Error ? error.message : "Automatic cloud backup failed.",
+    });
+  }
+}
+
+export function reconcileAutomaticCloudBackup(revision: number): void {
+  automaticBackupPaused = false;
+  updateAutomaticBackupState({ conflict: false, error: undefined, revision });
+}
+
+export async function resumePendingAutomaticCloudBackup(): Promise<boolean> {
+  const pending = await AsyncStorage.getItem(AUTOMATIC_BACKUP_DIRTY_KEY).catch(() => null);
+  if (pending !== "1") return false;
+  scheduleAutomaticCloudBackup();
+  return true;
+}
+
+export function scheduleAutomaticCloudBackup(): void {
+  if (automaticBackupPaused) return;
+  if (automaticBackupTimer) clearTimeout(automaticBackupTimer);
+  void AsyncStorage.setItem(AUTOMATIC_BACKUP_DIRTY_KEY, "1").catch(() => undefined);
+  updateAutomaticBackupState({ pending: true, error: undefined });
+  automaticBackupTimer = setTimeout(() => {
+    automaticBackupTimer = undefined;
+    void runAutomaticCloudBackup();
+  }, 12_000);
+}
+
 export async function uploadEncryptedCloudBackup(key: string, expectedRevision: number): Promise<CloudSyncRecord> {
   const backupJson = await createCollectionBackupJson();
   if (backupJson.length > PORTABLE_BACKUP_MAX_BYTES) {
@@ -202,10 +299,13 @@ export async function downloadEncryptedCloudBackup(key: string): Promise<{ entri
 }
 
 export async function restoreEncryptedCloudBackup(key: string): Promise<CloudSyncRecord | undefined> {
-  const downloaded = await downloadEncryptedCloudBackup(key);
-  if (!downloaded) return undefined;
-  await restoreCollectionBackup(downloaded.entries);
-  return downloaded.record;
+  return enqueueCloudUpload(async () => {
+    const downloaded = await downloadEncryptedCloudBackup(key);
+    if (!downloaded) return undefined;
+    await restoreCollectionBackup(downloaded.entries);
+    await saveCloudSyncCredentials(key, downloaded.record.revision);
+    return downloaded.record;
+  });
 }
 
 export async function loadCloudSyncCredentials(): Promise<CloudSyncCredentials | undefined> {

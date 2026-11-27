@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { TrainerAccessory, TrainerProfile } from "../types";
+import { notifyCollectionChanged } from "../utils/collectionEvents";
 
 const TRAINER_KEY = "birdgo.trainer-profile-v1";
 const validColors = new Set(["#2f8ee8", "#2f7d5b", "#7d64f2", "#d97941", "#c94f7c", "#263d78"]);
@@ -35,5 +36,6 @@ export async function loadTrainerProfile(): Promise<TrainerProfile> {
 export async function saveTrainerProfile(profile: TrainerProfile): Promise<TrainerProfile> {
   const clean = sanitizeTrainerProfile(profile);
   await AsyncStorage.setItem(TRAINER_KEY, JSON.stringify(clean));
+  notifyCollectionChanged();
   return clean;
 }

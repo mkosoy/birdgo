@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Coordinates, CaptureRecord, SeenSpecies, SkyfriendRecord } from "../types";
 import { applySpeciesCaptureCount, speciesKey, speciesKeyAliases, xpForCapture, type SpeciesCountGroup } from "../utils/progression";
+import { notifyCollectionChanged } from "../utils/collectionEvents";
 
 const CAPTURES_KEY = "birdgo.captures";
 const SEEN_KEY = "birdgo.seen";
@@ -49,6 +50,7 @@ export async function addSkyfriend(record: SkyfriendRecord): Promise<SkyfriendRe
     return existing.find((entry) => entry.encounterId === record.encounterId) ?? record;
   }
   await AsyncStorage.setItem(SKYFRIENDS_KEY, JSON.stringify([record, ...existing]));
+  notifyCollectionChanged();
   return record;
 }
 
@@ -124,6 +126,7 @@ export async function claimDailyBonusXp(kind: string, xp: number): Promise<boole
     const eventId = `${BONUS_XP_PREFIX}${dailyBonusKey(normalizedKind)}`;
     if (events.some((event) => event.captureId === eventId)) return false;
     await writeXpEvents([...events, { captureId: eventId, xp: normalizedXp }]);
+    notifyCollectionChanged();
     return true;
   });
 }
@@ -138,6 +141,7 @@ export async function claimQuestXp(questId: string, xp: number): Promise<boolean
     const eventId = `${QUEST_XP_PREFIX}${normalizedId}`;
     if (events.some((event) => event.captureId === eventId)) return false;
     await writeXpEvents([...events, { captureId: eventId, xp: normalizedXp }]);
+    notifyCollectionChanged();
     return true;
   });
 }
@@ -223,6 +227,7 @@ export async function addCapture(capture: CaptureRecord): Promise<CaptureRecord>
       await writeXpEvents([...events, { captureId: record.id, xp: xpAwarded }]);
     }
   });
+  notifyCollectionChanged();
   return record;
 }
 
@@ -287,6 +292,7 @@ export async function releaseSpecies(speciesCode?: string, commonName?: string, 
   const captures = await listCaptures();
   const remaining = captures.filter((capture) => !captureMatchesSpecies(capture, speciesCode, commonName, sciName, canonicalKey));
   await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify(remaining));
+  notifyCollectionChanged();
 }
 
 export async function releaseCaptures(captureIds: string[]): Promise<void> {
@@ -295,6 +301,7 @@ export async function releaseCaptures(captureIds: string[]): Promise<void> {
   const captures = await listCaptures();
   const remaining = captures.filter((capture) => !ids.has(capture.id));
   await AsyncStorage.setItem(CAPTURES_KEY, JSON.stringify(remaining));
+  notifyCollectionChanged();
 }
 
 export async function listSeenSpecies(): Promise<SeenSpecies[]> {

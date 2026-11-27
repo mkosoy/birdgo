@@ -3,16 +3,20 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Clipboard from "expo-clipboard";
 import { exportCollectionBackup, pickValidatedCollectionBackup, restoreCollectionBackup } from "../utils/collectionBackup";
+import { notifyCollectionChanged } from "../utils/collectionEvents";
 import {
   CloudSyncError,
-  downloadEncryptedCloudBackup,
   fetchCloudSyncEnabled,
   generateCloudSyncKey,
   isCloudSyncKeyValid,
   loadCloudSyncCredentials,
   normalizeCloudSyncKey,
+  reconcileAutomaticCloudBackup,
+  restoreEncryptedCloudBackup,
   saveCloudSyncCredentials,
+  subscribeAutomaticCloudBackup,
   uploadEncryptedCloudBackup,
+  uploadLatestEncryptedCloudBackup,
 } from "../utils/cloudSync";
 
 type BusyAction = "export" | "import" | "cloud-enable" | "cloud-upload" | "cloud-restore" | null;
@@ -29,6 +33,12 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
   const [showSyncKey, setShowSyncKey] = useState(false);
   const [message, setMessage] = useState<string>();
   const [messageTone, setMessageTone] = useState<"good" | "bad">("good");
+  const [automaticBackup, setAutomaticBackup] = useState({ pending: false, running: false, conflict: false } as { pending: boolean; running: boolean; conflict: boolean; error?: string; lastSyncedAt?: string; revision?: number });
+
+  useEffect(() => subscribeAutomaticCloudBackup((state) => {
+    setAutomaticBackup(state);
+    if (state.revision !== undefined) setCloudRevision(state.revision);
+  }), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,6 +92,7 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
         return;
       }
       await restoreCollectionBackup(entries);
+      notifyCollectionChanged();
       setConfirmingImport(false);
       onRestored();
       showMessage("Backup restored on this device.");
@@ -131,7 +142,10 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
     setBusy("cloud-upload");
     setMessage(undefined);
     try {
-      await uploadCloud(cloudKey, cloudRevision, "Encrypted cloud backup updated · revision {revision}.");
+      const record = await uploadLatestEncryptedCloudBackup();
+      if (!record) throw new Error("Cloud sync is not set up on this device yet.");
+      setCloudRevision(record.revision);
+      showMessage(`Encrypted cloud backup updated · revision ${record.revision}.`);
     } catch (error) {
       showMessage(cloudErrorMessage(error, "Cloud backup failed."), "bad");
     } finally {
@@ -140,17 +154,16 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
   };
 
   const restoreCloud = async (key: string) => {
-    const downloaded = await downloadEncryptedCloudBackup(key);
-    if (!downloaded) throw new Error("No encrypted cloud backup exists for this sync key yet.");
-    await restoreCollectionBackup(downloaded.entries);
-    await saveCloudSyncCredentials(key, downloaded.record.revision);
+    const record = await restoreEncryptedCloudBackup(key);
+    if (!record) throw new Error("No encrypted cloud backup exists for this sync key yet.");
+    reconcileAutomaticCloudBackup(record.revision);
     setCloudKey(key);
-    setCloudRevision(downloaded.record.revision);
+    setCloudRevision(record.revision);
     setConfirmingCloudRestore(false);
     setLinkingCloud(false);
     setSyncKeyDraft("");
     onRestored();
-    showMessage(`Encrypted cloud backup restored · revision ${downloaded.record.revision}.`);
+    showMessage(`Encrypted cloud backup restored · revision ${record.revision}.`);
   };
 
   const runCloudRestore = async (key?: string) => {
@@ -232,6 +245,10 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
       </View> : null}
 
       {cloudConfigured ? <Text style={styles.revisionText}>Cloud revision {cloudRevision} on this device</Text> : null}
+      {cloudConfigured && automaticBackup.conflict ? <Text style={styles.autoConflictText}>Automatic backup paused — cloud data changed on another device.</Text> : null}
+      {cloudConfigured && !automaticBackup.conflict && (automaticBackup.pending || automaticBackup.running) ? <Text style={styles.revisionText}>{automaticBackup.running ? "Automatic cloud backup updating…" : "Automatic cloud backup queued…"}</Text> : null}
+      {cloudConfigured && !automaticBackup.conflict && automaticBackup.error ? <Text style={styles.autoConflictText}>Automatic backup failed and will retry after the next collection change.</Text> : null}
+      {cloudConfigured && !automaticBackup.conflict && !automaticBackup.pending && !automaticBackup.running && !automaticBackup.error && automaticBackup.lastSyncedAt ? <Text style={styles.revisionText}>Automatic cloud backup is up to date.</Text> : null}
 
       {confirmingCloudRestore ? <View style={styles.confirmArea}>
         <Text style={styles.confirmCopy}>Restoring replaces BirdGo collection data currently stored on this device.</Text>
@@ -291,6 +308,7 @@ const styles = StyleSheet.create({
   cloudTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   cloudTitle: { color: "#3d3419", fontSize: 13, fontWeight: "900" },
   revisionText: { color: "#74683f", fontSize: 10, fontWeight: "800", marginTop: 8 },
+  autoConflictText: { color: "#814f2d", fontSize: 10, fontWeight: "800", marginTop: 8 },
   linkArea: { marginTop: 10, gap: 8 },
   keyInput: { minHeight: 38, borderRadius: 10, borderWidth: 1, borderColor: "#d1c294", backgroundColor: "#fffaf0", paddingHorizontal: 10, color: "#3d3419", fontSize: 12, fontWeight: "700" },
   message: { color: "#2f7d5b", fontSize: 11, lineHeight: 15, fontWeight: "800", marginTop: 10 },

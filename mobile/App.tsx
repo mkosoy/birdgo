@@ -11,6 +11,8 @@ import { CaptureScreen } from "./src/screens/CaptureScreen";
 import { DexScreen } from "./src/screens/DexScreen";
 import type { SeenSpecies } from "./src/types";
 import { OnboardingModal } from "./src/components/OnboardingModal";
+import { CloudSyncAutoBackup } from "./src/components/CloudSyncAutoBackup";
+import { notifyCollectionChanged } from "./src/utils/collectionEvents";
 
 type Tabs = { Map: undefined; Capture: { hint?: SeenSpecies } | undefined; "Bird-dex": undefined };
 const Tab = createBottomTabNavigator<Tabs>();
@@ -38,11 +40,12 @@ function AppTabs() {
 
   const completeOnboarding = () => {
     setShowOnboarding(false);
-    void AsyncStorage.setItem("birdgo.onboarding-v1", "1").catch(() => undefined);
+    void AsyncStorage.setItem("birdgo.onboarding-v1", "1").then(() => notifyCollectionChanged()).catch(() => undefined);
   };
 
   return (
     <>
+    <CloudSyncAutoBackup />
     <NavigationContainer ref={navigationRef}>
       <Tab.Navigator screenOptions={({ route }) => ({
         headerShown: false,

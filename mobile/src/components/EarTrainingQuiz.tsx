@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { notifyCollectionChanged } from "../utils/collectionEvents";
 import { Audio } from "expo-av";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { fetchSpeciesGuide } from "../api";
@@ -119,7 +120,7 @@ export function EarTrainingQuiz({ species }: { species: EarTrainingSpecies[] }) 
 
   const saveStats = (next: EarTrainingStats) => {
     setStats(next);
-    void AsyncStorage.setItem(STATS_KEY, JSON.stringify(next)).catch(() => undefined);
+    void AsyncStorage.setItem(STATS_KEY, JSON.stringify(next)).then(() => notifyCollectionChanged()).catch(() => undefined);
   };
 
   const unloadSound = async () => {
