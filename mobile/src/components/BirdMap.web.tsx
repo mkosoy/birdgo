@@ -169,7 +169,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
     }
   }, [closePopupRequest]);
 
-  const html = useMemo(() => (mode === "adventure" ? buildMapLibreHtml({ apiBaseUrl: API_BASE_URL || window.location.origin }) : buildLeafletHtml()), [mode]);
+  const html = useMemo(() => (mode === "adventure" ? buildMapLibreHtml({ apiBaseUrl: API_BASE_URL || window.location.origin }) : buildLeafletHtml({ apiBaseUrl: API_BASE_URL || window.location.origin })), [mode]);
   const blobUrl = useMemo(() => URL.createObjectURL(new Blob([html], { type: "text/html" })), [html]);
   useEffect(() => () => URL.revokeObjectURL(blobUrl), [blobUrl]);
   return <iframe ref={iframeRef} src={blobUrl} onLoad={() => postData(dataRef.current ?? data, true)} style={{ border: 0, width: "100%", height: "100%" }} title="BirdGo map" />;

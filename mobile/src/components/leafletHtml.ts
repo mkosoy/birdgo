@@ -1,4 +1,7 @@
-export function buildLeafletHtml(): string {
+import { speciesAudioScript } from "./speciesAudioScript";
+
+export function buildLeafletHtml(options: { apiBaseUrl?: string } = {}): string {
+  const serializedApiBaseUrl = JSON.stringify(options.apiBaseUrl ?? "");
   return `<!doctype html>
 <html>
 <head>
@@ -23,13 +26,16 @@ export function buildLeafletHtml(): string {
     .encounter .meta, .encounter .distance, .encounter .info, .encounter .field-notes { margin-top: 6px; }
     .encounter .stale { color: #7b5d27; font-weight: 700; margin-top: 6px; }
     .encounter .where, .encounter .field-notes, .encounter .info { color: #4c5c54; }
-    .encounter .actions { display: flex; gap: 5px; margin-top: 9px; }
+    .encounter .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 9px; }
+    .encounter .audio-credit { display: none; color: #68796f; font-size: 9px; line-height: 12px; margin-top: 5px; }
+    .encounter .audio-credit.on { display: block; }
     .leaflet-popup-close-button { width: 44px !important; height: 44px !important; padding: 0; font-size: 24px; line-height: 40px !important; text-align: center; }
     .leaflet-popup-content { max-height: 220px; overflow-y: auto; }
     .leaflet-control-zoom a { width: 44px !important; height: 44px !important; line-height: 42px !important; font-size: 22px; }
     .encounter button { min-height: 44px; border: 0; border-radius: 5px; padding: 8px 10px; color: white; background: #2f7d5b; font-weight: 700; cursor: pointer; }
     .encounter button:nth-child(2) { background: #2878d1; }
-    .encounter button:nth-child(3) { background: #6f5aa8; }
+    .encounter button:nth-child(3) { background: #d99d21; }
+    .encounter button:nth-child(4) { background: #6f5aa8; }
     #map-attribution { position: absolute; z-index: 1000; top: 112px; left: 8px; font-family: -apple-system, system-ui, sans-serif; }
     #map-attribution-toggle { width: 44px; height: 44px; border: 0; border-radius: 22px; background: rgba(255,255,255,.94); color: #34453c; box-shadow: 0 2px 8px rgba(0,0,0,.2); font-size: 20px; cursor: pointer; }
     #map-attribution-copy { display: none; width: 220px; margin-top: 6px; padding: 9px 11px; border-radius: 10px; background: rgba(255,255,255,.96); color: #34453c; box-shadow: 0 2px 10px rgba(0,0,0,.22); font-size: 11px; line-height: 15px; }
@@ -53,6 +59,11 @@ export function buildLeafletHtml(): string {
       var moveTimer = null;
       var lastUserLocation = null;
       var popupBirdId = null;
+      var currentAudio = null;
+      var currentAudioKey = null;
+      var audioRequest = 0;
+      var guideCache = Object.create(null);
+      var apiBaseUrl = ${serializedApiBaseUrl};
       var restoringPopup = false;
       var latestData = null;
       var latestMarkers = [];
@@ -101,6 +112,7 @@ export function buildLeafletHtml(): string {
         return 6371 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
       }
 
+${speciesAudioScript()}
       function popupHtml(bird, userLocation) {
         var distance = haversineKm(userLocation, bird);
         var count = typeof bird.howMany === 'number' && bird.howMany > 0 ? ' • ×' + bird.howMany : '';
@@ -124,7 +136,8 @@ export function buildLeafletHtml(): string {
           (frequencyCopy ? '<div class="distance">' + frequencyCopy + '</div>' : '') +
           '<div class="distance">' + captureCopy + '</div>' +
           '<div class="field-notes" data-info>How to spot it: Field notes loading…</div>' +
-          '<div class="actions"><button data-action="capture">' + actionLabel + '</button><button data-action="directions">Directions</button><button data-action="about">About</button></div>' +
+          '<div class="audio-credit" data-audio-credit></div>' +
+          '<div class="actions"><button data-action="capture">' + actionLabel + '</button><button data-action="directions">Directions</button><button data-action="listen">Listen</button><button data-action="about">Guide</button></div>' +
           '</div>';
       }
 
@@ -132,6 +145,7 @@ export function buildLeafletHtml(): string {
         var element = popup.getElement();
         if (!element) return;
         element.querySelector('[data-action="capture"]').addEventListener('click', function () {
+          stopBirdAudio();
           postOutward({ type: 'capture', id: bird.id });
           if (bird.virtual) popup.remove();
         });
@@ -139,7 +153,11 @@ export function buildLeafletHtml(): string {
           postOutward({ type: 'directions', id: bird.id, latitude: bird.latitude, longitude: bird.longitude, name: bird.comName });
         });
         element.querySelector('[data-action="about"]').addEventListener('click', function () {
+          stopBirdAudio();
           postOutward({ type: 'about', speciesCode: bird.speciesCode, comName: bird.comName, sciName: bird.sciName });
+        });
+        element.querySelector('[data-action="listen"]').addEventListener('click', function () {
+          toggleBirdAudio(bird, this, element);
         });
         fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(bird.comName || 'Bird'))
           .then(function (response) { if (!response.ok) throw new Error('Wikipedia unavailable'); return response.json(); })
@@ -246,9 +264,11 @@ export function buildLeafletHtml(): string {
             markProgrammaticCameraMove();
             popupBirdId = bird.id;
             postOutward({ type: 'popup', open: true });
+            prefetchSpeciesGuide(bird);
             attachPopupActions(popup, bird);
           });
           marker.on('popupclose', function () {
+            stopBirdAudio();
             if (!restoringPopup) popupBirdId = null;
             postOutward({ type: 'popup', open: false });
           });

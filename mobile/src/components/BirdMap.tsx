@@ -246,7 +246,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     }
   }, [closePopupRequest]);
 
-  const html = useMemo(() => (mode === "adventure" ? buildMapLibreHtml({ apiBaseUrl: API_BASE_URL }) : buildLeafletHtml()), [mode]);
+  const html = useMemo(() => (mode === "adventure" ? buildMapLibreHtml({ apiBaseUrl: API_BASE_URL }) : buildLeafletHtml({ apiBaseUrl: API_BASE_URL })), [mode]);
   return <WebView key={mode} ref={webViewRef} style={styles.map} source={{ html }} onLoadEnd={() => postData(dataRef.current ?? data, true)} onMessage={handleMessage} originWhitelist={["*"]} />;
 });
 
