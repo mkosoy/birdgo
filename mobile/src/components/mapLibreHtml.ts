@@ -1461,6 +1461,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
               }
               button.textContent = 'Listen';
             });
+            var playbackBlocked = false;
             return audio.play().then(function () {
               if (requestId !== audioRequest) {
                 audio.pause();
@@ -1472,10 +1473,23 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
                 credit.textContent = 'Audio · ' + (sound.recordist || 'Unknown recordist') + (sound.license ? ' · ' + sound.license : '');
                 credit.classList.add('on');
               }
+            }, function (error) {
+              playbackBlocked = Boolean(error && error.name === 'NotAllowedError');
+              throw error;
+            }).catch(function (error) {
+              if (!playbackBlocked) throw error;
+              if (requestId !== audioRequest) return;
+              button.disabled = false;
+              button.textContent = 'Tap to play';
+              if (credit) {
+                credit.textContent = 'Audio ready · tap again to allow playback' + (sound.license ? ' · ' + sound.license : '');
+                credit.classList.add('on');
+              }
             });
           })
           .catch(function () {
             if (requestId !== audioRequest) return;
+            if (button.textContent === 'Tap to play') return;
             stopBirdAudio();
             button.disabled = false;
             button.textContent = 'No audio';
