@@ -46,24 +46,34 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
     @keyframes snow-fall { from { background-position: 0 -80px, 0 -40px; } to { background-position: 24px 180px, -14px 150px; } }
     @keyframes fog-drift { from { transform: translateX(-6%); } to { transform: translateX(6%); } }
     .bird-marker, .user-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 18px; font-weight: bold; }
-    .bird-marker { position: absolute; width: 42px; height: 42px; background: linear-gradient(145deg, #39a874, #23684d); border: 3px solid white; cursor: pointer; box-shadow: 0 3px 9px rgba(0,0,0,.32); }
-    .bird-scale { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; transform-origin: center; transition: transform .18s ease-out; }
-    .bird-scale img { position: absolute; left: 2px; top: 2px; width: 36px; height: 36px; object-fit: cover; border-radius: 50%; }
-    .bird-marker.presence-close .bird-scale { transform: scale(1.24); }
-    .bird-marker.presence-near .bird-scale { transform: scale(1.1); }
-    .bird-marker.presence-mid .bird-scale { transform: scale(.92); }
-    .bird-marker.presence-far .bird-scale { transform: scale(.72); }
+    .bird-marker { position: absolute; width: 52px; height: 58px; background: transparent; border: 0; cursor: pointer; box-shadow: none; }
+    .bird-marker::after { content: ''; position: absolute; left: 10px; right: 10px; bottom: 0; height: 10px; border-radius: 50%; background: rgba(18,48,33,.34); filter: blur(2px); transform: scaleX(.86); pointer-events: none; animation: bird-shadow-idle 3.4s ease-in-out infinite; }
+    .bird-marker.presence-close::after { transform: scaleX(1.1); }
+    .bird-marker.presence-near::after { transform: scaleX(.96); }
+    .bird-marker.presence-far::after { transform: scaleX(.68); }
+    @keyframes bird-shadow-idle { 0%, 100% { opacity: .92; } 50% { opacity: .55; } }
+    .bird-scale { position: absolute; left: 1px; right: 1px; bottom: 8px; height: 48px; display: flex; align-items: center; justify-content: center; transform-origin: 50% 100%; transition: transform .18s ease-out; animation: bird-idle 3.4s ease-in-out infinite; }
+    .bird-scale::before { content: ''; position: absolute; left: 2px; top: 1px; width: 46px; height: 46px; box-sizing: border-box; border-radius: 50%; border: 3px solid white; background: linear-gradient(145deg, #39a874, #23684d); box-shadow: 0 3px 9px rgba(0,0,0,.32); }
+    .bird-scale img { position: absolute; left: 2px; top: 1px; width: 46px; height: 46px; box-sizing: border-box; object-fit: cover; border-radius: 50%; border: 3px solid white; background: #dbe7df; box-shadow: 0 3px 9px rgba(0,0,0,.22); }
+    @keyframes bird-idle { 0%, 100% { translate: 0 0; } 50% { translate: 0 -2px; } }
+    .bird-marker.presence-close .bird-scale { transform: scale(1.32); }
+    .bird-marker.presence-near .bird-scale { transform: scale(1.12); }
+    .bird-marker.presence-mid .bird-scale { transform: scale(.9); }
+    .bird-marker.presence-far .bird-scale { transform: scale(.68); }
     .bird-marker.virtual.presence-close .bird-scale { transform: scale(1.38); }
-    .bird-marker.virtual.presence-near .bird-scale { transform: scale(1.2); }
+    .bird-marker.virtual.presence-near .bird-scale { transform: scale(1.18); }
     .bird-marker.virtual.presence-mid .bird-scale { transform: scale(1); }
-    .bird-marker.presence-far { opacity: .78; }
-    .bird-marker.in-range { box-shadow: 0 0 0 5px rgba(217,157,33,.38), 0 2px 8px rgba(0,0,0,.3); }
-    .bird-marker.notable { background: linear-gradient(145deg, #efbd35, #b97d08); border-color: #fff3bd; }
-    .bird-marker.captured { background: #61776c; border-color: #a9f0bf; }
-    .bird-marker.virtual { background: linear-gradient(145deg, #7d64f2, #28b9d7); border-color: #d9fbff; box-shadow: 0 0 14px rgba(92,220,255,.72), 0 3px 9px rgba(0,0,0,.32); }
-    .thumb-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-    .bird-scale .caught-badge, .bird-scale .skyfriend-badge { position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; }
-    .bird-scale .skyfriend-badge { background: #72e7ff; color: #273075; }
+    .bird-marker.presence-far { opacity: .76; }
+    .bird-marker.in-range .bird-scale { filter: drop-shadow(0 0 6px rgba(217,157,33,.72)); }
+    .bird-marker.notable .bird-scale::before { background: linear-gradient(145deg, #efbd35, #b97d08); border-color: #fff3bd; }
+    .bird-marker.notable .bird-scale img { border-color: #fff3bd; }
+    .bird-marker.captured .bird-scale::before { background: #61776c; border-color: #a9f0bf; }
+    .bird-marker.captured .bird-scale img { border-color: #a9f0bf; }
+    .bird-marker.virtual .bird-scale::before { background: linear-gradient(145deg, #7d64f2, #28b9d7); border-color: #d9fbff; box-shadow: 0 0 14px rgba(92,220,255,.72), 0 3px 9px rgba(0,0,0,.32); }
+    .bird-marker.virtual .bird-scale img { border-color: #d9fbff; }
+    .thumb-fallback { position: absolute; inset: 0 0 1px; display: flex; align-items: center; justify-content: center; z-index: 0; }
+    .bird-marker > .caught-badge, .bird-marker > .skyfriend-badge { position: absolute; right: 1px; bottom: 7px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; z-index: 2; }
+    .bird-marker > .skyfriend-badge { background: #72e7ff; color: #273075; }
     .skyfriend-tag { display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 10px; background: linear-gradient(135deg, #735eea, #29bedd); color: white; font-size: 10px; font-weight: 900; vertical-align: middle; letter-spacing: .02em; }
     .nb-row.virtual .nb-thumb { box-shadow: 0 0 0 2px #72e7ff inset; background: linear-gradient(145deg, #ece7ff, #dffaff); }
     .nb-row.virtual .nb-name { color: #4241a0; }
@@ -612,7 +622,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         return fallback;
       }
       function markerInnerHtml(bird) {
-        return '<span class="bird-scale">' + thumbInnerHtml(bird) + (bird.captureCount ? '<span class="caught-badge">✓</span>' : bird.virtual ? '<span class="skyfriend-badge">✦</span>' : '') + '</span>';
+        return '<span class="bird-scale">' + thumbInnerHtml(bird) + '</span>' + (bird.captureCount ? '<span class="caught-badge">✓</span>' : bird.virtual ? '<span class="skyfriend-badge">✦</span>' : '');
       }
       function refreshBirdMarkerIcons() {
         birdMarkers.forEach(function (marker) {
@@ -1609,9 +1619,66 @@ ${speciesAudioScript()}
         return lastMarkerInputSignature;
       }
 
+      function computePresenceOffsets(markers) {
+        var assignments = {};
+        if (!lastUserLocation) return assignments;
+        var userPoint = map.project([lastUserLocation.longitude, lastUserLocation.latitude]);
+        var needingOffsets = [];
+        (markers || []).forEach(function (bird) {
+          var distance = haversineKm(lastUserLocation, bird);
+          if (distance == null || distance >= 0.06) return;
+          var birdPoint = map.project([bird.longitude, bird.latitude]);
+          var dx = birdPoint.x - userPoint.x;
+          var dy = birdPoint.y - userPoint.y;
+          var separation = Math.sqrt(dx * dx + dy * dy);
+          var minimumSeparation = bird.virtual ? 84 : 78;
+          if (separation >= minimumSeparation) return;
+          var side = parseInt(hashString(String(bird.id) + ':side').slice(0, 8), 10) % 2 ? -1 : 1;
+          if (Math.abs(dx) > 2) side = dx < 0 ? -1 : 1;
+          needingOffsets.push({ bird: bird, point: birdPoint, minimumSeparation: minimumSeparation, side: side, distance: distance });
+        });
+        needingOffsets.sort(function (left, right) {
+          return left.distance - right.distance || String(left.bird.id).localeCompare(String(right.bird.id));
+        });
+        var slotAngles = [-112.5, -67.5, -157.5, -22.5];
+        var slots = [];
+        for (var ring = 0; ring < Math.max(2, Math.ceil(needingOffsets.length / slotAngles.length)); ring += 1) {
+          slotAngles.forEach(function (angle) {
+            slots.push({ angle: angle, radiusExtra: ring * 38, side: Math.cos(angle * Math.PI / 180) < 0 ? -1 : 1 });
+          });
+        }
+        var usedSlots = {};
+        needingOffsets.forEach(function (entry) {
+          var bestIndex = -1;
+          var bestScore = Infinity;
+          slots.forEach(function (slot, index) {
+            if (usedSlots[index]) return;
+            var sideScore = slot.side === entry.side ? 0 : 2;
+            var score = sideScore + slot.radiusExtra / 100;
+            if (score < bestScore) {
+              bestScore = score;
+              bestIndex = index;
+            }
+          });
+          if (bestIndex < 0) return;
+          usedSlots[bestIndex] = true;
+          var slot = slots[bestIndex];
+          var radians = slot.angle * Math.PI / 180;
+          var radius = entry.minimumSeparation + slot.radiusExtra;
+          var targetX = userPoint.x + Math.cos(radians) * radius;
+          var targetY = userPoint.y + Math.sin(radians) * radius;
+          assignments[String(entry.bird.id)] = [Math.round(targetX - entry.point.x), Math.round(targetY - entry.point.y)];
+        });
+        return assignments;
+      }
+
+      function presenceScreenOffset(bird, assignments) {
+        return assignments && assignments[String(bird.id)] || [0, 0];
+      }
+
       function renderBirdMarkers(markers) {
         var zoom = map.getZoom();
-        var minSpacing = zoom >= 15 ? 30 : zoom >= 13 ? 48 : 64;
+        var minSpacing = zoom >= 15 ? 42 : zoom >= 13 ? 52 : 64;
         var maxMarkers = zoom >= 15 ? 64 : zoom >= 13 ? 32 : 20;
         var viewportWidth = map.getContainer().clientWidth || 0;
         var viewportHeight = map.getContainer().clientHeight || 0;
@@ -1633,10 +1700,14 @@ ${speciesAudioScript()}
           return markerScore(left) - markerScore(right);
         });
         var edgeMargin = 30;
+        var presenceOffsets = computePresenceOffsets(sorted);
         var candidates = sorted.map(function (bird) {
           var isTracked = trackId && String(bird.id) === String(trackId);
           var displayLng = wrappedLongitude(bird.longitude);
           var point = map.project([displayLng, bird.latitude]);
+          var screenOffset = presenceScreenOffset(bird, presenceOffsets);
+          point.x += screenOffset[0];
+          point.y += screenOffset[1];
           var centerVisible = point.x >= 0 && point.x <= viewportWidth && point.y >= 0 && point.y <= viewportHeight;
           var partiallyVisible = point.x >= -edgeMargin && point.x <= viewportWidth + edgeMargin
             && point.y >= -edgeMargin && point.y <= viewportHeight + edgeMargin;
@@ -1671,8 +1742,10 @@ ${speciesAudioScript()}
             presenceClass: distance == null ? 'presence-mid' : distance <= 0.06 ? 'presence-close' : distance <= 0.12 ? 'presence-near' : distance <= 0.25 ? 'presence-mid' : 'presence-far'
           };
         });
-        var signature = String(trackId || '') + '|' + markerDataSignature(markers) + '|' + JSON.stringify(chosen.map(function (bird, chosenIndex) {
-          return [bird.id, visualStates[chosenIndex].presenceClass, visualStates[chosenIndex].inRange ? 1 : 0];
+        var cameraSignature = [map.getZoom().toFixed(2), Math.round(map.getBearing() / 2) * 2, Math.round(map.getPitch())].join(':');
+        var signature = cameraSignature + '|' + String(trackId || '') + '|' + markerDataSignature(markers) + '|' + JSON.stringify(chosen.map(function (bird, chosenIndex) {
+          var closeDistance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
+          return [bird.id, visualStates[chosenIndex].presenceClass, visualStates[chosenIndex].inRange ? 1 : 0, closeDistance != null && closeDistance < 0.06 ? Math.round(closeDistance * 1000 / 5) * 5 : 0];
         }));
         if (signature === lastMarkerRenderSignature) return;
         lastMarkerRenderSignature = signature;
@@ -1682,7 +1755,7 @@ ${speciesAudioScript()}
           var element = document.createElement('div');
           element.className = 'bird-marker ' + visualStates[chosenIndex].presenceClass + (bird.virtual ? ' virtual' : '') + (bird.isNotable ? ' notable' : '') + (visualStates[chosenIndex].inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
           element.innerHTML = markerInnerHtml(bird);
-          var marker = new maplibregl.Marker({ element: element })
+          var marker = new maplibregl.Marker({ element: element, anchor: 'bottom', offset: presenceScreenOffset(bird, presenceOffsets) })
             .setLngLat([wrappedLongitude(bird.longitude), bird.latitude])
             .addTo(map);
           element.style.pointerEvents = 'auto';
@@ -1836,7 +1909,7 @@ ${speciesAudioScript()}
           if (!userElement) {
             userElement = document.createElement('div');
             userElement.className = 'user-marker';
-            userElement.style.zIndex = '30';
+            userElement.style.zIndex = '3';
             userElement.style.pointerEvents = 'none';
             userElement.innerHTML = personGlyph(data.trainer);
             userMarker = new maplibregl.Marker({ element: userElement })
