@@ -1301,7 +1301,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           if (routeSteps.length || routeGeometryCoordinates.length) clearRoute();
           trackSnap.classList.add('ready');
           trackSnap.textContent = entry.virtual ? 'Collect!' : 'Snap!';
-          trackDist.textContent = entry.virtual ? 'You’re here! Collect it' : 'You’re here! Snap it';
+          trackDist.textContent = entry.virtual ? 'You’re here! Collect it' : entry.source === 'birdweather' ? 'At the audio station — scan within earshot' : 'You’re here! Snap it';
         } else if (distance != null && routeDistanceM != null && lastRouteTargetKey && lastRouteTargetKey.indexOf(trackId + ':') === 0) {
           trackSnap.classList.remove('ready');
           trackSnap.textContent = entry.virtual ? 'Collect' : 'Snap';

@@ -35,13 +35,14 @@ function externalSpeciesUrl(target: GuideTarget): string {
     : `https://ebird.org/search?q=${encodeURIComponent(target.comName)}`;
 }
 
-function formatObservationAge(obsDt?: string): string {
-  if (!obsDt) return "recently reported";
+function formatObservationAge(obsDt: string | undefined, source?: string): string {
+  const verb = source === "birdweather" ? "detected" : "reported";
+  if (!obsDt) return `recently ${verb}`;
   const hours = Math.max(0, (Date.now() - new Date(obsDt).getTime()) / 3_600_000);
-  if (!Number.isFinite(hours)) return "recently reported";
-  if (hours < 1) return "reported within the hour";
-  if (hours < 24) return `reported ${Math.round(hours)}h ago`;
-  return `reported ${Math.round(hours / 24)}d ago`;
+  if (!Number.isFinite(hours)) return `recently ${verb}`;
+  if (hours < 1) return `${verb} within the hour`;
+  if (hours < 24) return `${verb} ${Math.round(hours)}h ago`;
+  return `${verb} ${Math.round(hours / 24)}d ago`;
 }
 
 function openWalkingDirections(latitude: number, longitude: number): void {
@@ -386,15 +387,21 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     setCompletionNotice(`${bird.comName ?? "The Skyfriend"} slipped away. It may return soon.`);
     clearTrackedSkyfriend(encounterId);
   };
-  const rareHunt = notable
+  const rareHuntCandidates = new Map<string, EbirdObservation>();
+  notable.forEach((bird) => rareHuntCandidates.set(observationMarkerId(bird), bird));
+  birds.filter((bird) => bird.source === "birdweather").forEach((bird) => {
+    const id = observationMarkerId(bird);
+    if (!rareHuntCandidates.has(id)) rareHuntCandidates.set(id, bird);
+  });
+  const rareHunt = [...rareHuntCandidates.values()]
     .filter((bird) => {
       if (bird.virtual || !bird.comName || distanceKm(location, bird) > 15) return false;
       const ageHours = bird.obsDt ? (Date.now() - new Date(bird.obsDt).getTime()) / 3_600_000 : 24;
       if (!Number.isFinite(ageHours) || ageHours > 72) return false;
-      return RARITY_ORDER.indexOf(rarityForSpecies(bird.speciesCode, bird.comName, true, bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount)) >= RARITY_ORDER.indexOf("rare");
+      return RARITY_ORDER.indexOf(rarityForSpecies(bird.speciesCode, bird.comName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount)) >= RARITY_ORDER.indexOf("rare");
     })
     .sort((a, b) => {
-      const rarityDelta = RARITY_ORDER.indexOf(rarityForSpecies(b.speciesCode, b.comName, true, b.sciName, b.canonicalKey, b.frequency, b.abundanceCount)) - RARITY_ORDER.indexOf(rarityForSpecies(a.speciesCode, a.comName, true, a.sciName, a.canonicalKey, a.frequency, a.abundanceCount));
+      const rarityDelta = RARITY_ORDER.indexOf(rarityForSpecies(b.speciesCode, b.comName, Boolean(b.isNotable), b.sciName, b.canonicalKey, b.frequency, b.abundanceCount)) - RARITY_ORDER.indexOf(rarityForSpecies(a.speciesCode, a.comName, Boolean(a.isNotable), a.sciName, a.canonicalKey, a.frequency, a.abundanceCount));
       return rarityDelta || distanceKm(location, a) - distanceKm(location, b);
     })[0];
   const dismissRareHunt = (id: string) => {
@@ -651,11 +658,13 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           </Pressable>
         )}
         </View>
-        {rareHunt && !dismissedRareHuntIds.includes(observationMarkerId(rareHunt)) && !popupOpen && !toastOpen && !completionNotice && !locationNotice && !error ? <View style={styles.rareCard}>
+        {rareHunt && !dismissedRareHuntIds.includes(observationMarkerId(rareHunt)) && !popupOpen && !completionNotice && !locationNotice && !error ? <View style={[styles.rareCard, toastOpen && styles.rareCardBelowToast]}>
           <Text style={styles.rareEyebrow}>Rare hunt nearby</Text>
           <Text style={styles.rareTitle}>{rareHunt.comName}</Text>
-          <Text style={styles.rareCopy}>{distanceKm(location, rareHunt) < 1 ? `${Math.round(distanceKm(location, rareHunt) * 1000)}m` : `${distanceKm(location, rareHunt).toFixed(1)}km`} away · {formatObservationAge(rareHunt.obsDt)}{rareHunt.locName ? ` · ${rareHunt.locName}` : ""}</Text>
-          <Text style={styles.rareHint}>A real recent report — search the habitat carefully; the bird is not guaranteed to still be there.</Text>
+          <Text style={styles.rareCopy}>{distanceKm(location, rareHunt) < 1 ? `${Math.round(distanceKm(location, rareHunt) * 1000)}m` : `${distanceKm(location, rareHunt).toFixed(1)}km`} away · {formatObservationAge(rareHunt.obsDt, rareHunt.source)}{rareHunt.locName ? ` · ${rareHunt.locName}` : ""}</Text>
+          <Text style={styles.rareHint}>{rareHunt.source === "birdweather"
+            ? "A fresh high-confidence audio detection — the bird may be anywhere within earshot of the station, so listen and scan the habitat carefully."
+            : "A real recent report — search the habitat carefully; the bird is not guaranteed to still be there."}</Text>
           <View style={styles.rareActions}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Track rare ${rareHunt.comName}`} style={styles.rarePrimary} onPress={() => startRareHunt(rareHunt)}><Text style={styles.rarePrimaryText}>Hunt</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={`Open ${rareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: rareHunt.speciesCode, comName: rareHunt.comName ?? "Unknown bird", sciName: rareHunt.sciName })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
@@ -732,6 +741,7 @@ const styles = StyleSheet.create({
   modeButtonActive: { backgroundColor: "#d9efe1", borderWidth: 2, borderColor: "#2f7d5b" },
   modeButtonText: { color: "#173c2b", fontWeight: "700" },
   rareCard: { maxWidth: 360, alignSelf: "flex-start", backgroundColor: "#fff8df", borderColor: "#e3bc4f", borderWidth: 1, padding: 12, borderRadius: 16, elevation: 4, gap: 4 },
+  rareCardBelowToast: { marginTop: 52 },
   rareEyebrow: { color: "#9a6908", fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.8 },
   rareTitle: { color: "#263816", fontSize: 19, fontWeight: "900" },
   rareCopy: { color: "#46513a", fontSize: 12, fontWeight: "700" },
