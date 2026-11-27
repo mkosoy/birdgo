@@ -79,8 +79,9 @@ export function speciesAudioScript(): string {
               if (currentAudio === audio) {
                 currentAudio = null;
                 currentAudioKey = null;
+                currentAudioAttribution = '';
               }
-              button.textContent = 'Listen';
+              resetListenButtons();
             });
             var playbackBlocked = false;
             return audio.play().then(function () {
