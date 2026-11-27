@@ -98,6 +98,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
     .nb-row.prismatic .nb-name { color: #8a6210; }
     .nb-row.prismatic .nb-go { background: linear-gradient(135deg, #d6a525, #735eea); }
     .user-marker { position: absolute; width: 46px; height: 46px; background: linear-gradient(#2f8ee8,#175fb4); border: 3px solid white; box-shadow: 0 0 0 2px rgba(40,120,209,.45), 0 4px 10px rgba(0,0,0,.35); }
+    .user-marker::after { content: ''; position: absolute; left: calc(50% - 21px); bottom: -11px; width: 42px; height: 13px; border-radius: 50%; background: rgba(10,35,48,.38); filter: blur(1.5px); pointer-events: none; }
     .user-marker::before { content: ''; position: absolute; top: 50%; left: 50%; width: 60px; height: 60px; border-radius: 50%; border: 2px solid rgba(40, 120, 209, 0.55); animation: pulse 1.8s ease-out infinite; }
     @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(1.45); opacity: 0; } }
     .encounter { width: 242px; max-width: calc(100vw - 88px); line-height: 1.28; color: #26342d; font-size: 13px; }
