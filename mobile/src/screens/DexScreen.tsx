@@ -5,6 +5,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useCollection } from "../hooks/useCollection";
 import { useTrainerProfile } from "../hooks/useTrainerProfile";
 import { releaseCaptures } from "../store/collection";
+import { BackupRestoreCard } from "../components/BackupRestoreCard";
 import { Bird3DPreview } from "../components/Bird3DPreview";
 import { DailyQuests } from "../components/DailyQuests";
 import { EarTrainingQuiz } from "../components/EarTrainingQuiz";
@@ -185,6 +186,7 @@ export function DexScreen() {
 
   const questArea = <DailyQuests captures={captures} skyfriends={skyfriends} claimedIds={questRewards} speciesCaptureCounts={speciesCaptureCounts} onClaim={claimQuest} />;
   const earTrainingArea = <EarTrainingQuiz species={earTrainingSpecies} />;
+  const backupArea = <BackupRestoreCard onRestored={() => { void refresh(); void refreshTrainer(); }} />;
 
   const skyfriendArea = <View style={styles.skyfriendArea}>
     <View style={styles.skyfriendHeader}>
@@ -278,7 +280,7 @@ export function DexScreen() {
 
   const content = !entries.length
     ? <ScrollView contentContainerStyle={styles.emptyContent}>
-      <View>{header}{modeSwitch}{questArea}{earTrainingArea}{hallOfFameArea}{skyfriendArea}</View>
+      <View>{header}{modeSwitch}{backupArea}{questArea}{earTrainingArea}{hallOfFameArea}{skyfriendArea}</View>
       <View style={styles.center}><Text style={styles.title}>{viewMode === "journal" ? "No journal entries yet" : "Your Bird-dex is empty"}</Text><Text style={styles.copy}>{viewMode === "journal" ? "Capture real birds to start your chronological field journal." : "Explore the map and capture your first bird."}</Text></View>
     </ScrollView>
     : viewMode === "journal"
@@ -287,7 +289,7 @@ export function DexScreen() {
         contentContainerStyle={styles.list}
         data={journalCaptures}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={<View>{header}{modeSwitch}<Text style={styles.journalIntro}>Your real-bird field journal, newest first. Skyfriends stay separate.</Text></View>}
+        ListHeaderComponent={<View>{header}{modeSwitch}{backupArea}<Text style={styles.journalIntro}>Your real-bird field journal, newest first. Skyfriends stay separate.</Text></View>}
         ListFooterComponent={<View>{skyfriendArea}</View>}
         renderItem={renderJournalRow}
         ListEmptyComponent={<View style={styles.noMatches}><Text style={styles.noMatchesText}>No real bird observations yet.</Text></View>}
@@ -298,7 +300,7 @@ export function DexScreen() {
         data={filteredEntries}
         keyExtractor={(item) => item.key}
         numColumns={2}
-        ListHeaderComponent={<View>{header}{modeSwitch}{questArea}{earTrainingArea}{dexControls}</View>}
+        ListHeaderComponent={<View>{header}{modeSwitch}{backupArea}{questArea}{earTrainingArea}{dexControls}</View>}
         ListFooterComponent={<View>{hallOfFameArea}{skyfriendArea}</View>}
         renderItem={renderCard}
         ListEmptyComponent={<View style={styles.noMatches}><Text style={styles.noMatchesText}>No species match this search.</Text></View>}
