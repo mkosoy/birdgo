@@ -37,6 +37,10 @@ export function observationMarkerId(bird: Pick<EbirdObservation, "speciesCode" |
   return `${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`;
 }
 
+export function isPrismaticSkyfriendEncounter(encounterId: string): boolean {
+  return hash(`prismatic:${encounterId}`) % 24 === 0;
+}
+
 export function skyfriendCellKeyFromEncounterId(encounterId?: string): string | undefined {
   const locId = encounterId?.split(":")[1];
   if (!locId?.startsWith("skyfriend-")) return undefined;
@@ -183,6 +187,7 @@ export function buildSkyfriendSpawns(realBirds: EbirdObservation[], userLocation
       howMany: 1,
       source: "virtual",
       virtual: true,
+      prismatic: isPrismaticSkyfriendEncounter(locId),
     });
   }
   return spawns;

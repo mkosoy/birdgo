@@ -55,6 +55,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
     isNotable: Boolean(bird.isNotable),
     imageUrl: bird.imageUrl,
     virtual: Boolean(bird.virtual),
+    prismatic: Boolean(bird.prismatic),
     captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
   })), [birds, captureCounts]);
   const data = useMemo<LeafletData>(() => ({

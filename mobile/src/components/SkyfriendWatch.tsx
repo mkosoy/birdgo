@@ -23,11 +23,11 @@ interface Difficulty {
 }
 
 const DIFFICULTY: Record<BirdRarity, Difficulty> = {
-  common: { speed: 0.82, focusSeconds: 2.2, durationSeconds: 9, focusRadius: 60, orbitPadding: 32, copy: "Calm and slow" },
-  uncommon: { speed: 0.94, focusSeconds: 2.7, durationSeconds: 9.5, focusRadius: 56, orbitPadding: 24, copy: "A little fluttery" },
-  rare: { speed: 1.08, focusSeconds: 3.2, durationSeconds: 10, focusRadius: 52, orbitPadding: 28, copy: "Quick and wary" },
-  epic: { speed: 1.2, focusSeconds: 3.8, durationSeconds: 11, focusRadius: 48, orbitPadding: 32, copy: "Very jumpy" },
-  legendary: { speed: 1.34, focusSeconds: 4.4, durationSeconds: 12, focusRadius: 44, orbitPadding: 36, copy: "A master escape artist" },
+  common: { speed: 0.68, focusSeconds: 1.8, durationSeconds: 11, focusRadius: 64, orbitPadding: 24, copy: "Calm and slow" },
+  uncommon: { speed: 0.78, focusSeconds: 2.2, durationSeconds: 11.5, focusRadius: 60, orbitPadding: 20, copy: "A little fluttery" },
+  rare: { speed: 0.92, focusSeconds: 2.8, durationSeconds: 12, focusRadius: 56, orbitPadding: 22, copy: "Quick and wary" },
+  epic: { speed: 1.05, focusSeconds: 3.3, durationSeconds: 12.5, focusRadius: 52, orbitPadding: 24, copy: "Very jumpy" },
+  legendary: { speed: 1.18, focusSeconds: 3.8, durationSeconds: 13, focusRadius: 48, orbitPadding: 26, copy: "A master escape artist" },
 };
 
 const STARS = [
@@ -70,6 +70,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
   const speciesName = bird.comName ?? "Skyfriend";
   const rarity = rarityForSpecies(bird.speciesCode, speciesName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount);
   const difficulty = DIFFICULTY[rarity];
+  const prismatic = Boolean(bird.prismatic);
   const rarityColor = RARITY_COLORS[rarity];
   const birdKey = `${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`;
   const seed = useMemo(() => hash(birdKey) % 1000, [birdKey]);
@@ -81,6 +82,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
   const panRef = useRef({ x: 0, y: 0 });
   const panStartRef = useRef({ x: 0, y: 0 });
   const finishedRef = useRef(false);
+  const interactionBoostRef = useRef(0);
   const callbacksRef = useRef({ onSuccess, onEscape });
   callbacksRef.current = { onSuccess, onEscape };
 
@@ -120,9 +122,9 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
       const elapsed = (now - startedAt) / 1000;
       const delta = Math.min(0.08, Math.max(0, (now - (lastAt ?? now)) / 1000));
       lastAt = now;
-      if (focus >= 0.45) intensified = true;
-      const speed = difficulty.speed * (intensified ? 1.2 : 1);
-      const dartBoost = intensified ? 1.18 : 1;
+      if (focus >= 0.6) intensified = true;
+      const speed = difficulty.speed * (intensified ? 1.1 : 1);
+      const dartBoost = intensified ? 1.1 : 1;
       const dartClock = elapsed * (1.18 + speed * 0.28);
       const dartStep = Math.floor(dartClock);
       const dartProgress = dartClock - dartStep;
@@ -142,7 +144,9 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
       const y = unclampedY * visibleScale;
       const distance = Math.hypot(x, y);
       const centered = distance <= difficulty.focusRadius;
-      focus = clamp(focus + (centered ? delta / difficulty.focusSeconds : -delta / (difficulty.focusSeconds * 1.55)), 0, 1);
+      interactionBoostRef.current = Math.max(0, interactionBoostRef.current - delta * 1000);
+      const activelySteering = interactionBoostRef.current > 0;
+      focus = clamp(focus + (centered ? delta / difficulty.focusSeconds : -delta / (difficulty.focusSeconds * (activelySteering ? 2.5 : 1.55))), 0, 1);
       const timeLeft = Math.max(0, difficulty.durationSeconds - elapsed);
       const velocityX = x - lastX;
       lastX = x;
@@ -191,6 +195,7 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
       const dy = key === "arrowup" || key === "w" ? -step : key === "arrowdown" || key === "s" ? step : 0;
       if (!dx && !dy) return;
       event.preventDefault();
+      interactionBoostRef.current = 700;
       panRef.current = {
         x: clamp(panRef.current.x + dx, -112, 112),
         y: clamp(panRef.current.y + dy, -112, 112),
@@ -204,13 +209,21 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
     onPanResponderGrant: () => {
+      interactionBoostRef.current = 700;
       panStartRef.current = { ...panRef.current };
     },
     onPanResponderMove: (_event, gesture) => {
+      interactionBoostRef.current = 700;
       panRef.current = {
-        x: clamp(panStartRef.current.x + gesture.dx * 0.82, -112, 112),
-        y: clamp(panStartRef.current.y + gesture.dy * 0.82, -112, 112),
+        x: clamp(panStartRef.current.x + gesture.dx * 0.9, -112, 112),
+        y: clamp(panStartRef.current.y + gesture.dy * 0.9, -112, 112),
       };
+    },
+    onPanResponderRelease: () => {
+      interactionBoostRef.current = 0;
+    },
+    onPanResponderTerminate: () => {
+      interactionBoostRef.current = 0;
     },
   })).current;
 
@@ -244,9 +257,10 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
           <View style={styles.introScope}>
             <HoloBird x={0} y={0} facing={1} wing={-8} large centered />
           </View>
-          <View style={[styles.rarityPill, { backgroundColor: rarityColor }]}><Text style={styles.rarityText}>{rarity.toUpperCase()} SKYFRIEND</Text></View>
+          <View style={[styles.rarityPill, { backgroundColor: rarityColor }, prismatic && styles.rarityPillPrismatic]}><Text style={styles.rarityText}>{prismatic ? "PRISMATIC SKYFRIEND" : `${rarity.toUpperCase()} SKYFRIEND`}</Text></View>
           <Text style={styles.introHeading}>Spot it through the binoculars.</Text>
           <Text style={styles.introCopy}>Drag anywhere inside the scope{Platform.OS === "web" ? " or use the arrow keys" : ""} to keep the holographic bird inside the focus ring. Fill the focus meter before time runs out, or it slips away for a while.</Text>
+          {prismatic ? <Text style={styles.prismaticCopy}>A rare shimmering variant — keep your focus steady.</Text> : null}
           <Text style={styles.difficultyCopy}>{difficulty.copy} · {difficulty.focusSeconds.toFixed(1)} seconds of clean focus needed</Text>
           <Pressable accessibilityLabel="Start Skyfriend watch" style={styles.primaryButton} onPress={startWatch}><Text style={styles.primaryButtonText}>Start watching</Text></Pressable>
           <Pressable accessibilityLabel="Not now" style={styles.secondaryButton} onPress={onClose}><Text style={styles.secondaryButtonText}>Not now</Text></Pressable>
@@ -284,9 +298,9 @@ export function SkyfriendWatch({ bird, onSuccess, onEscape, onClose }: Skyfriend
               ? <HoloBird x={0} y={0} facing={1} wing={-10} large centered />
               : <Ionicons name="airplane" size={34} color="#fff" />}
           </View>
-          <Text style={styles.resultTitle}>{phase === "success" ? "Skyfriend collected!" : "It slipped away"}</Text>
+          <Text style={styles.resultTitle}>{phase === "success" ? prismatic ? "Prismatic Skyfriend collected!" : "Skyfriend collected!" : "It slipped away"}</Text>
           <Text style={styles.resultCopy}>{phase === "success"
-            ? `${speciesName} joined your virtual field guide.`
+            ? `${speciesName} joined your virtual field guide${prismatic ? " as a rare prismatic variant" : ""}.`
             : `${speciesName} spooked and left this spot. It may return after a short cooldown.`}</Text>
           <Pressable accessibilityLabel="Back to map" style={styles.primaryButton} onPress={onClose}><Text style={styles.primaryButtonText}>Back to map</Text></Pressable>
         </View>
@@ -306,6 +320,8 @@ const styles = StyleSheet.create({
   introScope: { width: 168, height: 168, borderRadius: 84, backgroundColor: "#132b58", borderWidth: 5, borderColor: "#76e6ff", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 18 },
   rarityPill: { borderRadius: 14, paddingHorizontal: 12, paddingVertical: 5, marginBottom: 12 },
   rarityText: { color: "#fff", fontWeight: "900", fontSize: 11, letterSpacing: 0.8 },
+  rarityPillPrismatic: { backgroundColor: "#c99b22", borderWidth: 1, borderColor: "#fff3bd" },
+  prismaticCopy: { color: "#ffe28a", fontSize: 13, fontWeight: "900", textAlign: "center", marginTop: 10 },
   introHeading: { color: "#fff", fontSize: 22, fontWeight: "900", textAlign: "center", marginBottom: 8 },
   introCopy: { color: "#c7d8ea", fontSize: 14, lineHeight: 21, textAlign: "center", maxWidth: 330 },
   difficultyCopy: { color: "#73e5ff", fontSize: 12, fontWeight: "800", textAlign: "center", marginTop: 10, marginBottom: 18 },

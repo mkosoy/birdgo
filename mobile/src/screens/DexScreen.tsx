@@ -197,10 +197,10 @@ export function DexScreen() {
       <View style={styles.skyfriendCount}><Text style={styles.skyfriendCountText}>{skyfriendSpecies}</Text></View>
     </View>
     {skyfriends.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.skyfriendRow}>
-      {skyfriends.slice(0, 16).map((record) => <View key={record.id} style={styles.skyfriendCard}>
+      {skyfriends.slice(0, 16).map((record) => <View key={record.id} style={[styles.skyfriendCard, record.variant === "prismatic" && styles.skyfriendCardPrismatic]}>
         {record.imageUrl ? <Image source={{ uri: record.imageUrl }} style={styles.skyfriendImage} /> : <View style={styles.skyfriendImageEmpty}><Text style={styles.skyfriendSparkle}>✦</Text></View>}
         <Text style={styles.skyfriendName} numberOfLines={2}>{record.commonName}</Text>
-        <Text style={styles.skyfriendMeta}>{shortDate(record.timestamp)}</Text>
+        <Text style={styles.skyfriendMeta}>{record.variant === "prismatic" ? "Prismatic · " : ""}{shortDate(record.timestamp)}</Text>
       </View>)}
     </ScrollView> : <Text style={styles.skyfriendEmpty}>Explore low-activity areas and look for glowing holographic birds.</Text>}
   </View>;
@@ -488,6 +488,7 @@ const styles = StyleSheet.create({
   skyfriendCountText: { color: "#1c2454", fontSize: 18, fontWeight: "900" },
   skyfriendRow: { gap: 10, paddingTop: 12, paddingRight: 4 },
   skyfriendCard: { width: 112, padding: 8, borderRadius: 14, backgroundColor: "#383674" },
+  skyfriendCardPrismatic: { borderWidth: 2, borderColor: "#ffd766", backgroundColor: "#4a3f78" },
   skyfriendImage: { width: "100%", height: 76, borderRadius: 10, backgroundColor: "#20204a" },
   skyfriendImageEmpty: { width: "100%", height: 76, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: "#20204a" },
   skyfriendSparkle: { color: "#72e7ff", fontSize: 38, fontWeight: "900" },

@@ -320,8 +320,9 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         location: { latitude: bird.latitude, longitude: bird.longitude },
         rarity: rarityForSpecies(bird.speciesCode, commonName, bird.isNotable, bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount),
         imageUrl: bird.imageUrl,
+        ...(bird.prismatic ? { variant: "prismatic" as const } : {}),
       });
-      setCompletionNotice(`Skyfriend collected: ${commonName}!`);
+      setCompletionNotice(bird.prismatic ? `Prismatic Skyfriend collected: ${commonName}!` : `Skyfriend collected: ${commonName}!`);
       if (!advanceBirdwalk(encounterId, commonName)) clearTrackedSkyfriend(encounterId);
     } finally {
       collectingSkyfriends.current.delete(encounterId);
