@@ -1424,7 +1424,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
       }
 
       function speciesGuideCacheKey(bird) {
-        return String(bird.sciName || bird.comName || '').toLowerCase();
+        return String((bird.sciName || '') + '|' + (bird.comName || '')).toLowerCase();
       }
 
       function fetchSpeciesGuide(bird) {
