@@ -6,6 +6,7 @@ export function speciesAudioScript(): string {
         }
         currentAudio = null;
         currentAudioKey = null;
+        currentAudioAttribution = '';
         resetListenButtons();
       }
 
@@ -49,7 +50,13 @@ export function speciesAudioScript(): string {
         var credit = popupElement ? popupElement.querySelector('[data-audio-credit]') : null;
         if (currentAudio && currentAudioKey === bird.id) {
           if (currentAudio.paused) {
-            currentAudio.play().then(function () { button.textContent = 'Pause'; }).catch(function () { button.textContent = 'Listen'; });
+            currentAudio.play().then(function () {
+              button.textContent = 'Pause';
+              if (credit && currentAudioAttribution) {
+                credit.textContent = currentAudioAttribution;
+                credit.classList.add('on');
+              }
+            }).catch(function () { button.textContent = 'Listen'; });
           } else {
             currentAudio.pause();
             button.textContent = 'Listen';
@@ -83,8 +90,9 @@ export function speciesAudioScript(): string {
               }
               button.disabled = false;
               button.textContent = 'Pause';
+              currentAudioAttribution = 'Audio · ' + (sound.recordist || 'Unknown recordist') + (sound.license ? ' · ' + sound.license : '');
               if (credit) {
-                credit.textContent = 'Audio · ' + (sound.recordist || 'Unknown recordist') + (sound.license ? ' · ' + sound.license : '');
+                credit.textContent = currentAudioAttribution;
                 credit.classList.add('on');
               }
             }, function (error) {
@@ -95,6 +103,7 @@ export function speciesAudioScript(): string {
               if (requestId !== audioRequest) return;
               button.disabled = false;
               button.textContent = 'Tap to play';
+              currentAudioAttribution = 'Audio · ' + (sound.recordist || 'Unknown recordist') + (sound.license ? ' · ' + sound.license : '');
               if (credit) {
                 credit.textContent = 'Audio ready · tap again to allow playback' + (sound.license ? ' · ' + sound.license : '');
                 credit.classList.add('on');

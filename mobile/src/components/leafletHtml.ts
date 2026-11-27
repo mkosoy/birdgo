@@ -61,10 +61,12 @@ export function buildLeafletHtml(options: { apiBaseUrl?: string } = {}): string 
       var popupBirdId = null;
       var currentAudio = null;
       var currentAudioKey = null;
+      var currentAudioAttribution = '';
       var audioRequest = 0;
       var guideCache = Object.create(null);
       var apiBaseUrl = ${serializedApiBaseUrl};
       var restoringPopup = false;
+      var rebuildingMarkers = false;
       var latestData = null;
       var latestMarkers = [];
       var programmaticCameraMove = false;
@@ -156,7 +158,16 @@ ${speciesAudioScript()}
           stopBirdAudio();
           postOutward({ type: 'about', speciesCode: bird.speciesCode, comName: bird.comName, sciName: bird.sciName });
         });
-        element.querySelector('[data-action="listen"]').addEventListener('click', function () {
+        var listenButton = element.querySelector('[data-action="listen"]');
+        if (listenButton && currentAudio && currentAudioKey === bird.id) {
+          listenButton.textContent = currentAudio.paused ? 'Listen' : 'Pause';
+          var activeCredit = element.querySelector('[data-audio-credit]');
+          if (activeCredit && currentAudioAttribution) {
+            activeCredit.textContent = currentAudioAttribution;
+            activeCredit.classList.add('on');
+          }
+        }
+        listenButton.addEventListener('click', function () {
           toggleBirdAudio(bird, this, element);
         });
         fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(bird.comName || 'Bird'))
@@ -197,7 +208,9 @@ ${speciesAudioScript()}
           map.setView([data.center.latitude, data.center.longitude], 13);
           firstData = false;
         }
+        rebuildingMarkers = true;
         markers.clearLayers();
+        rebuildingMarkers = false;
         var zoom = map.getZoom();
         var maxMarkers = zoom >= 15 ? 80 : zoom >= 13 ? 45 : 24;
         var minSpacing = zoom >= 16 ? 18 : zoom >= 15 ? 24 : zoom >= 13 ? 38 : 48;
@@ -268,7 +281,7 @@ ${speciesAudioScript()}
             attachPopupActions(popup, bird);
           });
           marker.on('popupclose', function () {
-            stopBirdAudio();
+            if (!rebuildingMarkers) stopBirdAudio();
             if (!restoringPopup) popupBirdId = null;
             postOutward({ type: 'popup', open: false });
           });
@@ -279,6 +292,8 @@ ${speciesAudioScript()}
           restoringPopup = true;
           restoreMarker.openPopup();
           setTimeout(function () { restoringPopup = false; }, 0);
+        } else if (restorePopupId && currentAudioKey === restorePopupId) {
+          stopBirdAudio();
         }
         if (data.userLocation) {
           var userPoint = [data.userLocation.latitude, data.userLocation.longitude];

@@ -323,6 +323,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
       var currentPopupBirdId = null;
       var currentAudio = null;
       var currentAudioKey = null;
+      var currentAudioAttribution = '';
       var audioRequest = 0;
       var guideCache = Object.create(null);
       var apiBaseUrl = ${serializedApiBaseUrl};
@@ -1452,7 +1453,16 @@ ${speciesAudioScript()}
           stopBirdAudio();
           postOutward({ type: 'about', speciesCode: bird.speciesCode, comName: bird.comName, sciName: bird.sciName });
         });
-        element.querySelector('[data-action="listen"]').addEventListener('click', function () {
+        var listenButton = element.querySelector('[data-action="listen"]');
+        if (listenButton && currentAudio && currentAudioKey === bird.id) {
+          listenButton.textContent = currentAudio.paused ? 'Listen' : 'Pause';
+          var activeCredit = element.querySelector('[data-audio-credit]');
+          if (activeCredit && currentAudioAttribution) {
+            activeCredit.textContent = currentAudioAttribution;
+            activeCredit.classList.add('on');
+          }
+        }
+        listenButton.addEventListener('click', function () {
           toggleBirdAudio(bird, this, element);
         });
         fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(bird.comName || 'Bird'))
