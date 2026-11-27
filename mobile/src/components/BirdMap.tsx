@@ -5,6 +5,7 @@ import { buildLeafletHtml } from "./leafletHtml";
 import { buildMapLibreHtml } from "./mapLibreHtml";
 import type { Coordinates, EbirdObservation, TrainerProfile, WeatherAtmosphere } from "../types";
 import { speciesKey } from "../utils/progression";
+import { API_BASE_URL } from "../config";
 
 export type BirdMapMode = "classic" | "adventure";
 export interface SafeAreaInsets {
@@ -245,7 +246,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     }
   }, [closePopupRequest]);
 
-  const html = useMemo(() => (mode === "adventure" ? buildMapLibreHtml() : buildLeafletHtml()), [mode]);
+  const html = useMemo(() => (mode === "adventure" ? buildMapLibreHtml({ apiBaseUrl: API_BASE_URL }) : buildLeafletHtml({ apiBaseUrl: API_BASE_URL })), [mode]);
   return <WebView key={mode} ref={webViewRef} style={styles.map} source={{ html }} onLoadEnd={() => postData(dataRef.current ?? data, true)} onMessage={handleMessage} originWhitelist={["*"]} />;
 });
 
