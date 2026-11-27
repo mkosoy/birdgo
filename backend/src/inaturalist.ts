@@ -60,6 +60,36 @@ export interface SpeciesReferenceImage {
 
 const referenceImageCache = new Map<string, { expiresAt: number; image?: SpeciesReferenceImage }>();
 
+const ABUNDANCE_CACHE_TTL_MS = 20 * 60 * 1000;
+const ABUNDANCE_CACHE_MAX_ENTRIES = 100;
+const abundanceCache = new Map<string, { expiresAt: number; results: BirdAbundance[] }>();
+
+function abundanceCacheKey(lat: number, lng: number, radiusKm: number, days: number): string {
+  return `${lat.toFixed(2)}:${lng.toFixed(2)}:${radiusKm.toFixed(1)}:${days}`;
+}
+
+function cachedAbundance(key: string): BirdAbundance[] | undefined {
+  const cached = abundanceCache.get(key);
+  if (!cached) return undefined;
+  if (cached.expiresAt <= Date.now()) {
+    abundanceCache.delete(key);
+    return undefined;
+  }
+  return cached.results;
+}
+
+function cacheAbundance(key: string, results: BirdAbundance[]): void {
+  const now = Date.now();
+  for (const [cacheKey, entry] of abundanceCache) {
+    if (entry.expiresAt <= now) abundanceCache.delete(cacheKey);
+  }
+  if (!abundanceCache.has(key) && abundanceCache.size >= ABUNDANCE_CACHE_MAX_ENTRIES) {
+    const oldestKey = abundanceCache.keys().next().value;
+    if (oldestKey) abundanceCache.delete(oldestKey);
+  }
+  abundanceCache.set(key, { results, expiresAt: now + ABUNDANCE_CACHE_TTL_MS });
+}
+
 function normalizeLookupName(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -132,6 +162,9 @@ export async function fetchInatBirdAbundance(
   radiusKm: number,
   days = 90,
 ): Promise<BirdAbundance[]> {
+  const cacheKey = abundanceCacheKey(lat, lng, radiusKm, days);
+  const cached = cachedAbundance(cacheKey);
+  if (cached) return cached;
   const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const params = new URLSearchParams({
     taxon_id: "3",
@@ -153,7 +186,7 @@ export async function fetchInatBirdAbundance(
     results.push(...payload.results);
     if (payload.results.length < 200) break;
   }
-  return results.flatMap((result) => {
+  const abundance = results.flatMap((result) => {
     const taxon = result.taxon;
     if (!taxon?.name || typeof result.count !== "number" || !Number.isFinite(result.count)) return [];
     return [{
@@ -162,6 +195,8 @@ export async function fetchInatBirdAbundance(
       count: result.count,
     }];
   });
+  cacheAbundance(cacheKey, abundance);
+  return abundance;
 }
 
 export async function fetchInatBirds(
