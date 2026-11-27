@@ -7,6 +7,7 @@ import { gzip, ungzip } from "pako";
 import { decode as decodeUtf8, encode as encodeUtf8 } from "@stablelib/utf8";
 import { API_BASE_URL } from "../config";
 import { createCollectionBackupJson, PORTABLE_BACKUP_MAX_BYTES, restoreCollectionBackup, validateCollectionBackup } from "./collectionBackup";
+import { getCollectionChangeVersion } from "./collectionEvents";
 
 const SYNC_KEY_STORAGE_KEY = "birdgo.cloud-sync-key-v1";
 const SYNC_REVISION_STORAGE_KEY = "birdgo.cloud-sync-revision-v1";
@@ -223,11 +224,14 @@ function enqueueCloudUpload<T>(operation: () => Promise<T>): Promise<T> {
 
 export async function uploadLatestEncryptedCloudBackup(): Promise<CloudSyncRecord | undefined> {
   return enqueueCloudUpload(async () => {
+    const startingChangeVersion = getCollectionChangeVersion();
     const credentials = await loadCloudSyncCredentials();
     if (!credentials) return undefined;
     const record = await uploadEncryptedCloudBackup(credentials.key, credentials.revision);
     await saveCloudSyncCredentials(credentials.key, record.revision);
-    await AsyncStorage.removeItem(AUTOMATIC_BACKUP_DIRTY_KEY).catch(() => undefined);
+    if (getCollectionChangeVersion() === startingChangeVersion) {
+      await AsyncStorage.removeItem(AUTOMATIC_BACKUP_DIRTY_KEY).catch(() => undefined);
+    }
     return record;
   });
 }
