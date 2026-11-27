@@ -46,6 +46,11 @@ function formatObservationAge(obsDt: string | undefined, source?: string): strin
   return `${verb} ${Math.round(hours / 24)}d ago`;
 }
 
+
+function rareHuntInstanceId(bird: EbirdObservation): string {
+  return `${observationMarkerId(bird)}:${bird.obsDt ?? "unknown"}`;
+}
+
 function openWalkingDirections(latitude: number, longitude: number): void {
   const destination = `${latitude},${longitude}`;
   const url = Platform.OS === "ios"
@@ -420,7 +425,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     if (!rareHuntCandidates.has(id)) rareHuntCandidates.set(id, bird);
   });
   const rareHunt = [...rareHuntCandidates.values()]
-    .filter((bird) => !dismissedRareHuntIds.includes(observationMarkerId(bird)))
+    .filter((bird) => !dismissedRareHuntIds.includes(rareHuntInstanceId(bird)))
     .filter((bird) => {
       if (bird.virtual || !bird.comName || distanceKm(location, bird) > 15) return false;
       const ageHours = bird.obsDt ? (Date.now() - new Date(bird.obsDt).getTime()) / 3_600_000 : 24;
@@ -441,7 +446,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
       setActiveTrackTarget(target);
       setTrackRequest(target);
     }
-    dismissRareHunt(target.id);
+    dismissRareHunt(rareHuntInstanceId(bird));
   };
   const topMessage = completionNotice
     ? { text: completionNotice, onPress: () => setCompletionNotice(null) }
@@ -685,7 +690,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           </Pressable>
         )}
         </View>
-        {rareHunt && !dismissedRareHuntIds.includes(observationMarkerId(rareHunt)) && !popupOpen && !completionNotice && !locationNotice && !error ? <View style={[styles.rareCard, toastOpen && styles.rareCardBelowToast]}>
+        {rareHunt && !dismissedRareHuntIds.includes(rareHuntInstanceId(rareHunt)) && !popupOpen && !completionNotice && !locationNotice && !error ? <View style={[styles.rareCard, toastOpen && styles.rareCardBelowToast]}>
           <Text style={styles.rareEyebrow}>Rare hunt nearby</Text>
           <Text style={styles.rareTitle}>{rareHunt.comName}</Text>
           <Text style={styles.rareCopy}>{distanceKm(location, rareHunt) < 1 ? `${Math.round(distanceKm(location, rareHunt) * 1000)}m` : `${distanceKm(location, rareHunt).toFixed(1)}km`} away · {formatObservationAge(rareHunt.obsDt, rareHunt.source)}{rareHunt.locName ? ` · ${rareHunt.locName}` : ""}</Text>
@@ -695,7 +700,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           <View style={styles.rareActions}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Track rare ${rareHunt.comName}`} style={styles.rarePrimary} onPress={() => startRareHunt(rareHunt)}><Text style={styles.rarePrimaryText}>Hunt</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={`Open ${rareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: rareHunt.speciesCode, comName: rareHunt.comName ?? "Unknown bird", sciName: rareHunt.sciName })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="Dismiss rare hunt" style={styles.rareDismiss} onPress={() => dismissRareHunt(observationMarkerId(rareHunt))}><Text style={styles.rareDismissText}>×</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Dismiss rare hunt" style={styles.rareDismiss} onPress={() => dismissRareHunt(rareHuntInstanceId(rareHunt))}><Text style={styles.rareDismissText}>×</Text></Pressable>
           </View>
         </View> : null}
         {topMessage && !popupOpen && (
