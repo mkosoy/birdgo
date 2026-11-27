@@ -215,7 +215,7 @@ export function buildLeafletHtml(): string {
           }
           var point = map.latLngToContainerPoint(latLng);
           var crowded = false;
-          if (String(bird.id) !== String(restorePopupId)) {
+          if (zoom < 16 && String(bird.id) !== String(restorePopupId)) {
             for (var pointIndex = 0; pointIndex < chosenPoints.length; pointIndex += 1) {
               var dx = point.x - chosenPoints[pointIndex].x;
               var dy = point.y - chosenPoints[pointIndex].y;
