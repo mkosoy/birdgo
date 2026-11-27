@@ -36,7 +36,7 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
   const [showSyncKey, setShowSyncKey] = useState(false);
   const [message, setMessage] = useState<string>();
   const [messageTone, setMessageTone] = useState<"good" | "bad">("good");
-  const [automaticBackup, setAutomaticBackup] = useState({ pending: false, running: false, conflict: false } as { pending: boolean; running: boolean; conflict: boolean; error?: string; lastSyncedAt?: string; revision?: number });
+  const [automaticBackup, setAutomaticBackup] = useState({ pending: false, running: false, conflict: false } as { pending: boolean; running: boolean; conflict: boolean; conflictRevision?: number; error?: string; lastSyncedAt?: string; revision?: number });
 
   useEffect(() => subscribeAutomaticCloudBackup((state) => {
     setAutomaticBackup(state);
@@ -44,6 +44,7 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
       setCloudRevision(state.revision);
       setRemoteCloudRevision(state.revision);
     }
+    if (state.conflictRevision !== undefined) setRemoteCloudRevision(state.conflictRevision);
   }), []);
 
   useEffect(() => {
@@ -250,7 +251,7 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
         <Pressable accessibilityRole="button" accessibilityLabel="Back up collection to encrypted cloud sync" disabled={Boolean(busy)} style={[styles.button, styles.exportButton, Boolean(busy) && styles.buttonDisabled]} onPress={() => void uploadExistingCloud()}>
           {busy === "cloud-upload" ? <ActivityIndicator size="small" color="#ffffff" /> : <Text style={styles.exportText}>Back up now</Text>}
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Restore encrypted cloud backup" disabled={Boolean(busy)} style={[styles.button, styles.importButton, Boolean(busy) && styles.buttonDisabled]} onPress={() => { setMessage(undefined); setRestoreTargetRevision(remoteCloudRevision ?? cloudRevision); setConfirmingCloudRestore(true); }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Restore encrypted cloud backup" disabled={Boolean(busy)} style={[styles.button, styles.importButton, Boolean(busy) && styles.buttonDisabled]} onPress={() => { setMessage(undefined); const knownRevision = automaticBackup.conflict ? automaticBackup.conflictRevision : Math.max(remoteCloudRevision ?? 0, cloudRevision); setRestoreTargetRevision(knownRevision && knownRevision > 0 ? knownRevision : undefined); setConfirmingCloudRestore(true); }}>
           <Text style={styles.importText}>Restore</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Show private cloud sync key" disabled={Boolean(busy)} style={[styles.button, styles.cancelButton, Boolean(busy) && styles.buttonDisabled]} onPress={() => setShowSyncKey((current) => !current)}>

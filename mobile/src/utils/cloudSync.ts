@@ -193,6 +193,7 @@ export interface AutomaticCloudBackupState {
   pending: boolean;
   running: boolean;
   conflict: boolean;
+  conflictRevision?: number;
   error?: string;
   lastSyncedAt?: string;
   revision?: number;
@@ -250,7 +251,7 @@ async function runAutomaticCloudBackup(): Promise<void> {
   } catch (error) {
     if (error instanceof CloudSyncError && error.status === 409) {
       automaticBackupPaused = true;
-      updateAutomaticBackupState({ running: false, conflict: true, error: undefined });
+      updateAutomaticBackupState({ running: false, conflict: true, conflictRevision: error.currentRevision, error: undefined });
       return;
     }
     updateAutomaticBackupState({
@@ -262,7 +263,7 @@ async function runAutomaticCloudBackup(): Promise<void> {
 
 export function reconcileAutomaticCloudBackup(revision: number): void {
   automaticBackupPaused = false;
-  updateAutomaticBackupState({ conflict: false, error: undefined, revision });
+  updateAutomaticBackupState({ conflict: false, conflictRevision: undefined, error: undefined, revision });
 }
 
 export async function resumePendingAutomaticCloudBackup(): Promise<boolean> {
