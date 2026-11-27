@@ -47,8 +47,8 @@ function withoutPhotoReferences(raw: string | undefined): string | undefined {
     if (!Array.isArray(captures)) return raw;
     return JSON.stringify(captures.map((capture) => {
       if (!capture || typeof capture !== "object") return capture;
-      const { photoUri: _photoUri, ...metadata } = capture;
-      return metadata;
+      const { photoUri, ...metadata } = capture;
+      return typeof photoUri === "string" && photoUri ? { ...metadata, photoEvidenceProvided: true } : metadata;
     }));
   } catch {
     return raw;
@@ -152,6 +152,7 @@ function validateCaptureList(raw: string | undefined): boolean {
         && optionalString(record.photoUri)
         && (record.rarity === undefined || ["common", "uncommon", "rare", "epic", "legendary"].includes(String(record.rarity)))
         && (record.verified === undefined || typeof record.verified === "boolean")
+        && (record.photoEvidenceProvided === undefined || typeof record.photoEvidenceProvided === "boolean")
         && (record.xpAwarded === undefined || typeof record.xpAwarded === "number");
     });
   } catch {
