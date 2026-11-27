@@ -76,7 +76,7 @@ export function DexScreen() {
       if (filter === "seen" && entry.capturedCount > 0) return false;
       if (filter === "rare" && !(entry.identified !== false && ["rare", "epic", "legendary"].includes(entry.rarity))) return false;
       if (!needle) return true;
-      return [entry.commonName, entry.sciName].some((value) => value?.toLowerCase().includes(needle));
+      return [displayName(entry), entry.commonName, entry.sciName].some((value) => value?.toLowerCase().includes(needle));
     });
   }, [entries, query, filter]);
   const badges = useMemo(() => buildBirdBadges(captures, skyfriends), [captures, skyfriends]);
