@@ -23,6 +23,7 @@ const BACKUP_KEYS = [
 ] as const;
 
 const MAX_BACKUP_BYTES = Platform.OS === "web" ? 4 * 1024 * 1024 : 25 * 1024 * 1024;
+const MAX_VALUE_CHARS = 1_500_000;
 const keySet = new Set<string>(BACKUP_KEYS);
 
 type BackupEntries = Record<string, string>;
@@ -173,6 +174,7 @@ export function validateCollectionBackup(json: string): BackupEntries {
   const entries: BackupEntries = {};
   for (const [key, value] of Object.entries(parsed.entries)) {
     if (!keySet.has(key) || typeof value !== "string") throw new Error("This backup contains unsupported or corrupted data.");
+    if (value.length > MAX_VALUE_CHARS) throw new Error("This backup contains a record too large for mobile storage.");
     entries[key] = value;
   }
   if (!Object.keys(entries).length) throw new Error("This backup is empty.");
