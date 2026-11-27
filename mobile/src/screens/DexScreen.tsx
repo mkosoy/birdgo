@@ -49,6 +49,8 @@ export function DexScreen() {
   const [detailUsesModel, setDetailUsesModel] = useState(false);
   const [trainerDraft, setTrainerDraft] = useState<TrainerProfile>(trainer);
   const [selected, setSelected] = useState<SpeciesDexEntry>();
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "captured" | "seen" | "rare">("all");
   const [pendingRelease, setPendingRelease] = useState<{
     commonName: string;
     speciesCode?: string;
@@ -67,6 +69,16 @@ export function DexScreen() {
   }, [refresh]));
 
   const entries = useMemo(() => buildSpeciesDex(captures, seenSpecies), [captures, seenSpecies]);
+  const filteredEntries = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return entries.filter((entry) => {
+      if (filter === "captured" && !(entry.capturedCount > 0 && entry.identified !== false)) return false;
+      if (filter === "seen" && entry.capturedCount > 0) return false;
+      if (filter === "rare" && !(entry.identified !== false && ["rare", "epic", "legendary"].includes(entry.rarity))) return false;
+      if (!needle) return true;
+      return [entry.commonName, entry.sciName].some((value) => value?.toLowerCase().includes(needle));
+    });
+  }, [entries, query, filter]);
   const badges = useMemo(() => buildBirdBadges(captures, skyfriends), [captures, skyfriends]);
   const earnedBadgeCount = badges.filter((badge) => badge.earned).length;
   const progress = levelForXp(xp);
@@ -181,6 +193,23 @@ export function DexScreen() {
     </ScrollView> : <Text style={styles.skyfriendEmpty}>Explore low-activity areas and look for glowing holographic birds.</Text>}
   </View>;
 
+  const filterChoices: { value: typeof filter; label: string }[] = [
+    { value: "all", label: "All" },
+    { value: "captured", label: "Collected" },
+    { value: "seen", label: "Seen" },
+    { value: "rare", label: "Rare+" },
+  ];
+  const dexControls = entries.length ? <View style={styles.searchArea}>
+    <View style={styles.searchBox}>
+      <Ionicons name="search" size={17} color="#668071" />
+      <TextInput value={query} onChangeText={setQuery} placeholder="Search species" placeholderTextColor="#789086" style={styles.searchInput} autoCapitalize="none" autoCorrect={false} />
+      {query ? <Pressable accessibilityLabel="Clear species search" hitSlop={8} onPress={() => setQuery("")}><Ionicons name="close-circle" size={18} color="#789086" /></Pressable> : null}
+    </View>
+    <View style={styles.filterRow}>{filterChoices.map((choice) => <Pressable key={choice.value} accessibilityRole="button" accessibilityLabel={`${choice.label} species filter`} style={[styles.filterChip, filter === choice.value && styles.filterChipActive]} onPress={() => setFilter(choice.value)}>
+      <Text style={[styles.filterChipText, filter === choice.value && styles.filterChipTextActive]}>{choice.label}</Text>
+    </Pressable>)}</View>
+  </View> : null;
+
   const renderCard = ({ item }: { item: SpeciesDexEntry }) => {
     const captured = item.capturedCount > 0;
     const imageUri = item.photoUri || item.imageUrl;
@@ -209,12 +238,13 @@ export function DexScreen() {
     </ScrollView>
     : <FlatList
       contentContainerStyle={styles.list}
-      data={entries}
+      data={filteredEntries}
       keyExtractor={(item) => item.key}
       numColumns={2}
-      ListHeaderComponent={<View>{header}{questArea}{earTrainingArea}</View>}
+      ListHeaderComponent={<View>{header}{questArea}{earTrainingArea}{dexControls}</View>}
       ListFooterComponent={<View>{hallOfFameArea}{skyfriendArea}</View>}
       renderItem={renderCard}
+      ListEmptyComponent={<View style={styles.noMatches}><Text style={styles.noMatchesText}>No species match this search.</Text></View>}
     />;
 
   const selectedCapture = selected?.capture;
@@ -303,6 +333,16 @@ export function DexScreen() {
 
 const styles = StyleSheet.create({
   list: { padding: 10, gap: 4, paddingBottom: 28 },
+  searchArea: { margin: 5, marginBottom: 10, gap: 8 },
+  searchBox: { minHeight: 44, borderRadius: 14, paddingHorizontal: 11, flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: "#ffffff", borderWidth: 1, borderColor: "#dce6df" },
+  searchInput: { flex: 1, minWidth: 0, color: "#173c2b", fontSize: 14, fontWeight: "700", paddingVertical: 10 },
+  filterRow: { flexDirection: "row", gap: 7 },
+  filterChip: { minHeight: 34, borderRadius: 17, paddingHorizontal: 13, alignItems: "center", justifyContent: "center", backgroundColor: "#e7eeea" },
+  filterChipActive: { backgroundColor: "#2f7d5b" },
+  filterChipText: { color: "#486155", fontSize: 12, fontWeight: "900" },
+  filterChipTextActive: { color: "#ffffff" },
+  noMatches: { padding: 28, alignItems: "center" },
+  noMatchesText: { color: "#68796f", fontWeight: "700" },
   header: { margin: 5, marginBottom: 12, padding: 16, borderRadius: 18, backgroundColor: "#173c2b", elevation: 3 },
   headerTop: { flexDirection: "row", alignItems: "center", gap: 12 },
   trainerName: { color: "#ffffff", fontSize: 17, fontWeight: "900" },
