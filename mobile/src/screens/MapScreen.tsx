@@ -84,7 +84,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const [locationRetry, setLocationRetry] = useState(0);
   const hasRealLocation = useRef(false);
   const fallbackActive = useRef(true);
-  const [dismissedRareHuntId, setDismissedRareHuntId] = useState<string>();
+  const [dismissedRareHuntIds, setDismissedRareHuntIds] = useState<string[]>([]);
   const { birds, notable, loading, error, loadedArea, refresh } = useBirds(center.latitude, center.longitude);
   const weather = useWeather(location);
   const { trainer, refresh: refreshTrainer } = useTrainerProfile();
@@ -397,6 +397,9 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
       const rarityDelta = RARITY_ORDER.indexOf(rarityForSpecies(b.speciesCode, b.comName, true, b.sciName, b.canonicalKey, b.frequency, b.abundanceCount)) - RARITY_ORDER.indexOf(rarityForSpecies(a.speciesCode, a.comName, true, a.sciName, a.canonicalKey, a.frequency, a.abundanceCount));
       return rarityDelta || distanceKm(location, a) - distanceKm(location, b);
     })[0];
+  const dismissRareHunt = (id: string) => {
+    setDismissedRareHuntIds((current) => current.includes(id) ? current : [...current, id].slice(-20));
+  };
   const startRareHunt = (bird: EbirdObservation) => {
     const target = { latitude: bird.latitude, longitude: bird.longitude, name: bird.comName ?? "Rare bird", id: observationMarkerId(bird), speciesCode: bird.speciesCode };
     if (mode === "classic") openWalkingDirections(target.latitude, target.longitude);
@@ -404,7 +407,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
       setActiveTrackTarget(target);
       setTrackRequest(target);
     }
-    setDismissedRareHuntId(target.id);
+    dismissRareHunt(target.id);
   };
   const topMessage = completionNotice
     ? { text: completionNotice, onPress: () => setCompletionNotice(null) }
@@ -648,7 +651,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           </Pressable>
         )}
         </View>
-        {rareHunt && dismissedRareHuntId !== observationMarkerId(rareHunt) && !popupOpen && !toastOpen && !completionNotice && !locationNotice && !error ? <View style={styles.rareCard}>
+        {rareHunt && !dismissedRareHuntIds.includes(observationMarkerId(rareHunt)) && !popupOpen && !toastOpen && !completionNotice && !locationNotice && !error ? <View style={styles.rareCard}>
           <Text style={styles.rareEyebrow}>Rare hunt nearby</Text>
           <Text style={styles.rareTitle}>{rareHunt.comName}</Text>
           <Text style={styles.rareCopy}>{distanceKm(location, rareHunt) < 1 ? `${Math.round(distanceKm(location, rareHunt) * 1000)}m` : `${distanceKm(location, rareHunt).toFixed(1)}km`} away · {formatObservationAge(rareHunt.obsDt)}{rareHunt.locName ? ` · ${rareHunt.locName}` : ""}</Text>
@@ -656,7 +659,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           <View style={styles.rareActions}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Track rare ${rareHunt.comName}`} style={styles.rarePrimary} onPress={() => startRareHunt(rareHunt)}><Text style={styles.rarePrimaryText}>Hunt</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={`Open ${rareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: rareHunt.speciesCode, comName: rareHunt.comName ?? "Unknown bird", sciName: rareHunt.sciName })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="Dismiss rare hunt" style={styles.rareDismiss} onPress={() => setDismissedRareHuntId(observationMarkerId(rareHunt))}><Text style={styles.rareDismissText}>×</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Dismiss rare hunt" style={styles.rareDismiss} onPress={() => dismissRareHunt(observationMarkerId(rareHunt))}><Text style={styles.rareDismissText}>×</Text></Pressable>
           </View>
         </View> : null}
         {topMessage && !popupOpen && (
