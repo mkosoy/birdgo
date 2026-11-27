@@ -1,4 +1,4 @@
-import type { BirdRarity, CaptureRecord, SeenSpecies } from "../types";
+import type { BirdRarity, CaptureRecord, SeenSpecies, SkyfriendRecord } from "../types";
 
 export const RARITY_ORDER: BirdRarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
 
@@ -111,6 +111,47 @@ export function levelForXp(xp: number): { level: number; currentLevelXp: number;
   };
 }
 
+export interface BirdBadge {
+  id: string;
+  title: string;
+  detail: string;
+  icon: "leaf" | "camera" | "ribbon" | "star" | "planet" | "sparkles";
+  progress: number;
+  target: number;
+  earned: boolean;
+}
+
+function makeBadge(id: string, title: string, detail: string, icon: BirdBadge["icon"], progress: number, target: number): BirdBadge {
+  return { id, title, detail, icon, progress: Math.min(progress, target), target, earned: progress >= target };
+}
+
+function countSpeciesGroups(records: Array<Pick<CaptureRecord, "speciesCode" | "commonName" | "sciName" | "canonicalKey">>): number {
+  let groups: SpeciesIdentityFields[][] = [];
+  records.forEach((record) => {
+    const matching = groups.filter((group) => group.some((existing) => speciesIdentitiesMatch(existing, record)));
+    const remaining = groups.filter((group) => !matching.includes(group));
+    groups = [...remaining, [...matching.flat(), record]];
+  });
+  return groups.length;
+}
+
+export function buildBirdBadges(captures: CaptureRecord[], skyfriends: SkyfriendRecord[]): BirdBadge[] {
+  const identified = captures.filter(isIdentifiedCapture);
+  const speciesCount = countSpeciesGroups(identified);
+  const verifiedCount = identified.filter((capture) => capture.verified).length;
+  const rareSpeciesCount = countSpeciesGroups(identified
+    .filter((capture) => RARITY_ORDER.indexOf(capture.rarity ?? "common") >= RARITY_ORDER.indexOf("rare")));
+  const skyfriendSpeciesCount = countSpeciesGroups(skyfriends);
+  return [
+    makeBadge("first-species", "First species", "Capture your first identified real bird", "leaf", speciesCount, 1),
+    makeBadge("photographer", "Photographer", "Verify 3 real bird photos with AI", "camera", verifiedCount, 3),
+    makeBadge("life-list", "Life list", "Collect 5 real species", "ribbon", speciesCount, 5),
+    makeBadge("rare-spotter", "Rare spotter", "Capture a rare or better species", "star", rareSpeciesCount, 1),
+    makeBadge("skyfriend-trainer", "Skyfriend trainer", "Collect your first Skyfriend", "planet", skyfriendSpeciesCount, 1),
+    makeBadge("skyfriend-guide", "Skyfriend guide", "Collect 5 Skyfriend species", "sparkles", skyfriendSpeciesCount, 5),
+  ];
+}
+
 export interface SpeciesDexEntry {
   key: string;
   speciesCode?: string;
@@ -162,7 +203,9 @@ function speciesIdentitiesMatch(left: SpeciesIdentityFields, right: SpeciesIdent
   if (leftScientific && leftScientific === rightScientific) return true;
   const leftCommon = normalizedSpeciesName(left.commonName ?? left.comName);
   const rightCommon = normalizedSpeciesName(right.commonName ?? right.comName);
-  return Boolean(leftCommon && leftCommon === rightCommon);
+  const meaningfulLeftCommon = leftCommon === "unidentified bird" ? "" : leftCommon;
+  const meaningfulRightCommon = rightCommon === "unidentified bird" ? "" : rightCommon;
+  return Boolean(meaningfulLeftCommon && meaningfulLeftCommon === meaningfulRightCommon);
 }
 
 function captureName(capture: CaptureRecord): string {
