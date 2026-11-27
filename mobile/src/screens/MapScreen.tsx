@@ -216,7 +216,12 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     });
     return counts;
   }, {}), [captures]);
-  const skyfriendCellsKey = useMemo(() => skyfriendCellKeysAround(location).join("|"), [location]);
+  const trackedSkyfriendCellKey = skyfriendCellKeyFromEncounterId(activeTrackTarget?.id);
+  const skyfriendCellsKey = useMemo(() => {
+    const keys = skyfriendCellKeysAround(location);
+    if (trackedSkyfriendCellKey && !keys.includes(trackedSkyfriendCellKey)) keys.push(trackedSkyfriendCellKey);
+    return keys.join("|");
+  }, [location, trackedSkyfriendCellKey]);
   const skyfriendCells = useMemo(() => skyfriendCellsKey.split("|"), [skyfriendCellsKey]);
   useEffect(() => {
     let active = true;
@@ -228,7 +233,6 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     });
     return () => { active = false; };
   }, [skyfriendCells, skyfriendCellsKey]);
-  const trackedSkyfriendCellKey = skyfriendCellKeyFromEncounterId(activeTrackTarget?.id);
   const skyfriendSpawnGroups = useMemo(
     () => spawnSpeciesAssignments
       ? skyfriendCells.map((cellKey) => ({
