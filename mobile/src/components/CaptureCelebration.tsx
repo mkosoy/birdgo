@@ -15,12 +15,13 @@ interface CaptureCelebrationProps {
   honorSystem: boolean;
   photoUri?: string | null;
   referenceImageUrl?: string;
+  questUpdates?: { title: string; detail: string }[];
   onClose: () => void;
 }
 
 const CONFETTI_COLORS = ["#ffd766", "#72e7ff", "#65d184", "#f0a6c1", "#d7ccff", "#ffffff"];
 
-export function CaptureCelebration({ commonName, sciName, rarity, xp, firstSpecies, verified, honorSystem, photoUri, referenceImageUrl, onClose }: CaptureCelebrationProps) {
+export function CaptureCelebration({ commonName, sciName, rarity, xp, firstSpecies, verified, honorSystem, photoUri, referenceImageUrl, questUpdates, onClose }: CaptureCelebrationProps) {
   const { height } = useWindowDimensions();
   const entrance = useRef(new Animated.Value(0)).current;
   const confetti = useRef(new Animated.Value(0)).current;
@@ -88,6 +89,13 @@ export function CaptureCelebration({ commonName, sciName, rarity, xp, firstSpeci
         </View>
         <Text style={styles.provenance}>{provenance}</Text>
         <Text style={styles.collectionNote}>{collectionNote}</Text>
+        {questUpdates?.length ? <View style={styles.questBox}>
+          <Text style={styles.questHeading}>Quest progress</Text>
+          {questUpdates.map((quest) => <View key={quest.title} style={styles.questRow}>
+            <Text style={styles.questName} numberOfLines={1}>{quest.title}</Text>
+            <Text style={styles.questDetail} numberOfLines={2}>{quest.detail}</Text>
+          </View>)}
+        </View> : null}
         <Pressable accessibilityRole="button" accessibilityLabel="Keep birding" style={styles.keepButton} onPress={onClose}>
           <Text style={styles.keepButtonText}>Keep birding</Text>
         </Pressable>
@@ -117,6 +125,11 @@ const styles = StyleSheet.create({
   xpText: { color: "#dff4e7", fontSize: 11, fontWeight: "900" },
   provenance: { color: "#4c6255", fontSize: 12, fontWeight: "800", marginTop: 10 },
   collectionNote: { color: "#748379", fontSize: 11, marginTop: 3, textAlign: "center" },
+  questBox: { width: "100%", marginTop: 11, padding: 10, borderRadius: 14, backgroundColor: "#edf7ef", borderWidth: 1, borderColor: "#c9e5d0" },
+  questHeading: { color: "#2f7d5b", fontSize: 10, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 5 },
+  questRow: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 2 },
+  questName: { flex: 1, color: "#173c2b", fontSize: 11, fontWeight: "900" },
+  questDetail: { flex: 1.4, color: "#52665a", fontSize: 10, fontWeight: "700", textAlign: "right" },
   keepButton: { width: "100%", minHeight: 48, marginTop: 15, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#2f7d5b" },
   keepButtonText: { color: "#fff", fontSize: 14, fontWeight: "900" },
 });
