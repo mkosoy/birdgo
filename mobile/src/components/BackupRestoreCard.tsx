@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Clipboard from "expo-clipboard";
 import { exportCollectionBackup, pickValidatedCollectionBackup, restoreCollectionBackup } from "../utils/collectionBackup";
+import { notifyCollectionChanged } from "../utils/collectionEvents";
 import {
   CloudSyncError,
   fetchCloudSyncEnabled,
@@ -91,6 +92,7 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
         return;
       }
       await restoreCollectionBackup(entries);
+      notifyCollectionChanged();
       setConfirmingImport(false);
       onRestored();
       showMessage("Backup restored on this device.");
