@@ -279,7 +279,7 @@ export function DexScreen() {
   const content = !entries.length
     ? <ScrollView contentContainerStyle={styles.emptyContent}>
       <View>{header}{modeSwitch}{questArea}{earTrainingArea}{hallOfFameArea}{skyfriendArea}</View>
-      <View style={styles.center}><Text style={styles.title}>Your Bird-dex is empty</Text><Text style={styles.copy}>Explore the map and capture your first bird.</Text></View>
+      <View style={styles.center}><Text style={styles.title}>{viewMode === "journal" ? "No journal entries yet" : "Your Bird-dex is empty"}</Text><Text style={styles.copy}>{viewMode === "journal" ? "Capture real birds to start your chronological field journal." : "Explore the map and capture your first bird."}</Text></View>
     </ScrollView>
     : viewMode === "journal"
       ? <FlatList
