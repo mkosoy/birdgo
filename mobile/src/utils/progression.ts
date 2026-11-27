@@ -125,21 +125,32 @@ function makeBadge(id: string, title: string, detail: string, icon: BirdBadge["i
   return { id, title, detail, icon, progress: Math.min(progress, target), target, earned: progress >= target };
 }
 
+function countSpeciesGroups(records: Array<Pick<CaptureRecord, "speciesCode" | "commonName" | "sciName" | "canonicalKey">>): number {
+  let groups: string[][] = [];
+  records.forEach((record) => {
+    const aliases = speciesKeyAliases(record.speciesCode, record.commonName, record.sciName, record.canonicalKey);
+    if (!aliases.length) return;
+    const matching = groups.filter((group) => group.some((alias) => aliases.includes(alias)));
+    const remaining = groups.filter((group) => !matching.includes(group));
+    groups = [...remaining, [...new Set(matching.flat().concat(aliases))]];
+  });
+  return groups.length;
+}
+
 export function buildBirdBadges(captures: CaptureRecord[], skyfriends: SkyfriendRecord[]): BirdBadge[] {
   const identified = captures.filter(isIdentifiedCapture);
-  const species = new Set(identified.map((capture) => speciesKey(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey)));
+  const speciesCount = countSpeciesGroups(identified);
   const verifiedCount = identified.filter((capture) => capture.verified).length;
-  const rareSpecies = new Set(identified
-    .filter((capture) => RARITY_ORDER.indexOf(capture.rarity ?? "common") >= RARITY_ORDER.indexOf("rare"))
-    .map((capture) => speciesKey(capture.speciesCode, capture.commonName, capture.sciName, capture.canonicalKey)));
-  const skyfriendSpecies = new Set(skyfriends.map((record) => speciesKey(record.speciesCode, record.commonName, record.sciName, record.canonicalKey)));
+  const rareSpeciesCount = countSpeciesGroups(identified
+    .filter((capture) => RARITY_ORDER.indexOf(capture.rarity ?? "common") >= RARITY_ORDER.indexOf("rare")));
+  const skyfriendSpeciesCount = countSpeciesGroups(skyfriends);
   return [
-    makeBadge("first-species", "First species", "Capture your first identified real bird", "leaf", species.size, 1),
+    makeBadge("first-species", "First species", "Capture your first identified real bird", "leaf", speciesCount, 1),
     makeBadge("photographer", "Photographer", "Verify 3 real bird photos with AI", "camera", verifiedCount, 3),
-    makeBadge("life-list", "Life list", "Collect 5 real species", "ribbon", species.size, 5),
-    makeBadge("rare-spotter", "Rare spotter", "Capture a rare or better species", "star", rareSpecies.size, 1),
-    makeBadge("skyfriend-trainer", "Skyfriend trainer", "Collect your first Skyfriend", "planet", skyfriendSpecies.size, 1),
-    makeBadge("skyfriend-guide", "Skyfriend guide", "Collect 5 Skyfriend species", "sparkles", skyfriendSpecies.size, 5),
+    makeBadge("life-list", "Life list", "Collect 5 real species", "ribbon", speciesCount, 5),
+    makeBadge("rare-spotter", "Rare spotter", "Capture a rare or better species", "star", rareSpeciesCount, 1),
+    makeBadge("skyfriend-trainer", "Skyfriend trainer", "Collect your first Skyfriend", "planet", skyfriendSpeciesCount, 1),
+    makeBadge("skyfriend-guide", "Skyfriend guide", "Collect 5 Skyfriend species", "sparkles", skyfriendSpeciesCount, 5),
   ];
 }
 
