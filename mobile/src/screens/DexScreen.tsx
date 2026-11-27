@@ -57,7 +57,7 @@ export function DexScreen() {
     sciName?: string | null;
     canonicalKey?: string;
     captureIds: string[];
-    photoLabel: string;
+    recordLabel: string;
   }>();
   useEffect(() => {
     setDetailUsesModel(false);
@@ -112,7 +112,7 @@ export function DexScreen() {
       sciName: entry.sciName,
       canonicalKey: entry.canonicalKey,
       captureIds: entry.captureIds,
-      photoLabel: `${photoCount} photo${photoCount === 1 ? "" : "s"}`,
+      recordLabel: `${photoCount} observation record${photoCount === 1 ? "" : "s"}`,
     });
   };
 
@@ -248,6 +248,11 @@ export function DexScreen() {
     />;
 
   const selectedCapture = selected?.capture;
+  const selectedCaptures = selected
+    ? captures
+      .filter((capture) => selected.captureIds.includes(capture.id))
+      .sort((left, right) => Date.parse(right.timestamp) - Date.parse(left.timestamp))
+    : [];
   const coordinates = coordinateLabel(selectedCapture?.location?.latitude, selectedCapture?.location?.longitude);
   const detailImageUri = selectedCapture?.photoUri || (selected?.identified !== false ? selected?.imageUrl : undefined);
   const showDetailImage = Boolean(detailImageUri && !detailUsesModel);
@@ -284,6 +289,22 @@ export function DexScreen() {
               {coordinates && <Text style={styles.detailStat}>{coordinates}</Text>}
             </View>
             <Text style={styles.detailCopy}>{detailCopy}</Text>
+            {selectedCaptures.length ? <View style={styles.historyArea}>
+              <Text style={styles.historyTitle}>Observation history</Text>
+              {selectedCaptures.slice(0, 4).map((capture) => {
+                const captureCoordinates = coordinateLabel(capture.location?.latitude, capture.location?.longitude);
+                return <View key={capture.id} style={styles.historyRow}>
+                  {capture.photoUri
+                    ? <Image source={{ uri: capture.photoUri }} style={styles.historyImage} />
+                    : <View style={[styles.historyImage, styles.historyImageEmpty]}><Ionicons name={capture.verified ? "camera" : "hand-left"} size={16} color="#64776c" /></View>}
+                  <View style={styles.historyCopy}>
+                    <Text style={styles.historyDate}>{shortDate(capture.timestamp)}</Text>
+                    <Text style={styles.historyMeta} numberOfLines={1}>{capture.verified ? "AI verified photo" : capture.photoUri ? "Unverified photo" : "Honor-system sighting"}{captureCoordinates ? ` · ${captureCoordinates}` : ""}</Text>
+                  </View>
+                </View>;
+              })}
+              {selectedCaptures.length > 4 ? <Text style={styles.historyMore}>+{selectedCaptures.length - 4} more observation{selectedCaptures.length - 4 === 1 ? "" : "s"}</Text> : null}
+            </View> : null}
             {selected && selected.identified !== false ? <SpeciesGuide commonName={selected.commonName} sciName={selected.sciName} compact /> : null}
             <View style={styles.detailActions}>
               <Pressable accessibilityRole="button" style={styles.modalKeep} onPress={() => setSelected(undefined)}><Text>Close</Text></Pressable>
@@ -320,7 +341,7 @@ export function DexScreen() {
       <View style={styles.modalBackdrop}>
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>Release this species?</Text>
-          <Text style={styles.modalCopy}>{pendingRelease?.commonName} will remove {pendingRelease?.photoLabel} from your captured collection and return to its seen state if it is still in this area. Trainer XP you already earned is kept.</Text>
+          <Text style={styles.modalCopy}>{pendingRelease?.commonName} will remove {pendingRelease?.recordLabel} from your captured collection and return to its seen state if it is still in this area. Trainer XP you already earned is kept.</Text>
           <View style={styles.modalActions}>
             <Pressable accessibilityRole="button" style={styles.modalKeep} onPress={() => setPendingRelease(undefined)}><Text>Keep</Text></Pressable>
             <Pressable accessibilityRole="button" style={styles.modalRelease} onPress={() => { const releaseRequest = pendingRelease; setPendingRelease(undefined); if (releaseRequest) void releaseCaptures(releaseRequest.captureIds).then(refresh); }}><Text style={styles.modalReleaseText}>Release</Text></Pressable>
@@ -451,6 +472,15 @@ const styles = StyleSheet.create({
   visualToggle: { alignSelf: "center", marginTop: 8, borderRadius: 15, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: "#edf4ec" },
   visualToggleText: { color: "#466052", fontSize: 12, fontWeight: "800" },
   detailCopy: { color: "#687a70", fontSize: 11, lineHeight: 15, textAlign: "center", marginTop: 10 },
+  historyArea: { marginTop: 13, padding: 11, borderRadius: 13, backgroundColor: "#f0f5f1", borderWidth: 1, borderColor: "#dfe8e2", gap: 8 },
+  historyTitle: { color: "#173c2b", fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.7 },
+  historyRow: { flexDirection: "row", alignItems: "center", gap: 9 },
+  historyImage: { width: 38, height: 38, borderRadius: 10, backgroundColor: "#d8e4db" },
+  historyImageEmpty: { alignItems: "center", justifyContent: "center" },
+  historyCopy: { flex: 1, minWidth: 0 },
+  historyDate: { color: "#263f32", fontSize: 12, fontWeight: "900" },
+  historyMeta: { color: "#68796f", fontSize: 10, fontWeight: "700", marginTop: 2 },
+  historyMore: { color: "#5c6f65", fontSize: 10, fontWeight: "800", textAlign: "center", marginTop: 2 },
   detailActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 14 },
   modalCard: { width: "100%", maxWidth: 360, maxHeight: "92%", borderRadius: 16, padding: 20, backgroundColor: "#fff" },
   modalTitle: { color: "#173c2b", fontSize: 20, fontWeight: "700" },
