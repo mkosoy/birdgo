@@ -10,6 +10,7 @@ interface SpeciesGuideProps {
   sciName?: string | null;
   showImage?: boolean;
   compact?: boolean;
+  maxSounds?: number;
 }
 
 function durationLabel(seconds?: number): string {
@@ -19,7 +20,7 @@ function durationLabel(seconds?: number): string {
   return `${minutes}:${remainder}`;
 }
 
-export function SpeciesGuide({ commonName, sciName, showImage = false, compact = false }: SpeciesGuideProps) {
+export function SpeciesGuide({ commonName, sciName, showImage = false, compact = false, maxSounds }: SpeciesGuideProps) {
   const [guide, setGuide] = useState<SpeciesGuideData>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -110,7 +111,8 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
     }
   };
 
-  const hasContent = Boolean(guide?.summary || guide?.sounds.length);
+  const visibleSounds = guide?.sounds.slice(0, maxSounds ?? guide.sounds.length) ?? [];
+  const hasContent = Boolean(guide?.summary || visibleSounds.length);
 
   return <View style={[styles.container, compact && styles.compact]}>
     <View style={styles.headerRow}>
@@ -125,9 +127,9 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
       <Text style={styles.summary} numberOfLines={compact ? 5 : undefined}>{guide.summary}</Text>
       {guide.summaryUrl ? <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(guide.summaryUrl as string)}><Text style={styles.sourceLink}>Read more on Wikipedia</Text></Pressable> : null}
     </> : null}
-    {!loading && guide?.sounds.length ? <>
+    {!loading && visibleSounds.length ? <>
       <Text style={styles.listenTitle}>Listen</Text>
-      {guide.sounds.map((entry) => {
+      {visibleSounds.map((entry) => {
         const playing = playingId === entry.id;
         const busy = busyId === entry.id;
         return <View key={entry.id} style={[styles.soundRow, playing && styles.soundRowPlaying]}>
@@ -144,7 +146,7 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
           {entry.descriptionUrl ? <Pressable accessibilityRole="link" accessibilityLabel={`Open audio source for ${entry.title}`} hitSlop={8} style={styles.sourceButton} onPress={() => void Linking.openURL(entry.descriptionUrl as string)}><Ionicons name="open-outline" size={17} color="#5c6f65" /></Pressable> : null}
         </View>;
       })}
-      <Text style={styles.attribution}>Audio from {[...new Set(guide.sounds.map((sound) => sound.source ?? "Wikimedia Commons / xeno-canto"))].join(" and ")}; licenses shown per recording.</Text>
+      <Text style={styles.attribution}>Audio from {[...new Set(visibleSounds.map((sound) => sound.source ?? "Wikimedia Commons / xeno-canto"))].join(" and ")}; licenses shown per recording.</Text>
     </> : null}
     {!loading && !error && guide && !guide.sounds.length ? <Text style={styles.noSoundText}>No species recording is available yet.</Text> : null}
   </View>;

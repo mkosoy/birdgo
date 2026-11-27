@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Image, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import * as Haptics from "expo-haptics";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Bird3DPreview } from "./Bird3DPreview";
+import { SpeciesGuide } from "./SpeciesGuide";
 import { RARITY_COLORS } from "../utils/progression";
 import type { BirdRarity } from "../types";
 
@@ -23,6 +25,7 @@ const CONFETTI_COLORS = ["#ffd766", "#72e7ff", "#65d184", "#f0a6c1", "#d7ccff", 
 
 export function CaptureCelebration({ commonName, sciName, rarity, xp, firstSpecies, verified, honorSystem, photoUri, referenceImageUrl, questUpdates, onClose }: CaptureCelebrationProps) {
   const { height } = useWindowDimensions();
+  const [guideOpen, setGuideOpen] = useState(false);
   const entrance = useRef(new Animated.Value(0)).current;
   const confetti = useRef(new Animated.Value(0)).current;
   const particles = useMemo(() => Array.from({ length: 20 }, (_, index) => ({
@@ -89,6 +92,13 @@ export function CaptureCelebration({ commonName, sciName, rarity, xp, firstSpeci
         </View>
         <Text style={styles.provenance}>{provenance}</Text>
         <Text style={styles.collectionNote}>{collectionNote}</Text>
+        {identified ? <>
+          <Pressable accessibilityRole="button" accessibilityLabel={guideOpen ? "Hide species field guide and sounds" : `Hear and learn about ${commonName}`} style={styles.guideToggle} onPress={() => setGuideOpen((open) => !open)}>
+            <Ionicons name={guideOpen ? "chevron-up" : "musical-notes"} size={16} color="#fff" />
+            <Text style={styles.guideToggleText}>{guideOpen ? "Hide field guide" : "Hear it & learn"}</Text>
+          </Pressable>
+          {guideOpen ? <SpeciesGuide commonName={commonName} sciName={sciName} compact maxSounds={1} /> : null}
+        </> : null}
         {questUpdates?.length ? <View style={styles.questBox}>
           <Text style={styles.questHeading}>Quest progress</Text>
           {questUpdates.map((quest) => <View key={quest.title} style={styles.questRow}>
@@ -125,6 +135,8 @@ const styles = StyleSheet.create({
   xpText: { color: "#dff4e7", fontSize: 11, fontWeight: "900" },
   provenance: { color: "#4c6255", fontSize: 12, fontWeight: "800", marginTop: 10 },
   collectionNote: { color: "#748379", fontSize: 11, marginTop: 3, textAlign: "center" },
+  guideToggle: { minHeight: 44, marginTop: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, alignSelf: "stretch", borderRadius: 14, backgroundColor: "#173c2b" },
+  guideToggleText: { color: "#eaf6ee", fontSize: 12, fontWeight: "900" },
   questBox: { width: "100%", marginTop: 11, padding: 10, borderRadius: 14, backgroundColor: "#edf7ef", borderWidth: 1, borderColor: "#c9e5d0" },
   questHeading: { color: "#2f7d5b", fontSize: 10, fontWeight: "900", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 5 },
   questRow: { gap: 1, paddingVertical: 2 },
