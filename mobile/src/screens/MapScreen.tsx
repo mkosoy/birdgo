@@ -278,6 +278,8 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   );
   const mapBirds = useMemo(() => [...birds, ...activeSkyfriendSpawns], [birds, activeSkyfriendSpawns]);
   const birdwalkPlan = useMemo(() => buildBirdwalkPlan(location, mapBirds, captureCounts), [location, mapBirds, captureCounts]);
+  const collectionStarted = captures.length > 0 || skyfriends.length > 0;
+  const advancedMapControlsVisible = collectionStarted || Boolean(activeTrackTarget || birdwalk);
 
   const startBirdwalk = () => {
     const nextState = birdwalk ?? { stops: birdwalkPlan.stops, index: 0 };
@@ -579,7 +581,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         <Pressable accessibilityLabel={`Current map mode: ${mode === "classic" ? "Classic" : "Adventure"}. Tap to switch.`} style={[styles.modeButton, styles.modeButtonActive]} onPress={toggleMode}>
           <Text style={styles.modeButtonText}>{mode === "classic" ? "2D" : "3D"}</Text>
         </Pressable>
-        {mode === "adventure" && (
+        {mode === "adventure" && advancedMapControlsVisible && (
           <Pressable accessibilityLabel={`Current view: ${firstPerson ? "First-person" : "Overhead"}. Tap to switch.`} style={[styles.modeButton, styles.modeButtonActive]} onPress={() => setFirstPerson((current) => !current)}>
             <Text style={styles.modeButtonText}>{firstPerson ? "Walk" : "Above"}</Text>
           </Pressable>
@@ -592,7 +594,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           </Pressable>
         )}
         {loading && <ActivityIndicator color="#fff" />}
-        {mode === "adventure" && !popupOpen && !topMessage && !toastOpen ? <BirdwalkPlanner
+        {mode === "adventure" && advancedMapControlsVisible && !popupOpen && !topMessage && !toastOpen ? <BirdwalkPlanner
           plan={birdwalkPlan}
           active={birdwalk}
           tracking={Boolean(tracking && birdwalk && activeTrackTarget?.id === birdwalk.stops[birdwalk.index]?.id)}
@@ -605,7 +607,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
       {!loading && !error && birds.length === 0 && <View style={styles.empty}><Text style={styles.emptyText}>No birds spotted nearby — try moving the map.</Text></View>}
       {mode === "adventure" && nearbyState !== "half" && (
         <View pointerEvents="box-none" style={[styles.actionRail, { bottom: insets.bottom + 102 }]}>
-          <Pressable accessibilityLabel="See all birds" style={styles.actionButton} onPress={() => setOverviewRequest((request) => request + 1)}><Ionicons name="map" size={23} color="#2878d1" /></Pressable>
+          {advancedMapControlsVisible ? <Pressable accessibilityLabel="See all birds" style={styles.actionButton} onPress={() => setOverviewRequest((request) => request + 1)}><Ionicons name="map" size={23} color="#2878d1" /></Pressable> : null}
           <Pressable accessibilityLabel={followPaused ? "Back to me — camera follow paused" : "Back to me"} style={[styles.actionButton, followPaused && styles.recenterAttention]} onPress={() => setRecenterRequest((request) => request + 1)}><Ionicons name="locate" size={25} color="#2878d1" /></Pressable>
         </View>
       )}
