@@ -34,6 +34,7 @@ export interface EbirdObservation extends Coordinates {
   imageUrl?: string;
   source?: string;
   virtual?: boolean;
+  prismatic?: boolean;
   frequency?: number;
   reportCount?: number;
   abundanceCount?: number;
@@ -105,6 +106,7 @@ export interface SkyfriendRecord {
   location: Coordinates;
   rarity?: BirdRarity;
   imageUrl?: string;
+  variant?: "prismatic";
 }
 
 export interface CanonicalSpeciesResult {

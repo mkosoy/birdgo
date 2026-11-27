@@ -14,6 +14,7 @@ export function buildLeafletHtml(options: { apiBaseUrl?: string } = {}): string 
     .bird-marker.notable { background: #d99d21; }
     .bird-marker.captured { background: #61776c; border-color: #a9f0bf; }
     .bird-marker.virtual { background: linear-gradient(145deg, #7d64f2, #28b9d7); border-color: #d9fbff; box-shadow: 0 0 12px rgba(92,220,255,.72); }
+    .bird-marker.prismatic { background: linear-gradient(145deg, #ffd766, #7d64f2 48%, #28e0c8); border-color: #fff3bd; box-shadow: 0 0 15px rgba(255,215,102,.85); }
     .bird-marker .caught-badge, .bird-marker .skyfriend-badge { position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; }
     .bird-marker .skyfriend-badge { background: #72e7ff; color: #273075; }
     .skyfriend-tag { display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 10px; background: linear-gradient(135deg, #735eea, #29bedd); color: white; font-size: 10px; font-weight: 900; vertical-align: middle; }
@@ -91,7 +92,7 @@ export function buildLeafletHtml(options: { apiBaseUrl?: string } = {}): string 
       function markerIcon(bird) {
         return L.divIcon({
           className: '',
-          html: '<div class="bird-marker' + (bird.virtual ? ' virtual' : '') + (bird.isNotable ? ' notable' : '') + (bird.captureCount ? ' captured' : '') + '">' + birdGlyph() + (bird.captureCount ? '<span class="caught-badge">✓</span>' : bird.virtual ? '<span class="skyfriend-badge">✦</span>' : '') + '</div>',
+          html: '<div class="bird-marker' + (bird.virtual ? ' virtual' : '') + (bird.isNotable ? ' notable' : '') + (bird.captureCount ? ' captured' : '') + (bird.prismatic ? ' prismatic' : '') + '">' + birdGlyph() + (bird.captureCount ? '<span class="caught-badge">✓</span>' : bird.virtual ? '<span class="skyfriend-badge">✦</span>' : '') + '</div>',
           iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -18]
         });
       }
@@ -120,6 +121,7 @@ ${speciesAudioScript()}
         var count = typeof bird.howMany === 'number' && bird.howMany > 0 ? ' • ×' + bird.howMany : '';
         var virtual = Boolean(bird.virtual);
         var frequencyCopy = !virtual && typeof bird.reportCount === 'number' && bird.reportCount > 0 ? 'Reported at ' + bird.reportCount + ' location' + (bird.reportCount === 1 ? '' : 's') + ' recently' : '';
+        var prismatic = Boolean(bird.prismatic);
         var statusCopy = virtual
           ? 'Virtual learning encounter — habitat-plausible, but not a real sighting.'
           : 'Sighting recorded ' + escapeHtml(bird.relativeTime || 'recently') + ' — this is a past observation, not a live location.';
@@ -130,7 +132,7 @@ ${speciesAudioScript()}
             : 'Not collected yet — capture it to add it to your Bird-dex.';
         var actionLabel = virtual ? 'Collect' : bird.captureCount ? 'Recapture' : 'Capture';
         return '<div class="encounter">' +
-          '<h3>' + escapeHtml(bird.comName || 'Bird') + (virtual ? '<span class="skyfriend-tag">Skyfriend</span>' : '') + '</h3>' +
+          '<h3>' + escapeHtml(bird.comName || 'Bird') + (virtual ? '<span class="skyfriend-tag">' + (prismatic ? 'Prismatic Skyfriend' : 'Skyfriend') + '</span>' : '') + '</h3>' +
           '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div>' +
           '<div class="stale">' + statusCopy + '</div>' +
           '<div class="where">Where to look: ' + escapeHtml(virtual ? 'Could occur in this habitat' : bird.locName || 'No hotspot recorded') + count + '</div>' +
