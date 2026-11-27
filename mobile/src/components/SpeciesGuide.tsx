@@ -68,6 +68,7 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
         return;
       }
       await soundRef.current?.unloadAsync();
+      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
       const created = await Audio.Sound.createAsync(
         { uri: entry.url },
         { shouldPlay: true },
