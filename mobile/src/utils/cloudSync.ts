@@ -6,7 +6,7 @@ import { XChaCha20Poly1305 } from "@stablelib/xchacha20poly1305";
 import { gzip, ungzip } from "pako";
 import { decode as decodeUtf8, encode as encodeUtf8 } from "@stablelib/utf8";
 import { API_BASE_URL } from "../config";
-import { createCollectionBackupJson, restoreCollectionBackup, validateCollectionBackup } from "./collectionBackup";
+import { createCollectionBackupJson, PORTABLE_BACKUP_MAX_BYTES, restoreCollectionBackup, validateCollectionBackup } from "./collectionBackup";
 
 const SYNC_KEY_STORAGE_KEY = "birdgo.cloud-sync-key-v1";
 const SYNC_REVISION_STORAGE_KEY = "birdgo.cloud-sync-revision-v1";
@@ -187,6 +187,9 @@ async function writeCloudSyncRecord(key: string, payload: string, expectedRevisi
 
 export async function uploadEncryptedCloudBackup(key: string, expectedRevision: number): Promise<CloudSyncRecord> {
   const backupJson = await createCollectionBackupJson();
+  if (backupJson.length > PORTABLE_BACKUP_MAX_BYTES) {
+    throw new Error("This collection is too large for cross-device cloud backup right now. Export a local backup file instead.");
+  }
   const encryptedPayload = await encryptBackupJson(backupJson, key);
   return writeCloudSyncRecord(key, encryptedPayload, expectedRevision);
 }

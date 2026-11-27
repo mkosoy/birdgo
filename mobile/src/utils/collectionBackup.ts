@@ -22,7 +22,8 @@ const BACKUP_KEYS = [
   "birdgo.onboarding-v1",
 ] as const;
 
-const MAX_BACKUP_BYTES = Platform.OS === "web" ? 4 * 1024 * 1024 : 25 * 1024 * 1024;
+export const PORTABLE_BACKUP_MAX_BYTES = 4 * 1024 * 1024;
+const MAX_BACKUP_BYTES = Platform.OS === "web" ? PORTABLE_BACKUP_MAX_BYTES : 25 * 1024 * 1024;
 const MAX_VALUE_CHARS = 1_500_000;
 const keySet = new Set<string>(BACKUP_KEYS);
 
