@@ -147,7 +147,7 @@ app.get("/api/birds/notable", async (request, response) => {
     );
     const deduplicated = deduplicateObservations(observations);
     deduplicated.sort((left, right) => distanceScore(lat, lng, left) - distanceScore(lat, lng, right));
-    response.json(deduplicated.slice(0, 120));
+    response.json(deduplicated);
   } catch (error) {
     handleEbirdError(error, response);
   }
