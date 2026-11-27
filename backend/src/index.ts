@@ -14,6 +14,7 @@ import { identifyBird, type BirdIdProvider } from "./birdId.js";
 import { canonicalizeSpecies, type SpeciesIdentityInput } from "./taxonomy.js";
 import { fetchSpeciesGuide } from "./speciesGuide.js";
 import { readSyncRecord, syncKeyFromSecret, syncStorageConfigured, writeSyncRecordIfRevision } from "./sync.js";
+import { fetchBirdweatherDetections } from "./birdweather.js";
 
 dotenv.config();
 export const app = express();
@@ -153,6 +154,11 @@ async function fetchRecentInatObservations(lat: number, lng: number, dist: numbe
   return cachedObservationRequest(key, () => fetchInatBirds(lat, lng, dist, back));
 }
 
+async function fetchRecentBirdweatherDetections(lat: number, lng: number, dist: number): Promise<EbirdObservation[]> {
+  const key = observationCacheKey(["birdweather-recent", lat, lng, dist]);
+  return cachedObservationRequest(key, () => fetchBirdweatherDetections(lat, lng, dist));
+}
+
 async function fetchNotableEbirdObservations(lat: number, lng: number, dist: number, detail: string, back: number): Promise<EbirdObservation[]> {
   const key = observationCacheKey(["ebird-notable", lat, lng, dist, detail, back]);
   return cachedObservationRequest(key, () => ebirdGet<EbirdObservation[]>(
@@ -167,21 +173,24 @@ app.get("/api/birds/recent", async (request, response) => {
   const dist = queryNumber(request, "dist", 15);
   const back = queryNumber(request, "back", 14);
   try {
-    const [ebirdResult, inatResult] = await Promise.allSettled([
+    const [ebirdResult, inatResult, birdweatherResult] = await Promise.allSettled([
       fetchRecentEbirdObservations(lat, lng, dist, back),
       fetchRecentInatObservations(lat, lng, dist, back),
+      fetchRecentBirdweatherDetections(lat, lng, dist),
     ]);
-    if (ebirdResult.status === "rejected" && inatResult.status === "rejected") {
+    if (ebirdResult.status === "rejected" && inatResult.status === "rejected" && birdweatherResult.status === "rejected") {
       handleEbirdError(ebirdResult.reason, response);
       return;
     }
     if (ebirdResult.status === "rejected") console.warn("eBird recent observations unavailable", ebirdResult.reason);
     if (inatResult.status === "rejected") console.warn("iNaturalist observations unavailable", inatResult.reason);
+    if (birdweatherResult.status === "rejected") console.warn("BirdWeather detections unavailable", birdweatherResult.reason);
     const ebirdObservations = ebirdResult.status === "fulfilled"
       ? ebirdResult.value.filter(isSpeciesObservation).map((observation) => ({ ...observation, source: observation.source ?? "ebird" }))
       : [];
     const inatObservations = inatResult.status === "fulfilled" ? inatResult.value : [];
-    response.json([...deduplicateObservations(ebirdObservations), ...inatObservations]);
+    const birdweatherObservations = birdweatherResult.status === "fulfilled" ? birdweatherResult.value : [];
+    response.json([...deduplicateObservations(ebirdObservations), ...inatObservations, ...birdweatherObservations]);
   } catch (error) {
     handleEbirdError(error, response);
   }

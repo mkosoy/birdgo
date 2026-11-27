@@ -61,6 +61,7 @@ export interface LeafletMarker {
   imageUrl?: string;
   virtual?: boolean;
   prismatic?: boolean;
+  source?: string;
   captureCount?: number;
 }
 
@@ -135,6 +136,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     imageUrl: bird.imageUrl,
     virtual: Boolean(bird.virtual),
     prismatic: Boolean(bird.prismatic),
+    source: bird.source,
     captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
   })), [birds, captureCounts]);
   const data = useMemo<LeafletData>(() => ({
