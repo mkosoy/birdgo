@@ -8,6 +8,7 @@ import type { SpeciesGuideSound } from "../types";
 
 export interface EarTrainingSpecies {
   key: string;
+  practiceKey?: string;
   commonName: string;
   sciName?: string | null;
   imageUrl?: string;
@@ -41,6 +42,10 @@ function shuffled<T>(items: T[]): T[] {
   return items.map((item) => ({ item, sort: Math.random() })).sort((left, right) => left.sort - right.sort).map(({ item }) => item);
 }
 
+function practiceKeyFor(species: EarTrainingSpecies): string {
+  return species.practiceKey ?? species.key;
+}
+
 function practiceAccuracy(stats?: SpeciesPracticeStats): number | undefined {
   return stats?.attempts ? stats.correct / stats.attempts : undefined;
 }
@@ -59,7 +64,7 @@ function practiceScore(speciesKey: string, stats: EarTrainingStats): number {
 
 function orderedForPractice(items: EarTrainingSpecies[], stats: EarTrainingStats): EarTrainingSpecies[] {
   return items
-    .map((item) => ({ item, score: practiceScore(item.key, stats) }))
+    .map((item) => ({ item, score: practiceScore(practiceKeyFor(item), stats) }))
     .sort((left, right) => left.score - right.score)
     .map(({ item }) => item);
 }
@@ -229,7 +234,7 @@ export function EarTrainingQuiz({ species }: { species: EarTrainingSpecies[] }) 
     if (!round || round.selectedKey || answerLockRef.current) return;
     answerLockRef.current = true;
     const correct = choice.key === round.target.key;
-    const targetPractice = stats.species?.[round.target.key] ?? { attempts: 0, correct: 0 };
+    const targetPractice = stats.species?.[practiceKeyFor(round.target)] ?? { attempts: 0, correct: 0 };
     const next = {
       attempts: stats.attempts + 1,
       correct: stats.correct + (correct ? 1 : 0),
@@ -237,7 +242,7 @@ export function EarTrainingQuiz({ species }: { species: EarTrainingSpecies[] }) 
       bestStreak: correct ? Math.max(stats.bestStreak, stats.streak + 1) : stats.bestStreak,
       species: {
         ...stats.species,
-        [round.target.key]: {
+        [practiceKeyFor(round.target)]: {
           attempts: targetPractice.attempts + 1,
           correct: targetPractice.correct + (correct ? 1 : 0),
         },
@@ -249,9 +254,9 @@ export function EarTrainingQuiz({ species }: { species: EarTrainingSpecies[] }) 
 
   const accuracy = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0;
   const focusSpecies = stats.attempts
-    ? [...species].sort((left, right) => basePracticeScore(left.key, stats) - basePracticeScore(right.key, stats))[0]
+    ? [...species].sort((left, right) => basePracticeScore(practiceKeyFor(left), stats) - basePracticeScore(practiceKeyFor(right), stats))[0]
     : undefined;
-  const focusAccuracy = focusSpecies ? practiceAccuracy(stats.species?.[focusSpecies.key]) : undefined;
+  const focusAccuracy = focusSpecies ? practiceAccuracy(stats.species?.[practiceKeyFor(focusSpecies)]) : undefined;
 
   return <>
     <View style={styles.card}>
@@ -307,7 +312,7 @@ export function EarTrainingQuiz({ species }: { species: EarTrainingSpecies[] }) 
               </View>
               {round.selectedKey ? <View style={styles.reveal}>
                 <Text style={styles.revealTitle}>{round.selectedKey === round.target.key ? "Correct — great ear!" : `It was ${round.target.commonName}.`}</Text>
-                <Text style={styles.masteryCopy}>{round.target.commonName} mastery: {Math.round((practiceAccuracy(stats.species?.[round.target.key]) ?? 0) * 100)}% over {stats.species?.[round.target.key]?.attempts ?? 0} round{(stats.species?.[round.target.key]?.attempts ?? 0) === 1 ? "" : "s"}</Text>
+                <Text style={styles.masteryCopy}>{round.target.commonName} mastery: {Math.round((practiceAccuracy(stats.species?.[practiceKeyFor(round.target)]) ?? 0) * 100)}% over {stats.species?.[practiceKeyFor(round.target)]?.attempts ?? 0} round{(stats.species?.[practiceKeyFor(round.target)]?.attempts ?? 0) === 1 ? "" : "s"}</Text>
                 {round.imageUrl ? <Image source={{ uri: round.imageUrl }} style={styles.revealImage} /> : null}
                 <Text style={styles.attribution}>{attributionFor(round.sound)}</Text>
                 {round.sound.descriptionUrl ? <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(round.sound.descriptionUrl as string)}><Text style={styles.sourceLink}>Open audio source and license details</Text></Pressable> : null}

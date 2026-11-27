@@ -96,7 +96,7 @@ export function DexScreen() {
   const skyfriendSpecies = new Set(skyfriends.map((record) => record.canonicalKey ?? record.speciesCode ?? record.commonName.toLowerCase())).size;
   const earTrainingSpecies = useMemo(() => entries
     .filter((entry) => entry.capturedCount > 0 && entry.identified !== false)
-    .map((entry) => ({ key: entry.key, commonName: entry.commonName, sciName: entry.sciName, imageUrl: entry.photoUri || entry.imageUrl })), [entries]);
+    .map((entry) => ({ key: entry.key, practiceKey: entry.commonName.trim().toLowerCase().replace(/\s+/g, " "), commonName: entry.commonName, sciName: entry.sciName, imageUrl: entry.photoUri || entry.imageUrl })), [entries]);
   const journalCaptures = useMemo(() => [...captures]
     .sort((left, right) => Date.parse(right.timestamp) - Date.parse(left.timestamp)), [captures]);
   const hallOfFameEntries = useMemo(() => entries
