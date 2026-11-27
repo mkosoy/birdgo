@@ -107,29 +107,30 @@ export function EarTrainingQuiz({ species }: { species: EarTrainingSpecies[] }) 
     if (token !== roundTokenRef.current || !mountedRef.current) return;
     for (let offset = 0; offset < candidates.length; offset += 4) {
       const batch = candidates.slice(offset, offset + 4);
-      const results = await Promise.all(batch.map(async (target) => {
+      const pending = batch.map(async (target) => {
         try {
           return { target, guide: await fetchSpeciesGuide({ commonName: target.commonName, sciName: target.sciName }) };
         } catch {
           return { target, guide: undefined };
         }
-      }));
-      if (token !== roundTokenRef.current || !mountedRef.current) return;
-      const usable = results.find(({ guide }) => guide?.sounds.length);
-      if (!usable?.guide) continue;
-      const { target, guide } = usable;
-      const sound = guide.sounds[Math.floor(Math.random() * guide.sounds.length)];
-      const distractors = shuffled(species.filter((entry) => entry.key !== target.key)).slice(0, 2);
-      if (distractors.length < 2) continue;
-      lastTargetKeyRef.current = target.key;
-      setRound({
-        target,
-        choices: shuffled([target, ...distractors]),
-        sound,
-        imageUrl: guide.imageUrl ?? target.imageUrl,
       });
-      setLoading(false);
-      return;
+      for (const pendingResult of pending) {
+        const { target, guide } = await pendingResult;
+        if (token !== roundTokenRef.current || !mountedRef.current) return;
+        if (!guide?.sounds.length) continue;
+        const sound = guide.sounds[Math.floor(Math.random() * guide.sounds.length)];
+        const distractors = shuffled(species.filter((entry) => entry.key !== target.key)).slice(0, 2);
+        if (distractors.length < 2) continue;
+        lastTargetKeyRef.current = target.key;
+        setRound({
+          target,
+          choices: shuffled([target, ...distractors]),
+          sound,
+          imageUrl: guide.imageUrl ?? target.imageUrl,
+        });
+        setLoading(false);
+        return;
+      }
     }
     if (token === roundTokenRef.current && mountedRef.current) {
       setLoading(false);
@@ -144,6 +145,7 @@ export function EarTrainingQuiz({ species }: { species: EarTrainingSpecies[] }) 
 
   const closeQuiz = () => {
     roundTokenRef.current += 1;
+    setLoading(false);
     setOpen(false);
     void unloadSound();
   };
