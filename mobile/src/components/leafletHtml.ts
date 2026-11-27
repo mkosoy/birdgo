@@ -18,8 +18,10 @@ export function buildLeafletHtml(options: { apiBaseUrl?: string } = {}): string 
     .bird-marker.virtual { animation: skyfriendArrive .65s ease-out, birdBob 2.6s ease-in-out .7s infinite; background: linear-gradient(145deg, #7d64f2, #28b9d7); border-color: #d9fbff; box-shadow: 0 0 12px rgba(92,220,255,.72); }
     @media (prefers-reduced-motion: reduce) { .bird-marker.virtual { animation: none; } }
     .bird-marker.prismatic { animation-duration: .65s, 1.9s; background: linear-gradient(145deg, #ffd766, #7d64f2 48%, #28e0c8); border-color: #fff3bd; box-shadow: 0 0 15px rgba(255,215,102,.85); }
-    .bird-marker .caught-badge, .bird-marker .skyfriend-badge { position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; }
+    .bird-marker .caught-badge, .bird-marker .skyfriend-badge, .bird-marker .audio-badge { position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; }
     .bird-marker .skyfriend-badge { background: #72e7ff; color: #273075; }
+    .bird-marker .audio-badge { background: #7bd7ff; color: #123c64; }
+    .bird-marker.audio { background: linear-gradient(145deg, #36a8cf, #2466a7); border-color: #d8f3ff; }
     .skyfriend-tag { display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 10px; background: linear-gradient(135deg, #735eea, #29bedd); color: white; font-size: 10px; font-weight: 900; vertical-align: middle; }
     .user-marker { position: relative; width: 22px; height: 22px; background: #2878d1; border: 3px solid white; box-shadow: 0 0 0 2px #2878d1; }
     .user-marker::before { content: ''; position: absolute; top: 50%; left: 50%; width: 42px; height: 42px; border-radius: 50%; border: 2px solid rgba(40, 120, 209, 0.55); animation: pulse 1.8s ease-out infinite; }
@@ -95,7 +97,7 @@ export function buildLeafletHtml(options: { apiBaseUrl?: string } = {}): string 
       function markerIcon(bird) {
         return L.divIcon({
           className: '',
-          html: '<div class="bird-marker' + (bird.virtual ? ' virtual' : '') + (bird.isNotable ? ' notable' : '') + (bird.captureCount ? ' captured' : '') + (bird.prismatic ? ' prismatic' : '') + '">' + birdGlyph() + (bird.captureCount ? '<span class="caught-badge">✓</span>' : bird.virtual ? '<span class="skyfriend-badge">✦</span>' : '') + '</div>',
+          html: '<div class="bird-marker' + (bird.virtual ? ' virtual' : '') + (bird.source === 'birdweather' ? ' audio' : '') + (bird.isNotable ? ' notable' : '') + (bird.captureCount ? ' captured' : '') + (bird.prismatic ? ' prismatic' : '') + '">' + birdGlyph() + (bird.captureCount ? '<span class="caught-badge">✓</span>' : bird.virtual ? '<span class="skyfriend-badge">✦</span>' : bird.source === 'birdweather' ? '<span class="audio-badge">♪</span>' : '') + '</div>',
           iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -18]
         });
       }
@@ -123,16 +125,20 @@ ${speciesAudioScript()}
         var distance = haversineKm(userLocation, bird);
         var count = typeof bird.howMany === 'number' && bird.howMany > 0 ? ' • ×' + bird.howMany : '';
         var virtual = Boolean(bird.virtual);
-        var frequencyCopy = !virtual && typeof bird.reportCount === 'number' && bird.reportCount > 0 ? 'Reported at ' + bird.reportCount + ' location' + (bird.reportCount === 1 ? '' : 's') + ' recently' : '';
+        var frequencyCopy = !virtual && bird.source !== 'birdweather' && typeof bird.reportCount === 'number' && bird.reportCount > 0 ? 'Reported at ' + bird.reportCount + ' location' + (bird.reportCount === 1 ? '' : 's') + ' recently' : '';
         var prismatic = Boolean(bird.prismatic);
         var statusCopy = virtual
           ? 'Virtual learning encounter — habitat-plausible, but not a real sighting.'
-          : 'Sighting recorded ' + escapeHtml(bird.relativeTime || 'recently') + ' — this is a past observation, not a live location.';
+          : bird.source === 'birdweather'
+            ? 'Live acoustic detection · ' + escapeHtml(bird.relativeTime || 'recently') + ' — the bird may be anywhere within earshot of this station.'
+            : 'Sighting recorded ' + escapeHtml(bird.relativeTime || 'recently') + ' — this is a past observation, not a live location.';
         var captureCopy = virtual
           ? 'Collect this Skyfriend for your virtual field guide; it never counts as a real bird.'
           : bird.captureCount
             ? 'Already collected ×' + bird.captureCount + ' — recaptures still earn XP.'
-            : 'Not collected yet — capture it to add it to your Bird-dex.';
+            : bird.source === 'birdweather'
+              ? 'Heard recently by a nearby audio station — use this as a fresh search clue, not an exact perch.'
+              : 'Not collected yet — capture it to add it to your Bird-dex.';
         var actionLabel = virtual ? 'Collect' : bird.captureCount ? 'Recapture' : 'Capture';
         return '<div class="encounter">' +
           '<h3>' + escapeHtml(bird.comName || 'Bird') + (virtual ? '<span class="skyfriend-tag">' + (prismatic ? 'Prismatic Skyfriend' : 'Skyfriend') + '</span>' : '') + '</h3>' +
