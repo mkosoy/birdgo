@@ -51,10 +51,13 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
     };
   }, [commonName, sciName]);
 
-  useEffect(() => () => {
-    mountedRef.current = false;
-    void soundRef.current?.unloadAsync();
-    soundRef.current = null;
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      void soundRef.current?.unloadAsync();
+      soundRef.current = null;
+    };
   }, []);
 
   const toggleSound = async (entry: SpeciesGuideSound) => {
