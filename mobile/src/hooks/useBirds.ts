@@ -1,7 +1,48 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { canonicalizeSpecies, fetchBirdAbundance, fetchNotableBirds, fetchRecentBirds } from "../api";
 import type { BirdAbundance, Coordinates, EbirdObservation } from "../types";
 
+
+const BIRD_CACHE_KEY = "birdgo.nearby-birds-cache-v1";
+const BIRD_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const BIRD_CACHE_MAX_DISTANCE_KM = 25;
+
+interface BirdCachePayload {
+  savedAt: number;
+  area: Coordinates;
+  birds: EbirdObservation[];
+  notable: EbirdObservation[];
+}
+
+function distanceKm(first: Coordinates, second: Coordinates): number {
+  const radians = Math.PI / 180;
+  const lat1 = first.latitude * radians;
+  const lat2 = second.latitude * radians;
+  const a = Math.sin((lat2 - lat1) / 2) ** 2
+    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(((second.longitude - first.longitude) * radians) / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function readBirdCache(latitude: number, longitude: number): Promise<BirdCachePayload | undefined> {
+  try {
+    const raw = await AsyncStorage.getItem(BIRD_CACHE_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as BirdCachePayload;
+    if (!parsed || !Array.isArray(parsed.birds) || !Array.isArray(parsed.notable) || !Number.isFinite(parsed.savedAt)) return undefined;
+    if (Date.now() - parsed.savedAt > BIRD_CACHE_MAX_AGE_MS) return undefined;
+    if (distanceKm({ latitude, longitude }, parsed.area) > BIRD_CACHE_MAX_DISTANCE_KM) return undefined;
+    return parsed;
+  } catch {
+    return undefined;
+  }
+}
+
+async function writeBirdCache(area: Coordinates, birds: EbirdObservation[], notable: EbirdObservation[]): Promise<void> {
+  if (!birds.length) return;
+  const payload: BirdCachePayload = { savedAt: Date.now(), area, birds: birds.slice(0, 250), notable: notable.slice(0, 50) };
+  await AsyncStorage.setItem(BIRD_CACHE_KEY, JSON.stringify(payload)).catch(() => undefined);
+}
 
 function normalizedIdentity(value?: string | null): string {
   return value?.trim().toLowerCase().replace(/\s+/g, " ") ?? "";
@@ -60,6 +101,11 @@ export function useBirds(latitude: number, longitude: number) {
     const currentRequest = ++requestId.current;
     setLoading(true);
     setError(null);
+    const cached = await readBirdCache(latitude, longitude);
+    if (currentRequest === requestId.current && cached) {
+      setBirds(cached.birds);
+      setNotable(cached.notable);
+    }
     try {
       const [recent, rare, abundance] = await Promise.all([
         fetchRecentBirds(latitude, longitude),
@@ -80,6 +126,7 @@ export function useBirds(latitude: number, longitude: number) {
       setBirds(frequencyMergedBirds);
       setNotable(notableBirds);
       setLoadedArea({ latitude, longitude });
+      void writeBirdCache({ latitude, longitude }, frequencyMergedBirds, notableBirds);
       void (async () => {
         const unique = new Map<string, EbirdObservation>();
         mergedBirds.forEach((bird) => {
@@ -114,12 +161,21 @@ export function useBirds(latitude: number, longitude: number) {
         const canonicalMergedBirds = frequencyMergedBirds.map(annotate);
         const canonicalNotableBirds = notableBirds.map(annotate);
         const annotateCanonicalPrevalence = buildPrevalenceAnnotator(canonicalMergedBirds, abundance);
-        setBirds(canonicalMergedBirds.map(annotateCanonicalPrevalence));
-        setNotable(canonicalNotableBirds.map(annotateCanonicalPrevalence));
+        const finalBirds = canonicalMergedBirds.map(annotateCanonicalPrevalence);
+        const finalNotableBirds = canonicalNotableBirds.map(annotateCanonicalPrevalence);
+        setBirds(finalBirds);
+        setNotable(finalNotableBirds);
+        void writeBirdCache({ latitude, longitude }, finalBirds, finalNotableBirds);
       })().catch(() => undefined);
     } catch (cause) {
       if (currentRequest !== requestId.current) return;
-      setError(cause instanceof Error ? cause.message : "Could not load nearby birds");
+      if (cached?.birds.length) {
+        setBirds(cached.birds);
+        setNotable(cached.notable);
+        setError("Offline — showing your last nearby birds. Tap to retry.");
+      } else {
+        setError("Couldn’t load birds. Tap to retry.");
+      }
     } finally {
       if (currentRequest === requestId.current) setLoading(false);
     }
