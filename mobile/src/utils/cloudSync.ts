@@ -329,7 +329,6 @@ export async function restoreEncryptedCloudBackup(key: string, targetRevision?: 
   return enqueueCloudUpload(async () => {
     const downloaded = await downloadEncryptedCloudBackup(key, targetRevision);
     if (!downloaded) return undefined;
-    await restoreCollectionBackup(downloaded.entries);
     let record = downloaded.record;
     let rewrittenAsLatest = false;
     if (targetRevision !== undefined) {
@@ -339,6 +338,7 @@ export async function restoreEncryptedCloudBackup(key: string, targetRevision?: 
         rewrittenAsLatest = true;
       }
     }
+    await restoreCollectionBackup(downloaded.entries);
     await saveCloudSyncCredentials(key, record.revision);
     return { record, restoredRevision: downloaded.record.revision, rewrittenAsLatest };
   });
