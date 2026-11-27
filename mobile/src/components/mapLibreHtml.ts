@@ -310,7 +310,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
             paint: {
               'fill-extrusion-color': '#ddd8ca',
               'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 15, 0, 15.4, ['*', ['coalesce', ['get', 'render_height'], 8], 0.38]],
-              'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+              'fill-extrusion-base': ['*', ['coalesce', ['get', 'render_min_height'], 0], 0.38],
               'fill-extrusion-opacity': 0.48,
               'fill-extrusion-vertical-gradient': true
             }
