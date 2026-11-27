@@ -1292,11 +1292,11 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         if (/\\b(?:gull|tern|sandpiper|plover|dunlin|willet|godwit|dowitcher|curlew|stilt|avocet|oystercatcher|turnstone)\\b/.test(name)) clue = 'scan water edges, mudflats, and birds flying along the shore';
         else if (/\\b(?:duck|goose|swan|grebe|loon|coot|gallinule|teal|mallard|merganser|scaup|bufflehead|canvasback|wigeon|pintail|shoveler)\\b/.test(name)) clue = 'scan open water, shoreline edges, and distant floating birds';
         else if (/\\b(?:heron|egret|bittern|ibis|spoonbill|crane|rail)\\b/.test(name)) clue = 'move quietly and scan shallow water, reeds, and marsh edges';
-        else if (/\\b(?:hawk|eagle|falcon|kestrel|osprey|harrier|kite|vulture|accipiter|buteo)\\b/.test(name)) clue = 'scan the sky, treetops, poles, and other exposed perches';
-        else if (/\\bowl\\b/.test(name)) clue = 'scan dense cover, cavities, and shaded roosts without flushing birds';
+        else if (/owl/.test(name)) clue = 'scan dense cover, cavities, and shaded roosts without flushing birds';
+        else if (/goshawk|sparrowhawk|\\b(?:hawk|eagle|falcon|kestrel|osprey|harrier|kite|vulture|accipiter|buteo)\\b/.test(name)) clue = 'scan the sky, treetops, poles, and other exposed perches';
         else if (/\\b(?:woodpecker|flicker|sapsucker)\\b/.test(name)) clue = 'scan trunks and dead branches; listen for tapping or sharp calls';
         else if (/\\bhummingbird\\b/.test(name)) clue = 'check flowers, feeders, and tiny exposed perches';
-        else if (/\\b(?:sparrow|warbler|finch|wren|thrush|vireo|kinglet|nuthatch|chickadee|titmouse|robin|cardinal|jay|crow|blackbird|oriole|tanager|grosbeak|mockingbird|catbird|thrasher)\\b/.test(name)) clue = 'listen first, then scan shrubs, canopy edges, and repeated movement';
+        else if (/\\b(?:sparrow|warbler|wren|thrush|vireo|kinglet|nuthatch|chickadee|titmouse|robin|cardinal|jay|crow|blackbird|oriole|tanager|grosbeak|mockingbird|catbird|thrasher)\\b/.test(name) || /finch/.test(name)) clue = 'listen first, then scan shrubs, canopy edges, and repeated movement';
         return prefix + ' — ' + clue;
       }
 
