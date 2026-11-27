@@ -62,6 +62,13 @@ function enqueueLocalWrite<T>(operation: () => Promise<T>): Promise<T> {
   return result;
 }
 
+
+const SYNC_HISTORY_LIMIT = 10;
+
+function syncRevisionKey(key: string, revision: number): string {
+  return `${key}:revision:${revision}`;
+}
+
 const COMPARE_AND_WRITE_SCRIPT = `
 local current = redis.call('GET', KEYS[1])
 local revision = 0
@@ -75,6 +82,13 @@ if revision ~= tonumber(ARGV[1]) then
   return {0, revision}
 end
 local nextRevision = revision + 1
+if current and revision > 0 then
+  redis.call('SET', KEYS[1] .. ':revision:' .. revision, current)
+  local expiredRevision = nextRevision - tonumber(ARGV[4])
+  if expiredRevision >= 1 then
+    redis.call('DEL', KEYS[1] .. ':revision:' .. expiredRevision)
+  end
+end
 local record = cjson.encode({ payload = ARGV[2], revision = nextRevision, updatedAt = ARGV[3] })
 redis.call('SET', KEYS[1], record)
 return {1, nextRevision}
@@ -88,9 +102,7 @@ export function syncKeyFromSecret(secret: string): string {
   return `birdgo:sync:v1:${createHash("sha256").update(secret).digest("hex")}`;
 }
 
-export async function readSyncRecord(key: string): Promise<SyncRecord | undefined> {
-  if (localStoreFile()) return (await readLocalStore())[key];
-  const raw = await upstashCommand<string | null>(["GET", key]);
+function parseSyncRecord(raw: string | null): SyncRecord | undefined {
   if (!raw) return undefined;
   try {
     const parsed = JSON.parse(raw) as Partial<SyncRecord>;
@@ -101,6 +113,19 @@ export async function readSyncRecord(key: string): Promise<SyncRecord | undefine
   }
 }
 
+export async function readSyncRecord(key: string, revision?: number): Promise<SyncRecord | undefined> {
+  if (revision !== undefined && (!Number.isInteger(revision) || revision < 1)) return undefined;
+  if (localStoreFile()) {
+    const store = await readLocalStore();
+    const current = store[key];
+    if (revision === undefined || current?.revision === revision) return current;
+    return store[syncRevisionKey(key, revision)];
+  }
+  const current = parseSyncRecord(await upstashCommand<string | null>(["GET", key]));
+  if (revision === undefined || current?.revision === revision) return current;
+  return parseSyncRecord(await upstashCommand<string | null>(["GET", syncRevisionKey(key, revision)]));
+}
+
 export async function writeSyncRecordIfRevision(key: string, payload: string, expectedRevision: number): Promise<SyncWriteResult> {
   const updatedAt = new Date().toISOString();
   if (localStoreFile()) {
@@ -108,7 +133,14 @@ export async function writeSyncRecordIfRevision(key: string, payload: string, ex
       const store = await readLocalStore();
       const currentRevision = store[key]?.revision ?? 0;
       if (currentRevision !== expectedRevision) return { status: "conflict", currentRevision };
-      const record = { payload, revision: currentRevision + 1, updatedAt };
+      const nextRevision = currentRevision + 1;
+      const current = store[key];
+      if (current && currentRevision > 0) {
+        store[syncRevisionKey(key, currentRevision)] = current;
+        const expiredRevision = nextRevision - SYNC_HISTORY_LIMIT;
+        if (expiredRevision >= 1) delete store[syncRevisionKey(key, expiredRevision)];
+      }
+      const record = { payload, revision: nextRevision, updatedAt };
       store[key] = record;
       await writeLocalStore(store);
       return { status: "written", record };
@@ -122,6 +154,7 @@ export async function writeSyncRecordIfRevision(key: string, payload: string, ex
     expectedRevision,
     payload,
     updatedAt,
+    SYNC_HISTORY_LIMIT,
   ]);
   const [written, revision] = result;
   if (!written) return { status: "conflict", currentRevision: revision };

@@ -304,8 +304,13 @@ app.get("/api/sync", async (request, response) => {
     response.status(503).json({ error: "Cloud sync storage is not configured.", status: 503 });
     return;
   }
+  const revisionRaw = typeof request.query.revision === "string" ? Number(request.query.revision) : undefined;
+  if (revisionRaw !== undefined && (!Number.isInteger(revisionRaw) || revisionRaw < 1)) {
+    response.status(400).json({ error: "revision must be a positive integer.", status: 400 });
+    return;
+  }
   try {
-    const record = await readSyncRecord(syncKeyFromSecret(secret));
+    const record = await readSyncRecord(syncKeyFromSecret(secret), revisionRaw);
     if (!record) {
       response.status(404).json({ error: "No cloud backup exists for this sync key.", status: 404 });
       return;

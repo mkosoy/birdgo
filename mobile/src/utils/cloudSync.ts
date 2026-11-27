@@ -171,9 +171,10 @@ export async function fetchCloudSyncEnabled(): Promise<boolean> {
   }
 }
 
-export async function readCloudSyncRecord(key: string): Promise<CloudSyncRecord | undefined> {
+export async function readCloudSyncRecord(key: string, revision?: number): Promise<CloudSyncRecord | undefined> {
   try {
-    return await cloudSyncRequest<CloudSyncRecord>("/api/sync", key);
+    const suffix = revision === undefined ? "" : `?revision=${encodeURIComponent(revision)}`;
+    return await cloudSyncRequest<CloudSyncRecord>(`/api/sync${suffix}`, key);
   } catch (error) {
     if (error instanceof CloudSyncError && error.status === 404) return undefined;
     throw error;
@@ -192,6 +193,7 @@ export interface AutomaticCloudBackupState {
   pending: boolean;
   running: boolean;
   conflict: boolean;
+  conflictRevision?: number;
   error?: string;
   lastSyncedAt?: string;
   revision?: number;
@@ -249,7 +251,7 @@ async function runAutomaticCloudBackup(): Promise<void> {
   } catch (error) {
     if (error instanceof CloudSyncError && error.status === 409) {
       automaticBackupPaused = true;
-      updateAutomaticBackupState({ running: false, conflict: true, error: undefined });
+      updateAutomaticBackupState({ running: false, conflict: true, conflictRevision: error.currentRevision, error: undefined });
       return;
     }
     updateAutomaticBackupState({
@@ -261,7 +263,7 @@ async function runAutomaticCloudBackup(): Promise<void> {
 
 export function reconcileAutomaticCloudBackup(revision: number): void {
   automaticBackupPaused = false;
-  updateAutomaticBackupState({ conflict: false, error: undefined, revision });
+  updateAutomaticBackupState({ conflict: false, conflictRevision: undefined, error: undefined, revision });
 }
 
 export async function resumePendingAutomaticCloudBackup(): Promise<boolean> {
@@ -291,20 +293,54 @@ export async function uploadEncryptedCloudBackup(key: string, expectedRevision: 
   return writeCloudSyncRecord(key, encryptedPayload, expectedRevision);
 }
 
-export async function downloadEncryptedCloudBackup(key: string): Promise<{ entries: Record<string, string>; record: CloudSyncRecord } | undefined> {
-  const record = await readCloudSyncRecord(key);
+export async function downloadEncryptedCloudBackup(key: string, revision?: number): Promise<{ entries: Record<string, string>; record: CloudSyncRecord } | undefined> {
+  const record = await readCloudSyncRecord(key, revision);
   if (!record) return undefined;
   const backupJson = decryptBackupPayload(record.payload, key);
   return { entries: validateCollectionBackup(backupJson), record };
 }
 
-export async function restoreEncryptedCloudBackup(key: string): Promise<CloudSyncRecord | undefined> {
+export interface CloudSyncRestoreResult {
+  record: CloudSyncRecord;
+  restoredRevision: number;
+  rewrittenAsLatest: boolean;
+}
+
+async function writeHistoricalPayloadAsLatest(key: string, payload: string): Promise<CloudSyncRecord> {
+  let latest = await readSyncRecordLatestOrThrow(key);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await writeCloudSyncRecord(key, payload, latest.revision);
+    } catch (error) {
+      if (!(error instanceof CloudSyncError) || error.status !== 409 || attempt === 2) throw error;
+      latest = await readSyncRecordLatestOrThrow(key);
+    }
+  }
+  throw new Error("Cloud sync write failed.");
+}
+
+async function readSyncRecordLatestOrThrow(key: string): Promise<CloudSyncRecord> {
+  const latest = await readCloudSyncRecord(key);
+  if (!latest) throw new Error("No encrypted cloud backup exists for this sync key yet.");
+  return latest;
+}
+
+export async function restoreEncryptedCloudBackup(key: string, targetRevision?: number): Promise<CloudSyncRestoreResult | undefined> {
   return enqueueCloudUpload(async () => {
-    const downloaded = await downloadEncryptedCloudBackup(key);
+    const downloaded = await downloadEncryptedCloudBackup(key, targetRevision);
     if (!downloaded) return undefined;
+    let record = downloaded.record;
+    let rewrittenAsLatest = false;
+    if (targetRevision !== undefined) {
+      const latest = await readCloudSyncRecord(key);
+      if (latest && latest.revision > downloaded.record.revision) {
+        record = await writeHistoricalPayloadAsLatest(key, downloaded.record.payload);
+        rewrittenAsLatest = true;
+      }
+    }
     await restoreCollectionBackup(downloaded.entries);
-    await saveCloudSyncCredentials(key, downloaded.record.revision);
-    return downloaded.record;
+    await saveCloudSyncCredentials(key, record.revision);
+    return { record, restoredRevision: downloaded.record.revision, rewrittenAsLatest };
   });
 }
 

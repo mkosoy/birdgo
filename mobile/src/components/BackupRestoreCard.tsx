@@ -32,14 +32,20 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
   const [cloudKey, setCloudKey] = useState<string>();
   const [cloudRevision, setCloudRevision] = useState(0);
   const [remoteCloudRevision, setRemoteCloudRevision] = useState<number>();
+  const [restoreTargetRevision, setRestoreTargetRevision] = useState<number>();
+  const [restoreRollsBackCloud, setRestoreRollsBackCloud] = useState(false);
   const [showSyncKey, setShowSyncKey] = useState(false);
   const [message, setMessage] = useState<string>();
   const [messageTone, setMessageTone] = useState<"good" | "bad">("good");
-  const [automaticBackup, setAutomaticBackup] = useState({ pending: false, running: false, conflict: false } as { pending: boolean; running: boolean; conflict: boolean; error?: string; lastSyncedAt?: string; revision?: number });
+  const [automaticBackup, setAutomaticBackup] = useState({ pending: false, running: false, conflict: false } as { pending: boolean; running: boolean; conflict: boolean; conflictRevision?: number; error?: string; lastSyncedAt?: string; revision?: number });
 
   useEffect(() => subscribeAutomaticCloudBackup((state) => {
     setAutomaticBackup(state);
-    if (state.revision !== undefined) setCloudRevision(state.revision);
+    if (state.revision !== undefined) {
+      setCloudRevision(state.revision);
+      setRemoteCloudRevision(state.revision);
+    }
+    if (state.conflictRevision !== undefined) setRemoteCloudRevision(state.conflictRevision);
   }), []);
 
   useEffect(() => {
@@ -160,18 +166,22 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
     }
   };
 
-  const restoreCloud = async (key: string) => {
-    const record = await restoreEncryptedCloudBackup(key);
-    if (!record) throw new Error("No encrypted cloud backup exists for this sync key yet.");
-    reconcileAutomaticCloudBackup(record.revision);
+  const restoreCloud = async (key: string, targetRevision?: number) => {
+    const result = await restoreEncryptedCloudBackup(key, targetRevision);
+    if (!result) throw new Error("No encrypted cloud backup exists for this sync key yet.");
+    reconcileAutomaticCloudBackup(result.record.revision);
     setCloudKey(key);
-    setCloudRevision(record.revision);
-    setRemoteCloudRevision(record.revision);
+    setCloudRevision(result.record.revision);
+    setRemoteCloudRevision(result.record.revision);
     setConfirmingCloudRestore(false);
+    setRestoreTargetRevision(undefined);
+    setRestoreRollsBackCloud(false);
     setLinkingCloud(false);
     setSyncKeyDraft("");
     onRestored();
-    showMessage(`Encrypted cloud backup restored · revision ${record.revision}.`);
+    showMessage(result.rewrittenAsLatest
+      ? `Encrypted backup restored from revision ${result.restoredRevision}; cloud is now revision ${result.record.revision}.`
+      : `Encrypted cloud backup restored · revision ${result.record.revision}.`);
   };
 
   const runCloudRestore = async (key?: string) => {
@@ -180,7 +190,7 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
     setBusy("cloud-restore");
     setMessage(undefined);
     try {
-      await restoreCloud(targetKey);
+      await restoreCloud(targetKey, key ? undefined : restoreTargetRevision);
     } catch (error) {
       showMessage(cloudErrorMessage(error, "Cloud restore failed."), "bad");
     } finally {
@@ -245,7 +255,7 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
         <Pressable accessibilityRole="button" accessibilityLabel="Back up collection to encrypted cloud sync" disabled={Boolean(busy)} style={[styles.button, styles.exportButton, Boolean(busy) && styles.buttonDisabled]} onPress={() => void uploadExistingCloud()}>
           {busy === "cloud-upload" ? <ActivityIndicator size="small" color="#ffffff" /> : <Text style={styles.exportText}>Back up now</Text>}
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Restore encrypted cloud backup" disabled={Boolean(busy)} style={[styles.button, styles.importButton, Boolean(busy) && styles.buttonDisabled]} onPress={() => { setMessage(undefined); setConfirmingCloudRestore(true); }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Restore encrypted cloud backup" disabled={Boolean(busy)} style={[styles.button, styles.importButton, Boolean(busy) && styles.buttonDisabled]} onPress={() => { setMessage(undefined); const knownRevision = automaticBackup.conflict ? automaticBackup.conflictRevision : Math.max(remoteCloudRevision ?? 0, cloudRevision); const targetRevision = knownRevision && knownRevision > 0 ? knownRevision : undefined; setRestoreTargetRevision(targetRevision); setRestoreRollsBackCloud(Boolean(targetRevision && ((remoteCloudRevision ?? 0) > targetRevision || automaticBackup.pending || automaticBackup.running))); setConfirmingCloudRestore(true); }}>
           <Text style={styles.importText}>Restore</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Show private cloud sync key" disabled={Boolean(busy)} style={[styles.button, styles.cancelButton, Boolean(busy) && styles.buttonDisabled]} onPress={() => setShowSyncKey((current) => !current)}>
@@ -261,9 +271,9 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
       {cloudConfigured && !automaticBackup.conflict && !automaticBackup.pending && !automaticBackup.running && !automaticBackup.error && automaticBackup.lastSyncedAt ? <Text style={styles.revisionText}>Automatic cloud backup is up to date.</Text> : null}
 
       {confirmingCloudRestore ? <View style={styles.confirmArea}>
-        <Text style={styles.confirmCopy}>Restoring replaces BirdGo collection data currently stored on this device.</Text>
+        <Text style={styles.confirmCopy}>Restoring{restoreTargetRevision ? ` revision ${restoreTargetRevision}` : ""} replaces BirdGo collection data currently stored on this device.{restoreRollsBackCloud ? " Because a backup is still uploading, confirming also makes this revision the latest cloud snapshot for your other devices; newer cloud revisions remain in history." : ""}</Text>
         <View style={styles.actions}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Cancel cloud restore" disabled={Boolean(busy)} style={[styles.button, styles.cancelButton]} onPress={() => setConfirmingCloudRestore(false)}><Text style={styles.cancelText}>Cancel</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Cancel cloud restore" disabled={Boolean(busy)} style={[styles.button, styles.cancelButton]} onPress={() => { setConfirmingCloudRestore(false); setRestoreTargetRevision(undefined); setRestoreRollsBackCloud(false); }}><Text style={styles.cancelText}>Cancel</Text></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Download encrypted cloud backup and replace device data" disabled={Boolean(busy)} style={[styles.button, styles.importButton, Boolean(busy) && styles.buttonDisabled]} onPress={() => void runCloudRestore()}>
             {busy === "cloud-restore" ? <ActivityIndicator size="small" color="#235040" /> : <Text style={styles.importText}>Download</Text>}
           </Pressable>
