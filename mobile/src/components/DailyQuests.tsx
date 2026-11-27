@@ -31,10 +31,25 @@ function RewardBurst({ xp }: { xp: number }) {
 export function DailyQuests({ captures, skyfriends, claimedIds, onClaim }: DailyQuestsProps) {
   const [claimingId, setClaimingId] = useState<string>();
   const [burst, setBurst] = useState<{ claimKey: string; xp: number }>();
+  const [now, setNow] = useState(() => new Date());
   const burstTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-  const quests = useMemo(() => buildDailyQuests(captures, skyfriends), [captures, skyfriends]);
+  const quests = useMemo(() => buildDailyQuests(captures, skyfriends, now), [captures, skyfriends, now]);
   const claimed = useMemo(() => new Set(claimedIds), [claimedIds]);
   const completedCount = quests.filter((quest) => quest.completed).length;
+
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>;
+    const scheduleMidnightRefresh = () => {
+      const current = new Date();
+      const nextDay = new Date(current.getFullYear(), current.getMonth(), current.getDate() + 1, 0, 0, 2);
+      timeout = setTimeout(() => {
+        setNow(new Date());
+        scheduleMidnightRefresh();
+      }, Math.max(1000, nextDay.getTime() - current.getTime()));
+    };
+    scheduleMidnightRefresh();
+    return () => clearTimeout(timeout);
+  }, []);
 
   useEffect(() => () => {
     if (burstTimeoutRef.current) clearTimeout(burstTimeoutRef.current);

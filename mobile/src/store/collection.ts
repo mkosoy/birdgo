@@ -92,6 +92,12 @@ function enqueueXpEvents<T>(operation: () => Promise<T>): Promise<T> {
 
 const QUEST_XP_PREFIX = "quest:";
 
+function localQuestDayKey(date = new Date()): string {
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 export async function listQuestRewardIds(): Promise<string[]> {
   const events = await listXpEvents();
   return events.flatMap((event) => event.captureId.startsWith(QUEST_XP_PREFIX) ? [event.captureId.slice(QUEST_XP_PREFIX.length)] : []);
@@ -101,6 +107,7 @@ export async function claimQuestXp(questId: string, xp: number): Promise<boolean
   const normalizedId = questId.trim();
   const normalizedXp = Math.round(xp);
   if (!normalizedId || !Number.isFinite(normalizedXp) || normalizedXp <= 0) return false;
+  if (normalizedId.split(":")[0] !== localQuestDayKey()) return false;
   return enqueueXpEvents(async () => {
     const events = await listXpEvents();
     const eventId = `${QUEST_XP_PREFIX}${normalizedId}`;
