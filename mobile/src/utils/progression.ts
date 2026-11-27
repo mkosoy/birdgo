@@ -142,6 +142,7 @@ export function buildBirdBadges(captures: CaptureRecord[], skyfriends: Skyfriend
   const rareSpeciesCount = countSpeciesGroups(identified
     .filter((capture) => RARITY_ORDER.indexOf(capture.rarity ?? "common") >= RARITY_ORDER.indexOf("rare")));
   const skyfriendSpeciesCount = countSpeciesGroups(skyfriends);
+  const prismaticCount = skyfriends.filter((record) => record.variant === "prismatic").length;
   return [
     makeBadge("first-species", "First species", "Capture your first identified real bird", "leaf", speciesCount, 1),
     makeBadge("photographer", "Photographer", "Verify 3 real bird photos with AI", "camera", verifiedCount, 3),
@@ -149,6 +150,7 @@ export function buildBirdBadges(captures: CaptureRecord[], skyfriends: Skyfriend
     makeBadge("rare-spotter", "Rare spotter", "Capture a rare or better species", "star", rareSpeciesCount, 1),
     makeBadge("skyfriend-trainer", "Skyfriend trainer", "Collect your first Skyfriend", "planet", skyfriendSpeciesCount, 1),
     makeBadge("skyfriend-guide", "Skyfriend guide", "Collect 5 Skyfriend species", "sparkles", skyfriendSpeciesCount, 5),
+    makeBadge("prismatic-trainer", "Prismatic trainer", "Collect a rare prismatic Skyfriend", "sparkles", prismaticCount, 1),
   ];
 }
 
