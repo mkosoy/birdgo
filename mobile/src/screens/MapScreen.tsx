@@ -595,7 +595,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         {mode === "adventure" && !popupOpen && !topMessage && !toastOpen ? <BirdwalkPlanner
           plan={birdwalkPlan}
           active={birdwalk}
-          tracking={tracking}
+          tracking={Boolean(tracking && birdwalk && activeTrackTarget?.id === birdwalk.stops[birdwalk.index]?.id)}
           rewardClaimed={birdwalkBonusClaimed}
           onStart={startBirdwalk}
           onSkip={skipBirdwalkStop}
