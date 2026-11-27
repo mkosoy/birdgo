@@ -5,13 +5,13 @@ import * as Clipboard from "expo-clipboard";
 import { exportCollectionBackup, pickValidatedCollectionBackup, restoreCollectionBackup } from "../utils/collectionBackup";
 import {
   CloudSyncError,
-  downloadEncryptedCloudBackup,
   fetchCloudSyncEnabled,
   generateCloudSyncKey,
   isCloudSyncKeyValid,
   loadCloudSyncCredentials,
   normalizeCloudSyncKey,
   reconcileAutomaticCloudBackup,
+  restoreEncryptedCloudBackup,
   saveCloudSyncCredentials,
   subscribeAutomaticCloudBackup,
   uploadEncryptedCloudBackup,
@@ -152,18 +152,16 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
   };
 
   const restoreCloud = async (key: string) => {
-    const downloaded = await downloadEncryptedCloudBackup(key);
-    if (!downloaded) throw new Error("No encrypted cloud backup exists for this sync key yet.");
-    await restoreCollectionBackup(downloaded.entries);
-    await saveCloudSyncCredentials(key, downloaded.record.revision);
-    reconcileAutomaticCloudBackup(downloaded.record.revision);
+    const record = await restoreEncryptedCloudBackup(key);
+    if (!record) throw new Error("No encrypted cloud backup exists for this sync key yet.");
+    reconcileAutomaticCloudBackup(record.revision);
     setCloudKey(key);
-    setCloudRevision(downloaded.record.revision);
+    setCloudRevision(record.revision);
     setConfirmingCloudRestore(false);
     setLinkingCloud(false);
     setSyncKeyDraft("");
     onRestored();
-    showMessage(`Encrypted cloud backup restored · revision ${downloaded.record.revision}.`);
+    showMessage(`Encrypted cloud backup restored · revision ${record.revision}.`);
   };
 
   const runCloudRestore = async (key?: string) => {

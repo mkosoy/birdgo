@@ -295,10 +295,13 @@ export async function downloadEncryptedCloudBackup(key: string): Promise<{ entri
 }
 
 export async function restoreEncryptedCloudBackup(key: string): Promise<CloudSyncRecord | undefined> {
-  const downloaded = await downloadEncryptedCloudBackup(key);
-  if (!downloaded) return undefined;
-  await restoreCollectionBackup(downloaded.entries);
-  return downloaded.record;
+  return enqueueCloudUpload(async () => {
+    const downloaded = await downloadEncryptedCloudBackup(key);
+    if (!downloaded) return undefined;
+    await restoreCollectionBackup(downloaded.entries);
+    await saveCloudSyncCredentials(key, downloaded.record.revision);
+    return downloaded.record;
+  });
 }
 
 export async function loadCloudSyncCredentials(): Promise<CloudSyncCredentials | undefined> {
