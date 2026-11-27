@@ -26,7 +26,8 @@
         {
           "cameraPermission": "BirdGo uses your camera to identify birds."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "ios": {
       "bundleIdentifier": "Com.mkosoy.birdgo",
