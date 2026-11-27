@@ -1619,23 +1619,61 @@ ${speciesAudioScript()}
         return lastMarkerInputSignature;
       }
 
-      function presenceScreenOffset(bird) {
-        if (!lastUserLocation) return [0, 0];
-        var distance = haversineKm(lastUserLocation, bird);
-        if (distance == null || distance >= 0.06) return [0, 0];
-        var birdPoint = map.project([bird.longitude, bird.latitude]);
+      function computePresenceOffsets(markers) {
+        var assignments = {};
+        if (!lastUserLocation) return assignments;
         var userPoint = map.project([lastUserLocation.longitude, lastUserLocation.latitude]);
-        var dx = birdPoint.x - userPoint.x;
-        var dy = birdPoint.y - userPoint.y;
-        var separation = Math.sqrt(dx * dx + dy * dy);
-        var minimumSeparation = bird.virtual ? 84 : 78;
-        if (separation >= minimumSeparation) return [0, 0];
-        var side = parseInt(hashString(String(bird.id) + ':side').slice(0, 8), 10) % 2 ? -1 : 1;
-        if (Math.abs(dx) > 2) side = dx < 0 ? -1 : 1;
-        var angle = -Math.PI / 2 + side * 0.68;
-        var targetX = userPoint.x + Math.cos(angle) * minimumSeparation;
-        var targetY = userPoint.y + Math.sin(angle) * minimumSeparation;
-        return [Math.round(targetX - birdPoint.x), Math.round(targetY - birdPoint.y)];
+        var needingOffsets = [];
+        (markers || []).forEach(function (bird) {
+          var distance = haversineKm(lastUserLocation, bird);
+          if (distance == null || distance >= 0.06) return;
+          var birdPoint = map.project([bird.longitude, bird.latitude]);
+          var dx = birdPoint.x - userPoint.x;
+          var dy = birdPoint.y - userPoint.y;
+          var separation = Math.sqrt(dx * dx + dy * dy);
+          var minimumSeparation = bird.virtual ? 84 : 78;
+          if (separation >= minimumSeparation) return;
+          var side = parseInt(hashString(String(bird.id) + ':side').slice(0, 8), 10) % 2 ? -1 : 1;
+          if (Math.abs(dx) > 2) side = dx < 0 ? -1 : 1;
+          needingOffsets.push({ bird: bird, point: birdPoint, minimumSeparation: minimumSeparation, side: side, distance: distance });
+        });
+        needingOffsets.sort(function (left, right) {
+          return left.distance - right.distance || String(left.bird.id).localeCompare(String(right.bird.id));
+        });
+        var slotAngles = [-112.5, -67.5, -157.5, -22.5];
+        var slots = [];
+        for (var ring = 0; ring < Math.max(2, Math.ceil(needingOffsets.length / slotAngles.length)); ring += 1) {
+          slotAngles.forEach(function (angle) {
+            slots.push({ angle: angle, radiusExtra: ring * 38, side: Math.cos(angle * Math.PI / 180) < 0 ? -1 : 1 });
+          });
+        }
+        var usedSlots = {};
+        needingOffsets.forEach(function (entry) {
+          var bestIndex = -1;
+          var bestScore = Infinity;
+          slots.forEach(function (slot, index) {
+            if (usedSlots[index]) return;
+            var sideScore = slot.side === entry.side ? 0 : 2;
+            var score = sideScore + slot.radiusExtra / 100;
+            if (score < bestScore) {
+              bestScore = score;
+              bestIndex = index;
+            }
+          });
+          if (bestIndex < 0) return;
+          usedSlots[bestIndex] = true;
+          var slot = slots[bestIndex];
+          var radians = slot.angle * Math.PI / 180;
+          var radius = entry.minimumSeparation + slot.radiusExtra;
+          var targetX = userPoint.x + Math.cos(radians) * radius;
+          var targetY = userPoint.y + Math.sin(radians) * radius;
+          assignments[String(entry.bird.id)] = [Math.round(targetX - entry.point.x), Math.round(targetY - entry.point.y)];
+        });
+        return assignments;
+      }
+
+      function presenceScreenOffset(bird, assignments) {
+        return assignments && assignments[String(bird.id)] || [0, 0];
       }
 
       function renderBirdMarkers(markers) {
@@ -1662,11 +1700,12 @@ ${speciesAudioScript()}
           return markerScore(left) - markerScore(right);
         });
         var edgeMargin = 30;
+        var presenceOffsets = computePresenceOffsets(sorted);
         var candidates = sorted.map(function (bird) {
           var isTracked = trackId && String(bird.id) === String(trackId);
           var displayLng = wrappedLongitude(bird.longitude);
           var point = map.project([displayLng, bird.latitude]);
-          var screenOffset = presenceScreenOffset(bird);
+          var screenOffset = presenceScreenOffset(bird, presenceOffsets);
           point.x += screenOffset[0];
           point.y += screenOffset[1];
           var centerVisible = point.x >= 0 && point.x <= viewportWidth && point.y >= 0 && point.y <= viewportHeight;
@@ -1716,7 +1755,7 @@ ${speciesAudioScript()}
           var element = document.createElement('div');
           element.className = 'bird-marker ' + visualStates[chosenIndex].presenceClass + (bird.virtual ? ' virtual' : '') + (bird.isNotable ? ' notable' : '') + (visualStates[chosenIndex].inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '');
           element.innerHTML = markerInnerHtml(bird);
-          var marker = new maplibregl.Marker({ element: element, anchor: 'bottom', offset: presenceScreenOffset(bird) })
+          var marker = new maplibregl.Marker({ element: element, anchor: 'bottom', offset: presenceScreenOffset(bird, presenceOffsets) })
             .setLngLat([wrappedLongitude(bird.longitude), bird.latitude])
             .addTo(map);
           element.style.pointerEvents = 'auto';
