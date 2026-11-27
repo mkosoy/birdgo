@@ -237,7 +237,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     () => spawnSpeciesAssignments
       ? skyfriendCells.map((cellKey) => ({
         cellKey,
-        spawns: buildSkyfriendSpawns(birds, location, new Date(), spawnSpeciesAssignments[cellKey] ?? [], cellKey, cellKey === trackedSkyfriendCellKey),
+        spawns: buildSkyfriendSpawns(birds, spawnSpeciesAssignments[cellKey] ?? [], cellKey),
       }))
       : [],
     [birds, location, skyfriendCells, spawnSpeciesAssignments, trackedSkyfriendCellKey],
