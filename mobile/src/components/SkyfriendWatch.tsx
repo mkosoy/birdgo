@@ -23,8 +23,8 @@ interface Difficulty {
 }
 
 const DIFFICULTY: Record<BirdRarity, Difficulty> = {
-  common: { speed: 0.68, focusSeconds: 1.8, durationSeconds: 11, focusRadius: 64, orbitPadding: 24, copy: "Calm and slow" },
-  uncommon: { speed: 0.78, focusSeconds: 2.2, durationSeconds: 11.5, focusRadius: 60, orbitPadding: 20, copy: "A little fluttery" },
+  common: { speed: 0.68, focusSeconds: 1.8, durationSeconds: 11, focusRadius: 64, orbitPadding: 40, copy: "Calm and slow" },
+  uncommon: { speed: 0.78, focusSeconds: 2.2, durationSeconds: 11.5, focusRadius: 60, orbitPadding: 28, copy: "A little fluttery" },
   rare: { speed: 0.92, focusSeconds: 2.8, durationSeconds: 12, focusRadius: 56, orbitPadding: 22, copy: "Quick and wary" },
   epic: { speed: 1.05, focusSeconds: 3.3, durationSeconds: 12.5, focusRadius: 52, orbitPadding: 24, copy: "Very jumpy" },
   legendary: { speed: 1.18, focusSeconds: 3.8, durationSeconds: 13, focusRadius: 48, orbitPadding: 26, copy: "A master escape artist" },
