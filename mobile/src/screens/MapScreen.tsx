@@ -44,6 +44,14 @@ function formatObservationAge(obsDt?: string): string {
   return `reported ${Math.round(hours / 24)}d ago`;
 }
 
+function openWalkingDirections(latitude: number, longitude: number): void {
+  const destination = `${latitude},${longitude}`;
+  const url = Platform.OS === "ios"
+    ? `https://maps.apple.com/?daddr=${destination}&dirflg=w`
+    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=walking`;
+  void Linking.openURL(url);
+}
+
 export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: SeenSpecies) => void; targetCapture?: { speciesCode?: string; commonName: string; sciName?: string | null; encounterId?: string; timestamp: number } }) {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
@@ -76,7 +84,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const [locationRetry, setLocationRetry] = useState(0);
   const hasRealLocation = useRef(false);
   const fallbackActive = useRef(true);
-  const [rareDismissed, setRareDismissed] = useState(false);
+  const [dismissedRareHuntId, setDismissedRareHuntId] = useState<string>();
   const { birds, notable, loading, error, loadedArea, refresh } = useBirds(center.latitude, center.longitude);
   const weather = useWeather(location);
   const { trainer, refresh: refreshTrainer } = useTrainerProfile();
@@ -391,9 +399,12 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     })[0];
   const startRareHunt = (bird: EbirdObservation) => {
     const target = { latitude: bird.latitude, longitude: bird.longitude, name: bird.comName ?? "Rare bird", id: observationMarkerId(bird), speciesCode: bird.speciesCode };
-    setActiveTrackTarget(target);
-    setTrackRequest(target);
-    setRareDismissed(true);
+    if (mode === "classic") openWalkingDirections(target.latitude, target.longitude);
+    else {
+      setActiveTrackTarget(target);
+      setTrackRequest(target);
+    }
+    setDismissedRareHuntId(target.id);
   };
   const topMessage = completionNotice
     ? { text: completionNotice, onPress: () => setCompletionNotice(null) }
@@ -608,11 +619,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         }}
         onDirections={(target) => {
           if (mode === "classic") {
-            const destination = `${target.latitude},${target.longitude}`;
-            const url = Platform.OS === "ios"
-              ? `https://maps.apple.com/?daddr=${destination}&dirflg=w`
-              : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=walking`;
-            void Linking.openURL(url);
+            openWalkingDirections(target.latitude, target.longitude);
             return;
           }
           setActiveTrackTarget(target);
@@ -641,7 +648,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           </Pressable>
         )}
         </View>
-        {rareHunt && !rareDismissed && !popupOpen && !toastOpen && !completionNotice && !locationNotice && !error ? <View style={styles.rareCard}>
+        {rareHunt && dismissedRareHuntId !== observationMarkerId(rareHunt) && !popupOpen && !toastOpen && !completionNotice && !locationNotice && !error ? <View style={styles.rareCard}>
           <Text style={styles.rareEyebrow}>Rare hunt nearby</Text>
           <Text style={styles.rareTitle}>{rareHunt.comName}</Text>
           <Text style={styles.rareCopy}>{distanceKm(location, rareHunt) < 1 ? `${Math.round(distanceKm(location, rareHunt) * 1000)}m` : `${distanceKm(location, rareHunt).toFixed(1)}km`} away · {formatObservationAge(rareHunt.obsDt)}{rareHunt.locName ? ` · ${rareHunt.locName}` : ""}</Text>
@@ -649,7 +656,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           <View style={styles.rareActions}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Track rare ${rareHunt.comName}`} style={styles.rarePrimary} onPress={() => startRareHunt(rareHunt)}><Text style={styles.rarePrimaryText}>Hunt</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={`Open ${rareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: rareHunt.speciesCode, comName: rareHunt.comName ?? "Unknown bird", sciName: rareHunt.sciName })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="Dismiss rare hunt" style={styles.rareDismiss} onPress={() => setRareDismissed(true)}><Text style={styles.rareDismissText}>×</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Dismiss rare hunt" style={styles.rareDismiss} onPress={() => setDismissedRareHuntId(observationMarkerId(rareHunt))}><Text style={styles.rareDismissText}>×</Text></Pressable>
           </View>
         </View> : null}
         {topMessage && !popupOpen && (
