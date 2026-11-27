@@ -219,6 +219,14 @@ function soundRank(page: CommonsPage, info: CommonsVideoInfo, scientificName?: s
   return durationPenalty * 100 + exactTitlePenalty * 10 + (page.index ?? 99);
 }
 
+function xenoCantoRecordingKey(title: string, info: CommonsVideoInfo): string | undefined {
+  const titleMatch = title.match(/\bXC\s*(\d+)\b/i);
+  if (titleMatch) return `xc-${titleMatch[1]}`;
+  const credit = metadataText(info, "Credit") ?? "";
+  const creditMatch = credit.match(/xeno-canto\.org\/(?:chooseathumb\?html=)?(\d+)/i) ?? credit.match(/[?&]XC=(\d+)/i);
+  return creditMatch ? `xc-${creditMatch[1]}` : undefined;
+}
+
 async function searchCommonsAudio(query: string): Promise<CommonsPage[]> {
   const params = new URLSearchParams({
     action: "query",
@@ -245,7 +253,7 @@ async function fetchCommonsSounds(scientificName?: string, commonName?: string):
     } catch {
       continue;
     }
-    const sounds = pages.flatMap((page) => {
+    const soundsBeforeDedupe = pages.flatMap((page) => {
       const info = page.videoinfo?.[0];
       if (!page.title || !info) return [];
       const url = playableAudioUrl(info);
@@ -269,9 +277,14 @@ async function fetchCommonsSounds(scientificName?: string, commonName?: string):
         } satisfies SpeciesGuideSound,
       }];
     })
-      .sort((left, right) => soundRank(left.page, left.info, scientificName) - soundRank(right.page, right.info, scientificName))
-      .slice(0, 3)
-      .map((entry) => entry.sound);
+      .sort((left, right) => soundRank(left.page, left.info, scientificName) - soundRank(right.page, right.info, scientificName));
+    const seenRecordingKeys = new Set<string>();
+    const sounds = soundsBeforeDedupe.flatMap((entry) => {
+      const key = xenoCantoRecordingKey(entry.sound.title, entry.info) ?? `page-${entry.page.pageid ?? entry.sound.title}`;
+      if (seenRecordingKeys.has(key)) return [];
+      seenRecordingKeys.add(key);
+      return [entry.sound];
+    }).slice(0, 3);
     if (sounds.length) return sounds;
   }
   return [];
