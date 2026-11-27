@@ -7,15 +7,29 @@ export interface SyncRecord {
   updatedAt: string;
 }
 
-const LOCAL_STORE_FILE = process.env.SYNC_LOCAL_FILE;
-const KV_URL = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-const KV_TOKEN = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+export type SyncWriteResult =
+  | { status: "written"; record: SyncRecord }
+  | { status: "conflict"; currentRevision: number };
+
+function localStoreFile(): string | undefined {
+  return process.env.SYNC_LOCAL_FILE;
+}
+
+function kvUrl(): string | undefined {
+  return process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
+}
+
+function kvToken(): string | undefined {
+  return process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+}
 
 async function upstashCommand<T>(command: unknown[]): Promise<T> {
-  if (!KV_URL || !KV_TOKEN) throw new Error("Sync storage is not configured.");
-  const response = await fetch(KV_URL, {
+  const url = kvUrl();
+  const token = kvToken();
+  if (!url || !token) throw new Error("Sync storage is not configured.");
+  const response = await fetch(url, {
     method: "POST",
-    headers: { authorization: `Bearer ${KV_TOKEN}`, "content-type": "application/json" },
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
     body: JSON.stringify(command),
   });
   if (!response.ok) throw new Error(`Sync storage request failed with ${response.status}.`);
@@ -25,21 +39,49 @@ async function upstashCommand<T>(command: unknown[]): Promise<T> {
 }
 
 async function readLocalStore(): Promise<Record<string, SyncRecord>> {
-  if (!LOCAL_STORE_FILE) return {};
+  const file = localStoreFile();
+  if (!file) return {};
   try {
-    return JSON.parse(await readFile(LOCAL_STORE_FILE, "utf8")) as Record<string, SyncRecord>;
+    return JSON.parse(await readFile(file, "utf8")) as Record<string, SyncRecord>;
   } catch {
     return {};
   }
 }
 
 async function writeLocalStore(store: Record<string, SyncRecord>): Promise<void> {
-  if (!LOCAL_STORE_FILE) throw new Error("Sync storage is not configured.");
-  await writeFile(LOCAL_STORE_FILE, JSON.stringify(store), "utf8");
+  const file = localStoreFile();
+  if (!file) throw new Error("Sync storage is not configured.");
+  await writeFile(file, JSON.stringify(store), "utf8");
 }
 
+let localWriteQueue: Promise<unknown> = Promise.resolve();
+
+function enqueueLocalWrite<T>(operation: () => Promise<T>): Promise<T> {
+  const result = localWriteQueue.then(operation, operation);
+  localWriteQueue = result.catch(() => undefined);
+  return result;
+}
+
+const COMPARE_AND_WRITE_SCRIPT = `
+local current = redis.call('GET', KEYS[1])
+local revision = 0
+if current then
+  local ok, decoded = pcall(cjson.decode, current)
+  if ok and type(decoded) == 'table' and type(decoded.revision) == 'number' then
+    revision = decoded.revision
+  end
+end
+if revision ~= tonumber(ARGV[1]) then
+  return {0, revision}
+end
+local nextRevision = revision + 1
+local record = cjson.encode({ payload = ARGV[2], revision = nextRevision, updatedAt = ARGV[3] })
+redis.call('SET', KEYS[1], record)
+return {1, nextRevision}
+`;
+
 export function syncStorageConfigured(): boolean {
-  return Boolean(LOCAL_STORE_FILE || (KV_URL && KV_TOKEN));
+  return Boolean(localStoreFile() || (kvUrl() && kvToken()));
 }
 
 export function syncKeyFromSecret(secret: string): string {
@@ -47,7 +89,7 @@ export function syncKeyFromSecret(secret: string): string {
 }
 
 export async function readSyncRecord(key: string): Promise<SyncRecord | undefined> {
-  if (LOCAL_STORE_FILE) return (await readLocalStore())[key];
+  if (localStoreFile()) return (await readLocalStore())[key];
   const raw = await upstashCommand<string | null>(["GET", key]);
   if (!raw) return undefined;
   try {
@@ -59,12 +101,29 @@ export async function readSyncRecord(key: string): Promise<SyncRecord | undefine
   }
 }
 
-export async function writeSyncRecord(key: string, record: SyncRecord): Promise<void> {
-  if (LOCAL_STORE_FILE) {
-    const store = await readLocalStore();
-    store[key] = record;
-    await writeLocalStore(store);
-    return;
+export async function writeSyncRecordIfRevision(key: string, payload: string, expectedRevision: number): Promise<SyncWriteResult> {
+  const updatedAt = new Date().toISOString();
+  if (localStoreFile()) {
+    return enqueueLocalWrite(async () => {
+      const store = await readLocalStore();
+      const currentRevision = store[key]?.revision ?? 0;
+      if (currentRevision !== expectedRevision) return { status: "conflict", currentRevision };
+      const record = { payload, revision: currentRevision + 1, updatedAt };
+      store[key] = record;
+      await writeLocalStore(store);
+      return { status: "written", record };
+    });
   }
-  await upstashCommand(["SET", key, JSON.stringify(record)]);
+  const result = await upstashCommand<[number, number]>([
+    "EVAL",
+    COMPARE_AND_WRITE_SCRIPT,
+    1,
+    key,
+    expectedRevision,
+    payload,
+    updatedAt,
+  ]);
+  const [written, revision] = result;
+  if (!written) return { status: "conflict", currentRevision: revision };
+  return { status: "written", record: { payload, revision, updatedAt } };
 }

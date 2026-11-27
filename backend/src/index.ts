@@ -13,7 +13,7 @@ import { fetchInatBirdAbundance, fetchInatBirds, fetchSpeciesReferenceImage } fr
 import { identifyBird, type BirdIdProvider } from "./birdId.js";
 import { canonicalizeSpecies, type SpeciesIdentityInput } from "./taxonomy.js";
 import { fetchSpeciesGuide } from "./speciesGuide.js";
-import { readSyncRecord, syncKeyFromSecret, syncStorageConfigured, writeSyncRecord } from "./sync.js";
+import { readSyncRecord, syncKeyFromSecret, syncStorageConfigured, writeSyncRecordIfRevision } from "./sync.js";
 
 dotenv.config();
 export const app = express();
@@ -336,21 +336,18 @@ app.put("/api/sync", async (request, response) => {
     response.status(413).json({ error: "Sync payload is too large.", status: 413 });
     return;
   }
-  if (body.expectedRevision !== undefined && (!Number.isInteger(body.expectedRevision) || Number(body.expectedRevision) < 0)) {
+  if (!Number.isInteger(body.expectedRevision) || Number(body.expectedRevision) < 0) {
     response.status(400).json({ error: "expectedRevision must be a non-negative integer.", status: 400 });
     return;
   }
   try {
     const key = syncKeyFromSecret(secret);
-    const current = await readSyncRecord(key);
-    const currentRevision = current?.revision ?? 0;
-    if (body.expectedRevision !== undefined && Number(body.expectedRevision) !== currentRevision) {
-      response.status(409).json({ error: "Cloud backup changed on another device.", status: 409, currentRevision });
+    const result = await writeSyncRecordIfRevision(key, body.payload, Number(body.expectedRevision));
+    if (result.status === "conflict") {
+      response.status(409).json({ error: "Cloud backup changed on another device.", status: 409, currentRevision: result.currentRevision });
       return;
     }
-    const record = { payload: body.payload, revision: currentRevision + 1, updatedAt: new Date().toISOString() };
-    await writeSyncRecord(key, record);
-    response.json(record);
+    response.json(result.record);
   } catch (error) {
     console.error(error);
     response.status(502).json({ error: "Cloud sync write failed.", status: 502 });
