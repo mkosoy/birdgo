@@ -79,10 +79,6 @@ async function writeBirdCache(area: Coordinates, birds: EbirdObservation[], nota
   const entries = await readBirdCacheEntries().catch(() => [] as BirdCachePayload[]);
   const key = cacheAreaKey(area);
   const remaining = entries.filter((entry) => cacheAreaKey(entry.area) !== key);
-  if (!birds.length && !notable.length) {
-    await writeBirdCacheEntries(remaining);
-    return;
-  }
   const payload: BirdCachePayload = { savedAt: Date.now(), area, birds: birds.slice(0, 250), notable: notable.slice(0, 50) };
   await writeBirdCacheEntries([payload, ...remaining]);
 }
