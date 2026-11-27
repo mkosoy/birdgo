@@ -18,7 +18,7 @@ import { useWeather } from "../hooks/useWeather";
 import { useTrainerProfile } from "../hooks/useTrainerProfile";
 import { claimDailyBonusXp, hasDailyBonus } from "../store/collection";
 import type { Coordinates, EbirdObservation, SeenSpecies } from "../types";
-import { rarityForSpecies, speciesKeyAliases } from "../utils/progression";
+import { RARITY_ORDER, rarityForSpecies, speciesKeyAliases } from "../utils/progression";
 import { buildBirdwalkPlan, xpForBirdwalk, type BirdwalkState, type BirdwalkStop } from "../utils/birdwalk";
 import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround, skyfriendCellKeyFromEncounterId } from "../utils/skyfriends";
 
@@ -379,8 +379,16 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     clearTrackedSkyfriend(encounterId);
   };
   const rareHunt = notable
-    .filter((bird) => !bird.virtual && bird.comName)
-    .sort((a, b) => distanceKm(location, a) - distanceKm(location, b))[0];
+    .filter((bird) => {
+      if (bird.virtual || !bird.comName || distanceKm(location, bird) > 15) return false;
+      const ageHours = bird.obsDt ? (Date.now() - new Date(bird.obsDt).getTime()) / 3_600_000 : 24;
+      if (!Number.isFinite(ageHours) || ageHours > 72) return false;
+      return RARITY_ORDER.indexOf(rarityForSpecies(bird.speciesCode, bird.comName, true, bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount)) >= RARITY_ORDER.indexOf("rare");
+    })
+    .sort((a, b) => {
+      const rarityDelta = RARITY_ORDER.indexOf(rarityForSpecies(b.speciesCode, b.comName, true, b.sciName, b.canonicalKey, b.frequency, b.abundanceCount)) - RARITY_ORDER.indexOf(rarityForSpecies(a.speciesCode, a.comName, true, a.sciName, a.canonicalKey, a.frequency, a.abundanceCount));
+      return rarityDelta || distanceKm(location, a) - distanceKm(location, b);
+    })[0];
   const startRareHunt = (bird: EbirdObservation) => {
     const target = { latitude: bird.latitude, longitude: bird.longitude, name: bird.comName ?? "Rare bird", id: observationMarkerId(bird), speciesCode: bird.speciesCode };
     setActiveTrackTarget(target);
