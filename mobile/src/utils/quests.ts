@@ -80,7 +80,7 @@ type RealQuestId = "verify-photo" | "rare-find" | "new-species" | "two-real";
 
 function realSpecialProgress(id: RealQuestId, captures: CaptureRecord[], dayStart: number, speciesCaptureCounts: SpeciesCountGroup[]): number {
   const todays = captures.filter((capture) => timestamp(capture.timestamp) >= dayStart && isIdentifiedCapture(capture));
-  if (id === "verify-photo") return todays.filter((capture) => capture.verified && capture.photoUri).length;
+  if (id === "verify-photo") return todays.filter((capture) => capture.verified && (capture.photoUri || capture.photoEvidenceProvided)).length;
   if (id === "rare-find") return todays.filter((capture) => RARITY_ORDER.indexOf(capture.rarity ?? "common") >= RARITY_ORDER.indexOf("rare")).length;
   if (id === "new-species") return newSpeciesCountToday(captures, dayStart, speciesCaptureCounts);
   return todays.length;
