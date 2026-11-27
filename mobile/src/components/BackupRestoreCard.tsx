@@ -40,7 +40,10 @@ export function BackupRestoreCard({ onRestored }: { onRestored: () => void }) {
 
   useEffect(() => subscribeAutomaticCloudBackup((state) => {
     setAutomaticBackup(state);
-    if (state.revision !== undefined) setCloudRevision(state.revision);
+    if (state.revision !== undefined) {
+      setCloudRevision(state.revision);
+      setRemoteCloudRevision(state.revision);
+    }
   }), []);
 
   useEffect(() => {
