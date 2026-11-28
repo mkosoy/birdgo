@@ -489,8 +489,10 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   };
   const startRareHunt = (bird: EbirdObservation) => {
     const target = { latitude: bird.latitude, longitude: bird.longitude, name: bird.comName ?? "Rare bird", id: observationMarkerId(bird), speciesCode: bird.speciesCode, kind: "rare" as const };
-    if (mode === "classic") openWalkingDirections(target.latitude, target.longitude);
-    else {
+    if (mode === "classic") {
+      openWalkingDirections(target.latitude, target.longitude);
+      setActiveTrackTarget(target);
+    } else {
       setActiveTrackTarget(target);
       setTrackRequest(target);
     }
