@@ -165,7 +165,7 @@ export function useBirds(latitude: number, longitude: number) {
       const now = Date.now();
       const freshRare = rare.filter((bird) => {
         if (!bird.obsDt) return true;
-        const observedAt = observationTimeMs(bird.obsDt, bird.longitude);
+        const observedAt = observationTimeMs(bird.obsDt, bird.longitude, bird.latitude);
         const ageHours = observedAt == null ? Number.POSITIVE_INFINITY : (now - observedAt) / 3_600_000;
         return Number.isFinite(ageHours) && ageHours <= 72;
       });

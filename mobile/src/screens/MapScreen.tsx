@@ -38,10 +38,10 @@ function externalSpeciesUrl(target: GuideTarget): string {
     : `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(target.comName)}`;
 }
 
-function formatObservationAge(obsDt: string | undefined, source?: string, longitude?: number): string {
+function formatObservationAge(obsDt: string | undefined, source?: string, longitude?: number, latitude?: number): string {
   const verb = source === "birdweather" ? "detected" : "reported";
   if (!obsDt) return `recently ${verb}`;
-  const observedAt = observationTimeMs(obsDt, longitude);
+  const observedAt = observationTimeMs(obsDt, longitude, latitude);
   if (observedAt == null) return `recently ${verb}`;
   const hours = Math.max(0, (Date.now() - observedAt) / 3_600_000);
   if (hours < 1) return `${verb} within the hour`;
@@ -432,14 +432,14 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     .filter((bird) => !dismissedRareHuntIds.includes(rareHuntInstanceId(bird)))
     .filter((bird) => {
       if (bird.virtual || !bird.comName || distanceKm(location, bird) > 15) return false;
-      const observedAt = observationTimeMs(bird.obsDt, bird.longitude);
+      const observedAt = observationTimeMs(bird.obsDt, bird.longitude, bird.latitude);
       const ageHours = observedAt == null ? 24 : (Date.now() - observedAt) / 3_600_000;
       if (!Number.isFinite(ageHours) || ageHours > 72) return false;
       return RARITY_ORDER.indexOf(rarityForSpecies(bird.speciesCode, bird.comName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount)) >= RARITY_ORDER.indexOf("rare");
     })
     .sort((a, b) => {
       const scoreOf = (bird: EbirdObservation) => {
-        const observedAt = observationTimeMs(bird.obsDt, bird.longitude);
+        const observedAt = observationTimeMs(bird.obsDt, bird.longitude, bird.latitude);
         const ageHours = observedAt == null ? 24 : (Date.now() - observedAt) / 3_600_000;
         const rarityRank = RARITY_ORDER.indexOf(rarityForSpecies(bird.speciesCode, bird.comName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount));
         return rarityRank * 100 - ageHours * 3 - distanceKm(location, bird) * 2 - (bird.obsValid === false ? 50 : 0);
@@ -728,7 +728,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
             {rareHuntImageUrl ? <Image source={{ uri: rareHuntImageUrl }} style={styles.rareImage} /> : null}
             <View style={styles.rareTextWrap}>
               <Text numberOfLines={1} style={styles.rareTitle}>{visibleRareHunt.comName}</Text>
-              <Text numberOfLines={2} style={styles.rareCopy}>{distanceKm(location, visibleRareHunt) < 0.05 ? "here" : `${distanceKm(location, visibleRareHunt) < 1 ? `${Math.round(distanceKm(location, visibleRareHunt) * 1000)}m` : `${distanceKm(location, visibleRareHunt).toFixed(1)}km`} away`} · {formatObservationAge(visibleRareHunt.obsDt, visibleRareHunt.source, visibleRareHunt.longitude)}{visibleRareHunt.locName ? ` · ${visibleRareHunt.locName}` : ""}</Text>
+              <Text numberOfLines={2} style={styles.rareCopy}>{distanceKm(location, visibleRareHunt) < 0.05 ? "here" : `${distanceKm(location, visibleRareHunt) < 1 ? `${Math.round(distanceKm(location, visibleRareHunt) * 1000)}m` : `${distanceKm(location, visibleRareHunt).toFixed(1)}km`} away`} · {formatObservationAge(visibleRareHunt.obsDt, visibleRareHunt.source, visibleRareHunt.longitude, visibleRareHunt.latitude)}{visibleRareHunt.locName ? ` · ${visibleRareHunt.locName}` : ""}</Text>
             </View>
           </View>
           <Text numberOfLines={2} style={styles.rareHint}>{visibleRareHunt.source === "birdweather"

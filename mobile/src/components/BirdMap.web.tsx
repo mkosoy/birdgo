@@ -26,9 +26,9 @@ function markerId(bird: EbirdObservation): string {
   return `${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`;
 }
 
-function relativeTime(date?: string, longitude?: number): string {
+function relativeTime(date?: string, longitude?: number, latitude?: number): string {
   if (!date) return "recently";
-  const observedAt = observationTimeMs(date, longitude);
+  const observedAt = observationTimeMs(date, longitude, latitude);
   if (observedAt == null) return "recently";
   const hours = Math.max(0, Math.floor((Date.now() - observedAt) / 3600000));
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
@@ -50,7 +50,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
     sciName: bird.sciName,
     locName: bird.locName,
     obsDt: bird.obsDt,
-    relativeTime: relativeTime(bird.obsDt, bird.longitude),
+    relativeTime: relativeTime(bird.obsDt, bird.longitude, bird.latitude),
     howMany: bird.howMany,
     frequency: bird.frequency,
     reportCount: bird.reportCount,
