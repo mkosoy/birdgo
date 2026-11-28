@@ -573,7 +573,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const freshHotspots = useMemo(() => findFreshHotspots(birds, location).filter((hotspot) => !dismissedHotspotKeys.includes(hotspot.key)), [birds, dismissedHotspotKeys, location]);
   const rareHuntHotspotKey = visibleRareHunt ? visibleRareHunt.locId ?? `${visibleRareHunt.latitude.toFixed(3)}:${visibleRareHunt.longitude.toFixed(3)}` : undefined;
   const freshHotspot = freshHotspots.find((hotspot) => hotspot.score >= 60 && hotspot.key !== rareHuntHotspotKey);
-  const visibleHotspot = freshHotspot && !popupOpen && !tracking && (!birdwalk || mode === "classic") && !completionNotice && !locationNotice && !error ? freshHotspot : undefined;
+  const visibleHotspot = freshHotspot && !activeClassicRareHunt && !popupOpen && !tracking && (!birdwalk || mode === "classic") && !completionNotice && !locationNotice && !error ? freshHotspot : undefined;
   const dismissHotspot = (key: string) => {
     setDismissedHotspotKeys((current) => current.includes(key) ? current : [...current, key].slice(-12));
   };
