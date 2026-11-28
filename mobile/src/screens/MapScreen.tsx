@@ -755,6 +755,18 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           if (open && target) setActiveTrackTarget(target);
           if (!open) setActiveTrackTarget(undefined);
         }}
+        onHotspotArrived={(target) => {
+          if (!activeTrackTarget || activeTrackTarget.kind !== "hotspot" || activeTrackTarget.id !== target.id) return;
+          const hotspotName = target.name ?? activeTrackTarget.name;
+          const rewardXp = 15;
+          setActiveTrackTarget(undefined);
+          setTracking(false);
+          setStopTrackRequest((request) => request + 1);
+          void claimDailyBonusXp("hotspot-scout", rewardXp).then((awarded) => {
+            if (awarded) void refreshCollection();
+            setCompletionNotice(`Scout complete: ${hotspotName}!${awarded ? ` +${rewardXp} XP` : " Scan nearby birds."}`);
+          }).catch(() => setCompletionNotice(`Scout complete: ${hotspotName}!`));
+        }}
         onRegionChange={handleRegionChange}
       />
       <View pointerEvents="box-none" style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}>
