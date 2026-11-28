@@ -22,13 +22,15 @@ import type { Coordinates, EbirdObservation, SeenSpecies } from "../types";
 import { observationTimeMs } from "../utils/observationTime";
 import { RARITY_ORDER, rarityForSpecies, speciesKeyAliases } from "../utils/progression";
 import { buildBirdwalkPlan, xpForBirdwalk, type BirdwalkState, type BirdwalkStop } from "../utils/birdwalk";
+import { findFreshHotspots } from "../utils/hotspots";
 import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround, skyfriendCellKeyFromEncounterId } from "../utils/skyfriends";
 
-type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string };
+type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" };
 type GuideTarget = { speciesCode: string; comName: string; sciName?: string };
 let persistentTrackTarget: TrackTarget | undefined;
 const MAP_PREFERENCES_KEY = "birdgo.map-preferences-v1";
 const DISMISSED_RARE_HUNTS_KEY = "birdgo.dismissed-rare-hunts-v1";
+const DISMISSED_HOTSPOTS_KEY = "birdgo.dismissed-hotspots-v1";
 
 function externalSpeciesUrl(target: GuideTarget): string {
   return target.speciesCode.startsWith("inat-")
@@ -95,8 +97,10 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const hasRealLocation = useRef(false);
   const fallbackActive = useRef(true);
   const [dismissedRareHuntIds, setDismissedRareHuntIds] = useState<string[]>([]);
+  const [dismissedHotspotKeys, setDismissedHotspotKeys] = useState<string[]>([]);
   const [rareHuntImageUrl, setRareHuntImageUrl] = useState<string>();
   const rareDismissalsLoaded = useRef(false);
+  const hotspotDismissalsLoaded = useRef(false);
   const { birds, notable, loading, error, loadedArea, refresh } = useBirds(center.latitude, center.longitude);
   const weather = useWeather(location);
   const { trainer, refresh: refreshTrainer } = useTrainerProfile();
@@ -132,6 +136,30 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     if (!rareDismissalsLoaded.current) return;
     void AsyncStorage.setItem(DISMISSED_RARE_HUNTS_KEY, JSON.stringify(dismissedRareHuntIds)).catch(() => undefined);
   }, [dismissedRareHuntIds]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void AsyncStorage.getItem(DISMISSED_HOTSPOTS_KEY).then((raw) => {
+      if (cancelled) return;
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as unknown;
+          if (Array.isArray(parsed)) setDismissedHotspotKeys(parsed.filter((id): id is string => typeof id === "string").slice(-12));
+        } catch {
+          // Ignore corrupt dismissal state.
+        }
+      }
+      hotspotDismissalsLoaded.current = true;
+    }).catch(() => {
+      hotspotDismissalsLoaded.current = true;
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!hotspotDismissalsLoaded.current) return;
+    void AsyncStorage.setItem(DISMISSED_HOTSPOTS_KEY, JSON.stringify(dismissedHotspotKeys)).catch(() => undefined);
+  }, [dismissedHotspotKeys]);
   useEffect(() => {
     let cancelled = false;
     void AsyncStorage.getItem(MAP_PREFERENCES_KEY).then((raw) => {
@@ -480,6 +508,22 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
       cancelled = true;
     };
   }, [visibleRareHuntInstanceId]);
+  const freshHotspots = useMemo(() => findFreshHotspots(birds, location).filter((hotspot) => !dismissedHotspotKeys.includes(hotspot.key)), [birds, dismissedHotspotKeys, location]);
+  const rareHuntHotspotKey = visibleRareHunt ? visibleRareHunt.locId ?? `${visibleRareHunt.latitude.toFixed(3)}:${visibleRareHunt.longitude.toFixed(3)}` : undefined;
+  const freshHotspot = freshHotspots.find((hotspot) => hotspot.score >= 60 && hotspot.key !== rareHuntHotspotKey);
+  const visibleHotspot = freshHotspot && !popupOpen && !tracking && (!birdwalk || mode === "classic") && !completionNotice && !locationNotice && !error ? freshHotspot : undefined;
+  const dismissHotspot = (key: string) => {
+    setDismissedHotspotKeys((current) => current.includes(key) ? current : [...current, key].slice(-12));
+  };
+  const startHotspotScout = (hotspot: NonNullable<typeof visibleHotspot>) => {
+    const target = { latitude: hotspot.latitude, longitude: hotspot.longitude, name: hotspot.name, id: hotspot.key, kind: "hotspot" as const };
+    if (mode === "classic") openWalkingDirections(target.latitude, target.longitude);
+    else {
+      setActiveTrackTarget(target);
+      setTrackRequest(target);
+    }
+    dismissHotspot(hotspot.key);
+  };
   const topMessage = completionNotice
     ? { text: completionNotice, onPress: () => setCompletionNotice(null) }
     : locationNotice
@@ -742,6 +786,14 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
             <Pressable accessibilityRole="button" accessibilityLabel="Dismiss rare hunt" style={styles.rareDismiss} onPress={() => dismissRareHunt(rareHuntInstanceId(visibleRareHunt))}><Text style={styles.rareDismissText}>×</Text></Pressable>
           </View>
         </View> : null}
+        {visibleHotspot ? <View style={[styles.scoutStrip, toastOpen && styles.rareCardBelowToast]}>
+          <View style={styles.scoutStripCopyWrap}>
+            <Text numberOfLines={1} style={styles.scoutStripTitle}>Fresh spot · {visibleHotspot.name}</Text>
+            <Text numberOfLines={1} style={styles.scoutStripCopy}>{visibleHotspot.rareSpeciesCount ? `${visibleHotspot.rareSpeciesCount} rare · ` : ""}{visibleHotspot.speciesCount} species in 2d · {visibleHotspot.distanceKm < 0.05 ? "here" : `${visibleHotspot.distanceKm < 1 ? `${Math.round(visibleHotspot.distanceKm * 1000)}m` : `${visibleHotspot.distanceKm.toFixed(1)}km`} away`}</Text>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Scout ${visibleHotspot.name}`} style={styles.scoutStripButton} onPress={() => startHotspotScout(visibleHotspot)}><Text style={styles.scoutStripButtonText}>Scout</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Dismiss fresh birding spot" style={styles.scoutStripDismiss} onPress={() => dismissHotspot(visibleHotspot.key)}><Text style={styles.scoutStripDismissText}>×</Text></Pressable>
+        </View> : null}
         {topMessage && !popupOpen && (
           <Pressable style={[styles.topMessage, toastOpen && styles.topMessageBelowToast]} onPress={topMessage.onPress}>
             <Text style={styles.topMessageText}>{topMessage.text}</Text>
@@ -813,6 +865,14 @@ const styles = StyleSheet.create({
   modeButtonText: { color: "#173c2b", fontWeight: "700" },
   rareCard: { maxWidth: 360, alignSelf: "flex-start", backgroundColor: "#fff8df", borderColor: "#e3bc4f", borderWidth: 1, padding: 12, borderRadius: 16, elevation: 4, gap: 4 },
   rareCardBelowToast: { marginTop: 52 },
+  scoutStrip: { maxWidth: 360, alignSelf: "flex-start", minHeight: 48, flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: "#effbf2f2", borderColor: "#77b98d", borderWidth: 1, paddingVertical: 6, paddingHorizontal: 9, borderRadius: 14, elevation: 3 },
+  scoutStripCopyWrap: { flex: 1, minWidth: 0 },
+  scoutStripTitle: { color: "#173c2b", fontSize: 13, fontWeight: "900" },
+  scoutStripCopy: { color: "#3f654e", fontSize: 11, fontWeight: "700", marginTop: 1 },
+  scoutStripButton: { minWidth: 56, minHeight: 36, borderRadius: 11, backgroundColor: "#2f7d5b", alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
+  scoutStripButtonText: { color: "#fff", fontSize: 12, fontWeight: "900" },
+  scoutStripDismiss: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
+  scoutStripDismissText: { color: "#3f654e", fontSize: 19, lineHeight: 21 },
   rareEyebrow: { color: "#9a6908", fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.8 },
   rareMainRow: {
     flexDirection: "row",
