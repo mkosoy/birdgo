@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "./config";
-import type { BirdAbundance, CanonicalSpeciesResult, EbirdObservation, IdentificationResult, SpeciesGuide } from "./types";
+import type { BirdAbundance, CanonicalSpeciesResult, EbirdObservation, HuntWeather, IdentificationResult, SpeciesGuide } from "./types";
 
 interface RawEbirdObservation {
   lat?: number;
@@ -83,6 +83,10 @@ export function canonicalizeSpecies(items: Array<{ speciesCode?: string; comName
     method: "POST",
     body: JSON.stringify({ items }),
   });
+}
+
+export function fetchHuntWeather(latitude: number, longitude: number): Promise<HuntWeather> {
+  return request(`/api/weather?lat=${latitude}&lng=${longitude}`);
 }
 
 export function fetchSpeciesGuide(input: { sciName?: string | null; commonName?: string | null }): Promise<SpeciesGuide> {

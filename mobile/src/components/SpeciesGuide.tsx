@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { Audio } from "expo-av";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { fetchSpeciesGuide } from "../api";
-import type { SpeciesGuide as SpeciesGuideData, SpeciesGuideSound } from "../types";
+import { fetchHuntWeather, fetchSpeciesGuide } from "../api";
+import type { HuntWeather, SpeciesGuide as SpeciesGuideData, SpeciesGuideSound } from "../types";
 import tzLookup from "@photostructure/tz-lookup";
 import { observationTimeMs } from "../utils/observationTime";
 
@@ -90,6 +90,16 @@ function fieldcraftTip(commonName: string, sciName?: string | null): string {
   return "Listen first, then scan nearby cover and open sky.";
 }
 
+function huntWeatherLabel(weather: HuntWeather): string {
+  const parts = [
+    `${Math.round(weather.temperatureC)}°C`,
+    weather.condition,
+    `wind ${Math.round(weather.windSpeedKph)}km/h`,
+  ];
+  if (weather.precipitationMm > 0) parts.push(`${weather.precipitationMm.toFixed(1)}mm precipitation`);
+  return parts.join(" · ");
+}
+
 function durationLabel(seconds?: number): string {
   if (!seconds || !Number.isFinite(seconds)) return "audio";
   const minutes = Math.floor(seconds / 60);
@@ -101,6 +111,7 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
   const [guide, setGuide] = useState<SpeciesGuideData>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [weather, setWeather] = useState<HuntWeather>();
   const [playingId, setPlayingId] = useState<string>();
   const [busyId, setBusyId] = useState<string>();
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -128,6 +139,23 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
       cancelled = true;
     };
   }, [commonName, sciName]);
+
+  useEffect(() => {
+    if (!hunt) {
+      setWeather(undefined);
+      return;
+    }
+    let cancelled = false;
+    setWeather(undefined);
+    void fetchHuntWeather(hunt.latitude, hunt.longitude)
+      .then((result) => {
+        if (!cancelled) setWeather(result);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [hunt?.latitude, hunt?.longitude]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -201,6 +229,7 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
       <Text style={styles.huntTitle}>Hunt brief</Text>
       <Text style={styles.huntText}>Latest report {huntReportTime ? `${huntReportTime} local · ` : ""}{huntAgeLabel(hunt.obsDt, hunt.longitude, hunt.latitude)} · {huntDistanceLabel(hunt.distanceKm)}{hunt.locName ? ` · ${hunt.locName}` : ""}</Text>
       <Text style={styles.huntText}>{huntEvidenceLabel(hunt)}</Text>
+      {weather ? <Text style={styles.huntText}>Conditions now: {huntWeatherLabel(weather)}</Text> : null}
       {hunt.locationPrivate ? <Text style={styles.huntText}>Non-hotspot report — use public access points.</Text> : null}
       <Text style={styles.huntTip}>{fieldcraftTip(commonName, sciName)}</Text>
     </View> : null}

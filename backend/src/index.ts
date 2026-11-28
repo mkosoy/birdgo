@@ -16,6 +16,7 @@ import { canonicalizeSpecies, type SpeciesIdentityInput } from "./taxonomy.js";
 import { fetchSpeciesGuide } from "./speciesGuide.js";
 import { readSyncRecord, syncKeyFromSecret, syncStorageConfigured, writeSyncRecordIfRevision } from "./sync.js";
 import { fetchBirdweatherDetections } from "./birdweather.js";
+import { fetchHuntWeather } from "./weather.js";
 
 dotenv.config();
 export const app = express();
@@ -221,6 +222,21 @@ app.get("/api/birds/notable", async (request, response) => {
     response.json(deduplicated);
   } catch (error) {
     handleEbirdError(error, response);
+  }
+});
+
+app.get("/api/weather", async (request, response) => {
+  const latitude = Number(request.query.lat);
+  const longitude = Number(request.query.lng);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+    response.status(400).json({ error: "Valid lat and lng are required", status: 400 });
+    return;
+  }
+  try {
+    response.json(await fetchHuntWeather(latitude, longitude));
+  } catch (error) {
+    console.error(error);
+    response.status(502).json({ error: "Unable to reach weather service", status: 502 });
   }
 });
 
