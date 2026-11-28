@@ -1,4 +1,4 @@
-import tzLookup from "@photostructure/tz-lookup";
+import { find as findTimezones } from "geo-tz";
 const EBIRD_BASE_URL = "https://api.ebird.org/v2";
 
 export interface EbirdObservation {
@@ -104,7 +104,7 @@ function observationUtcMs(trimmed: string, longitude?: number, latitude?: number
   if (!Number.isFinite(naiveUtc)) return Number.NaN;
   if (typeof longitude === "number" && Number.isFinite(longitude) && typeof latitude === "number" && Number.isFinite(latitude)) {
     try {
-      return zonedLocalToUtcMs(naiveUtc, tzLookup(latitude, longitude));
+      return zonedLocalToUtcMs(naiveUtc, findTimezones(latitude, longitude)[0]);
     } catch {
       // Fall through to the longitude approximation.
     }
