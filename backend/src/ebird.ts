@@ -10,6 +10,9 @@ export interface EbirdObservation {
   lng?: number;
   obsDt?: string;
   imageUrl?: string;
+  audioUrl?: string;
+  audioStartTime?: number;
+  audioEndTime?: number;
   source?: string;
   [key: string]: unknown;
 }
