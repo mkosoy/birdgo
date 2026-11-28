@@ -27,8 +27,11 @@ function conditionLabel(code: number): string {
   if (code === 2) return "partly cloudy";
   if (code === 3) return "overcast";
   if (code === 45 || code === 48) return "fog";
-  if (code >= 51 && code <= 57) return "drizzle";
-  if (code >= 61 && code <= 67) return code >= 65 ? "heavy rain" : "rain";
+  if (code === 56 || code === 57) return "freezing drizzle";
+  if (code >= 51 && code <= 55) return "drizzle";
+  if (code === 66) return "light freezing rain";
+  if (code === 67) return "heavy freezing rain";
+  if (code >= 61 && code <= 65) return code === 65 ? "heavy rain" : "rain";
   if (code >= 71 && code <= 77) return "snow";
   if (code >= 80 && code <= 82) return "rain showers";
   if (code === 85 || code === 86) return "snow showers";
