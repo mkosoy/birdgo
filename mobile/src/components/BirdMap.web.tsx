@@ -60,6 +60,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
     virtual: Boolean(bird.virtual),
     prismatic: Boolean(bird.prismatic),
     source: bird.source,
+    obsValid: bird.obsValid,
     rarity: bird.rarity,
     captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
   })), [birds, captureCounts]);

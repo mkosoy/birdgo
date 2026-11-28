@@ -63,6 +63,7 @@ export interface LeafletMarker {
   virtual?: boolean;
   prismatic?: boolean;
   source?: string;
+  obsValid?: boolean;
   captureCount?: number;
   rarity?: BirdRarity;
 }
@@ -141,6 +142,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     virtual: Boolean(bird.virtual),
     prismatic: Boolean(bird.prismatic),
     source: bird.source,
+    obsValid: bird.obsValid,
     rarity: bird.rarity,
     captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
   })), [birds, captureCounts]);

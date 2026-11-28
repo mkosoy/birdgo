@@ -1545,7 +1545,7 @@ ${speciesAudioScript()}
         var count = typeof bird.howMany === 'number' && bird.howMany > 0 ? ' • ×' + bird.howMany : '';
         var virtual = Boolean(bird.virtual);
         var frequencyCopy = !virtual && bird.source !== 'birdweather' && typeof bird.reportCount === 'number' && bird.reportCount > 0 ? 'Reported at ' + bird.reportCount + ' location' + (bird.reportCount === 1 ? '' : 's') + ' recently' : '';
-        var statusCopy = virtual ? (bird.prismatic ? 'Prismatic virtual encounter' : 'Virtual learning encounter') : bird.source === 'birdweather' ? 'Live acoustic detection · ' + escapeHtml(bird.relativeTime || 'recently') : 'Past sighting · ' + escapeHtml(bird.relativeTime || 'recently');
+        var statusCopy = virtual ? (bird.prismatic ? 'Prismatic virtual encounter' : 'Virtual learning encounter') : bird.source === 'birdweather' ? 'Live acoustic detection · ' + escapeHtml(bird.relativeTime || 'recently') : (bird.obsValid === false ? 'Unconfirmed sighting · ' : 'Past sighting · ') + escapeHtml(bird.relativeTime || 'recently');
         var captureCopy = virtual
           ? distance != null && distance > 0.06
             ? 'A habitat-plausible Skyfriend. Move within 60m to collect it for your virtual field guide — it never counts as a real bird.'

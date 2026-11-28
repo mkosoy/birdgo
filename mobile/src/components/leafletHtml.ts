@@ -138,7 +138,7 @@ ${speciesAudioScript()}
           ? 'Virtual learning encounter — habitat-plausible, but not a real sighting.'
           : bird.source === 'birdweather'
             ? 'Live acoustic detection · ' + escapeHtml(bird.relativeTime || 'recently') + ' — the bird may be anywhere within earshot of this station.'
-            : 'Sighting recorded ' + escapeHtml(bird.relativeTime || 'recently') + ' — this is a past observation, not a live location.';
+            : (bird.obsValid === false ? 'Unconfirmed sighting reported ' : 'Sighting recorded ') + escapeHtml(bird.relativeTime || 'recently') + ' — this is a past observation, not a live location.';
         var captureCopy = virtual
           ? 'Collect this Skyfriend for your virtual field guide; it never counts as a real bird.'
           : bird.captureCount
