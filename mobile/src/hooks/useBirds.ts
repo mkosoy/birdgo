@@ -151,8 +151,8 @@ export function useBirds(latitude: number, longitude: number) {
     setError(null);
     const cached = await readBirdCache(latitude, longitude);
     if (currentRequest === requestId.current) {
-      setBirds(cached?.birds ?? []);
-      setNotable(cached?.notable ?? []);
+      setBirds(cached?.birds.map(annotateComputedRarity) ?? []);
+      setNotable(cached?.notable.map(annotateComputedRarity) ?? []);
       setLoadedArea(cached?.area ?? null);
     }
     try {
@@ -226,8 +226,8 @@ export function useBirds(latitude: number, longitude: number) {
     } catch (cause) {
       if (currentRequest !== requestId.current) return;
       if (cached?.birds.length || cached?.notable.length) {
-        setBirds(cached.birds);
-        setNotable(cached.notable);
+        setBirds(cached.birds.map(annotateComputedRarity));
+        setNotable(cached.notable.map(annotateComputedRarity));
         setLoadedArea(cached.area);
         setError("Offline — showing your last nearby birds. Tap to retry.");
       } else {
