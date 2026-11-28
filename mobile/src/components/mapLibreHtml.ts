@@ -1032,7 +1032,10 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
       }
 
       function trackedEntry() {
-        if (customTrackTarget && customTrackTarget.id === trackId) return customTrackTarget;
+        if (customTrackTarget && customTrackTarget.id === trackId) {
+          var freshEntry = latestMarkers.find(function (entry) { return String(entry.id) === String(trackId); });
+          return freshEntry ? Object.assign({}, customTrackTarget, freshEntry, { kind: customTrackTarget.kind, customTarget: true }) : customTrackTarget;
+        }
         return latestMarkers.find(function (entry) { return entry.id === trackId; });
       }
 
