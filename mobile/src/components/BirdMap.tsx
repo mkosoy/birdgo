@@ -27,7 +27,7 @@ export interface BirdMapProps {
   recenterRequest?: number;
   overviewRequest?: number;
   nearestRequest?: number;
-  trackRequest?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" };
+  trackRequest?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare" };
   stopTrackRequest?: number;
   closePopupRequest?: number;
   loading?: boolean;
@@ -41,7 +41,7 @@ export interface BirdMapProps {
   onToastChange?: (open: boolean) => void;
   onNearbyStateChange?: (state: "peek" | "half", height?: number) => void;
   onFollowChange?: (paused: boolean) => void;
-  onTrackingChange?: (active: boolean, target?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" }) => void;
+  onTrackingChange?: (active: boolean, target?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare" }) => void;
   onHotspotArrived?: (target: { id?: string; name?: string }) => void;
   onRegionChange: (coordinates: Coordinates) => void;
 }
@@ -81,7 +81,7 @@ export interface LeafletData {
   heading?: number;
   markers: LeafletMarker[];
   command?: "recenter" | "setView" | "overview" | "nearest" | "track" | "stopTrack" | "closePopup";
-  trackTarget?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" };
+  trackTarget?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare" };
   firstPerson?: boolean;
   safeArea?: SafeAreaInsets;
 }
@@ -96,7 +96,7 @@ interface LeafletMessage {
   height?: number;
   id?: string;
   speciesCode?: string;
-  kind?: "hotspot";
+  kind?: "hotspot" | "rare";
   comName?: string;
   sciName?: string;
   name?: string;

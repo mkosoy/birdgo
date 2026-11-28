@@ -1984,7 +1984,10 @@ ${speciesAudioScript()}
               if (!closest || candidateDistance < closest.distance) return { bird: bird, distance: candidateDistance };
               return closest;
             }, null);
-            if (targetBird && targetBird.bird) startTrack(targetBird.bird);
+            if (targetBird && targetBird.bird) {
+              var trackedBird = data.trackTarget.kind ? Object.assign({}, targetBird.bird, { kind: data.trackTarget.kind }) : targetBird.bird;
+              startTrack(trackedBird);
+            }
           }
         } else if (headingFollow && data.firstPerson && !userGesture) {
           follow = true;

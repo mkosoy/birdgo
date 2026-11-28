@@ -15,7 +15,7 @@ interface LeafletMessage {
   height?: number;
   id?: string;
   speciesCode?: string;
-  kind?: "hotspot";
+  kind?: "hotspot" | "rare";
   comName?: string;
   sciName?: string;
   name?: string;
