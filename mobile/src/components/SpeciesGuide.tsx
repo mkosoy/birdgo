@@ -4,6 +4,7 @@ import { Audio } from "expo-av";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { fetchSpeciesGuide } from "../api";
 import type { SpeciesGuide as SpeciesGuideData, SpeciesGuideSound } from "../types";
+import tzLookup from "@photostructure/tz-lookup";
 import { observationTimeMs } from "../utils/observationTime";
 
 interface HuntBrief {
@@ -35,8 +36,19 @@ function huntAgeLabel(obsDt: string | undefined, longitude: number, latitude: nu
   return `${Math.round(hours / 24)}d ago`;
 }
 
-function localReportTimeLabel(obsDt?: string): string | undefined {
-  const time = obsDt?.trim().replace("T", " ").split(" ")[1]?.slice(0, 5);
+function localReportTimeLabel(obsDt: string | undefined, longitude: number, latitude: number): string | undefined {
+  const trimmed = obsDt?.trim();
+  if (!trimmed) return undefined;
+  if (/(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(trimmed)) {
+    const utcMs = observationTimeMs(trimmed, longitude, latitude);
+    if (utcMs == null) return undefined;
+    try {
+      return new Intl.DateTimeFormat("en-US", { timeZone: tzLookup(latitude, longitude), hour: "numeric", minute: "2-digit" }).format(new Date(utcMs));
+    } catch {
+      return undefined;
+    }
+  }
+  const time = trimmed.replace("T", " ").split(" ")[1]?.slice(0, 5);
   if (!time) return undefined;
   const [hourText, minute] = time.split(":");
   const hour = Number(hourText);
@@ -159,6 +171,7 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
 
   const visibleSounds = guide?.sounds.slice(0, maxSounds ?? guide.sounds.length) ?? [];
   const hasContent = Boolean(guide?.summary || visibleSounds.length);
+  const huntReportTime = hunt ? localReportTimeLabel(hunt.obsDt, hunt.longitude, hunt.latitude) : undefined;
 
   return <View style={[styles.container, compact && styles.compact]}>
     <View style={styles.headerRow}>
@@ -167,7 +180,7 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
     </View>
     {hunt ? <View style={styles.huntBrief}>
       <Text style={styles.huntTitle}>Hunt brief</Text>
-      <Text style={styles.huntText}>Latest report {localReportTimeLabel(hunt.obsDt) ? `${localReportTimeLabel(hunt.obsDt)} local · ` : ""}{huntAgeLabel(hunt.obsDt, hunt.longitude, hunt.latitude)} · {huntDistanceLabel(hunt.distanceKm)}{hunt.locName ? ` · ${hunt.locName}` : ""}</Text>
+      <Text style={styles.huntText}>Latest report {huntReportTime ? `${huntReportTime} local · ` : ""}{huntAgeLabel(hunt.obsDt, hunt.longitude, hunt.latitude)} · {huntDistanceLabel(hunt.distanceKm)}{hunt.locName ? ` · ${hunt.locName}` : ""}</Text>
       <Text style={styles.huntText}>{huntEvidenceLabel(hunt)}</Text>
       <Text style={styles.huntTip}>Listen first, then scan quietly near the report area.</Text>
     </View> : null}
