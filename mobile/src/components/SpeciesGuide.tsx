@@ -15,6 +15,7 @@ interface HuntBrief {
   obsValid?: boolean;
   evidenceCount?: number;
   source?: string;
+  locationPrivate?: boolean;
   distanceKm: number;
 }
 
@@ -200,6 +201,7 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
       <Text style={styles.huntTitle}>Hunt brief</Text>
       <Text style={styles.huntText}>Latest report {huntReportTime ? `${huntReportTime} local · ` : ""}{huntAgeLabel(hunt.obsDt, hunt.longitude, hunt.latitude)} · {huntDistanceLabel(hunt.distanceKm)}{hunt.locName ? ` · ${hunt.locName}` : ""}</Text>
       <Text style={styles.huntText}>{huntEvidenceLabel(hunt)}</Text>
+      {hunt.locationPrivate ? <Text style={styles.huntText}>Non-hotspot report — use public access points.</Text> : null}
       <Text style={styles.huntTip}>{fieldcraftTip(commonName, sciName)}</Text>
     </View> : null}
     {loading ? <View style={styles.loadingRow}><ActivityIndicator color="#2f7d5b" /><Text style={styles.loadingText}>Loading species notes and sounds…</Text></View> : null}
