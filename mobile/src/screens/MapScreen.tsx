@@ -18,6 +18,7 @@ import { useWeather } from "../hooks/useWeather";
 import { useTrainerProfile } from "../hooks/useTrainerProfile";
 import { claimDailyBonusXp, hasDailyBonus } from "../store/collection";
 import type { Coordinates, EbirdObservation, SeenSpecies } from "../types";
+import { observationTimeMs } from "../utils/observationTime";
 import { RARITY_ORDER, rarityForSpecies, speciesKeyAliases } from "../utils/progression";
 import { buildBirdwalkPlan, xpForBirdwalk, type BirdwalkState, type BirdwalkStop } from "../utils/birdwalk";
 import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround, skyfriendCellKeyFromEncounterId } from "../utils/skyfriends";
@@ -36,11 +37,12 @@ function externalSpeciesUrl(target: GuideTarget): string {
     : `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(target.comName)}`;
 }
 
-function formatObservationAge(obsDt: string | undefined, source?: string): string {
+function formatObservationAge(obsDt: string | undefined, source?: string, longitude?: number): string {
   const verb = source === "birdweather" ? "detected" : "reported";
   if (!obsDt) return `recently ${verb}`;
-  const hours = Math.max(0, (Date.now() - new Date(obsDt).getTime()) / 3_600_000);
-  if (!Number.isFinite(hours)) return `recently ${verb}`;
+  const observedAt = observationTimeMs(obsDt, longitude);
+  if (observedAt == null) return `recently ${verb}`;
+  const hours = Math.max(0, (Date.now() - observedAt) / 3_600_000);
   if (hours < 1) return `${verb} within the hour`;
   if (hours < 24) return `${verb} ${Math.round(hours)}h ago`;
   return `${verb} ${Math.round(hours / 24)}d ago`;
@@ -428,13 +430,15 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     .filter((bird) => !dismissedRareHuntIds.includes(rareHuntInstanceId(bird)))
     .filter((bird) => {
       if (bird.virtual || !bird.comName || distanceKm(location, bird) > 15) return false;
-      const ageHours = bird.obsDt ? (Date.now() - new Date(bird.obsDt).getTime()) / 3_600_000 : 24;
+      const observedAt = observationTimeMs(bird.obsDt, bird.longitude);
+      const ageHours = observedAt == null ? 24 : (Date.now() - observedAt) / 3_600_000;
       if (!Number.isFinite(ageHours) || ageHours > 72) return false;
       return RARITY_ORDER.indexOf(rarityForSpecies(bird.speciesCode, bird.comName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount)) >= RARITY_ORDER.indexOf("rare");
     })
     .sort((a, b) => {
       const scoreOf = (bird: EbirdObservation) => {
-        const ageHours = bird.obsDt ? (Date.now() - new Date(bird.obsDt).getTime()) / 3_600_000 : 24;
+        const observedAt = observationTimeMs(bird.obsDt, bird.longitude);
+        const ageHours = observedAt == null ? 24 : (Date.now() - observedAt) / 3_600_000;
         const rarityRank = RARITY_ORDER.indexOf(rarityForSpecies(bird.speciesCode, bird.comName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount));
         return rarityRank * 100 - ageHours * 3 - distanceKm(location, bird) * 2;
       };
@@ -698,7 +702,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         {visibleRareHunt ? <View style={[styles.rareCard, toastOpen && styles.rareCardBelowToast]}>
           <Text style={styles.rareEyebrow}>Rare hunt nearby</Text>
           <Text style={styles.rareTitle}>{visibleRareHunt.comName}</Text>
-          <Text style={styles.rareCopy}>{distanceKm(location, visibleRareHunt) < 1 ? `${Math.round(distanceKm(location, visibleRareHunt) * 1000)}m` : `${distanceKm(location, visibleRareHunt).toFixed(1)}km`} away · {formatObservationAge(visibleRareHunt.obsDt, visibleRareHunt.source)}{visibleRareHunt.locName ? ` · ${visibleRareHunt.locName}` : ""}</Text>
+          <Text style={styles.rareCopy}>{distanceKm(location, visibleRareHunt) < 1 ? `${Math.round(distanceKm(location, visibleRareHunt) * 1000)}m` : `${distanceKm(location, visibleRareHunt).toFixed(1)}km`} away · {formatObservationAge(visibleRareHunt.obsDt, visibleRareHunt.source, visibleRareHunt.longitude)}{visibleRareHunt.locName ? ` · ${visibleRareHunt.locName}` : ""}</Text>
           <Text style={styles.rareHint}>{visibleRareHunt.source === "birdweather"
             ? "Fresh audio clue — the bird may be anywhere within earshot of the station."
             : "Recent real-world report — the bird is not guaranteed to still be there."}</Text>

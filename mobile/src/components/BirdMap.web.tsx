@@ -4,6 +4,7 @@ import { buildLeafletHtml } from "./leafletHtml";
 import { buildMapLibreHtml } from "./mapLibreHtml";
 import type { BirdMapProps, LeafletData, LeafletDataPayload, LeafletMarker } from "./BirdMap";
 import { speciesKey } from "../utils/progression";
+import { observationTimeMs } from "../utils/observationTime";
 import { API_BASE_URL } from "../config";
 
 interface LeafletMessage {
@@ -25,9 +26,11 @@ function markerId(bird: EbirdObservation): string {
   return `${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`;
 }
 
-function relativeTime(date?: string): string {
+function relativeTime(date?: string, longitude?: number): string {
   if (!date) return "recently";
-  const hours = Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 3600000));
+  const observedAt = observationTimeMs(date, longitude);
+  if (observedAt == null) return "recently";
+  const hours = Math.max(0, Math.floor((Date.now() - observedAt) / 3600000));
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
@@ -47,7 +50,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
     sciName: bird.sciName,
     locName: bird.locName,
     obsDt: bird.obsDt,
-    relativeTime: relativeTime(bird.obsDt),
+    relativeTime: relativeTime(bird.obsDt, bird.longitude),
     howMany: bird.howMany,
     frequency: bird.frequency,
     reportCount: bird.reportCount,

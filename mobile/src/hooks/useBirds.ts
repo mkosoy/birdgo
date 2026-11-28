@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { canonicalizeSpecies, fetchBirdAbundance, fetchNotableBirds, fetchRecentBirds } from "../api";
 import type { BirdAbundance, Coordinates, EbirdObservation } from "../types";
 import { rarityForSpecies } from "../utils/progression";
+import { observationTimeMs } from "../utils/observationTime";
 
 
 const BIRD_CACHE_KEY = "birdgo.nearby-birds-cache-v1";
@@ -164,7 +165,8 @@ export function useBirds(latitude: number, longitude: number) {
       const now = Date.now();
       const freshRare = rare.filter((bird) => {
         if (!bird.obsDt) return true;
-        const ageHours = (now - new Date(bird.obsDt).getTime()) / 3_600_000;
+        const observedAt = observationTimeMs(bird.obsDt, bird.longitude);
+        const ageHours = observedAt == null ? Number.POSITIVE_INFINITY : (now - observedAt) / 3_600_000;
         return Number.isFinite(ageHours) && ageHours <= 72;
       });
       for (const bird of freshRare) {
