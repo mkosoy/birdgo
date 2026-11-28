@@ -516,8 +516,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     setDismissedHotspotKeys((current) => current.includes(key) ? current : [...current, key].slice(-12));
   };
   const startHotspotScout = (hotspot: NonNullable<typeof visibleHotspot>) => {
-    const representative = hotspot.representative;
-    const target = { latitude: hotspot.latitude, longitude: hotspot.longitude, name: hotspot.name, id: observationMarkerId(representative), speciesCode: representative.speciesCode };
+    const target = { latitude: hotspot.latitude, longitude: hotspot.longitude, name: hotspot.name, id: hotspot.key };
     if (mode === "classic") openWalkingDirections(target.latitude, target.longitude);
     else {
       setActiveTrackTarget(target);
@@ -790,7 +789,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         {visibleHotspot ? <View style={[styles.scoutStrip, toastOpen && styles.rareCardBelowToast]}>
           <View style={styles.scoutStripCopyWrap}>
             <Text numberOfLines={1} style={styles.scoutStripTitle}>Fresh spot · {visibleHotspot.name}</Text>
-            <Text numberOfLines={1} style={styles.scoutStripCopy}>{visibleHotspot.distanceKm < 0.05 ? "here" : `${visibleHotspot.distanceKm < 1 ? `${Math.round(visibleHotspot.distanceKm * 1000)}m` : `${visibleHotspot.distanceKm.toFixed(1)}km`} away`} · {visibleHotspot.speciesCount} species reported in 2d{visibleHotspot.rareSpeciesCount ? ` · ${visibleHotspot.rareSpeciesCount} rare` : ""}</Text>
+            <Text numberOfLines={1} style={styles.scoutStripCopy}>{visibleHotspot.rareSpeciesCount ? `${visibleHotspot.rareSpeciesCount} rare · ` : ""}{visibleHotspot.speciesCount} species in 2d · {visibleHotspot.distanceKm < 0.05 ? "here" : `${visibleHotspot.distanceKm < 1 ? `${Math.round(visibleHotspot.distanceKm * 1000)}m` : `${visibleHotspot.distanceKm.toFixed(1)}km`} away`}</Text>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel={`Scout ${visibleHotspot.name}`} style={styles.scoutStripButton} onPress={() => startHotspotScout(visibleHotspot)}><Text style={styles.scoutStripButtonText}>Scout</Text></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Dismiss fresh birding spot" style={styles.scoutStripDismiss} onPress={() => dismissHotspot(visibleHotspot.key)}><Text style={styles.scoutStripDismissText}>×</Text></Pressable>
