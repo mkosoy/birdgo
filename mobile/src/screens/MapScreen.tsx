@@ -701,9 +701,9 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         </View>
         {visibleRareHunt ? <View style={[styles.rareCard, toastOpen && styles.rareCardBelowToast]}>
           <Text style={styles.rareEyebrow}>Rare hunt nearby</Text>
-          <Text style={styles.rareTitle}>{visibleRareHunt.comName}</Text>
-          <Text style={styles.rareCopy}>{distanceKm(location, visibleRareHunt) < 0.05 ? "here" : `${distanceKm(location, visibleRareHunt) < 1 ? `${Math.round(distanceKm(location, visibleRareHunt) * 1000)}m` : `${distanceKm(location, visibleRareHunt).toFixed(1)}km`} away`} · {formatObservationAge(visibleRareHunt.obsDt, visibleRareHunt.source, visibleRareHunt.longitude)}{visibleRareHunt.locName ? ` · ${visibleRareHunt.locName}` : ""}</Text>
-          <Text style={styles.rareHint}>{visibleRareHunt.source === "birdweather"
+          <Text numberOfLines={1} style={styles.rareTitle}>{visibleRareHunt.comName}</Text>
+          <Text numberOfLines={2} style={styles.rareCopy}>{distanceKm(location, visibleRareHunt) < 0.05 ? "here" : `${distanceKm(location, visibleRareHunt) < 1 ? `${Math.round(distanceKm(location, visibleRareHunt) * 1000)}m` : `${distanceKm(location, visibleRareHunt).toFixed(1)}km`} away`} · {formatObservationAge(visibleRareHunt.obsDt, visibleRareHunt.source, visibleRareHunt.longitude)}{visibleRareHunt.locName ? ` · ${visibleRareHunt.locName}` : ""}</Text>
+          <Text numberOfLines={2} style={styles.rareHint}>{visibleRareHunt.source === "birdweather"
             ? "Fresh audio clue — the bird may be anywhere within earshot of the station."
             : visibleRareHunt.obsValid === false
               ? "Unconfirmed real-world report — treat this as a lead, not a guarantee."
