@@ -11,6 +11,7 @@
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
+    "@photostructure/tz-lookup": "^11.2.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2"

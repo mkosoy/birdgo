@@ -1,3 +1,4 @@
+import tzLookup from "@photostructure/tz-lookup";
 const EBIRD_BASE_URL = "https://api.ebird.org/v2";
 
 export interface EbirdObservation {
@@ -60,6 +61,60 @@ function evidenceTimeMs(obsDt?: string): number {
 }
 
 
+const timezoneFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function timezoneFormatter(timeZone: string): Intl.DateTimeFormat {
+  const cached = timezoneFormatterCache.get(timeZone);
+  if (cached) return cached;
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  timezoneFormatterCache.set(timeZone, formatter);
+  return formatter;
+}
+
+function timezoneOffsetMs(timeZone: string, utcMs: number): number {
+  const parts = timezoneFormatter(timeZone).formatToParts(new Date(utcMs));
+  const values: Record<string, number> = {};
+  for (const part of parts) {
+    if (part.type !== "literal") values[part.type] = Number(part.value);
+  }
+  const zonedAsUtc = Date.UTC(values.year, values.month - 1, values.day, values.hour, values.minute, values.second);
+  return zonedAsUtc - Math.floor(utcMs / 1000) * 1000;
+}
+
+function zonedLocalToUtcMs(naiveUtcMs: number, timeZone: string): number {
+  const initialOffset = timezoneOffsetMs(timeZone, naiveUtcMs);
+  const initialResult = naiveUtcMs - initialOffset;
+  const adjustedOffset = timezoneOffsetMs(timeZone, initialResult);
+  return adjustedOffset === initialOffset ? initialResult : naiveUtcMs - adjustedOffset;
+}
+
+function observationUtcMs(trimmed: string, longitude?: number, latitude?: number): number {
+  const hasTimezone = /(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(trimmed);
+  if (hasTimezone) return Date.parse(trimmed);
+  const naiveUtc = Date.parse(`${trimmed.includes("T") ? trimmed : trimmed.replace(" ", "T")}Z`);
+  if (!Number.isFinite(naiveUtc)) return Number.NaN;
+  if (typeof longitude === "number" && Number.isFinite(longitude) && typeof latitude === "number" && Number.isFinite(latitude)) {
+    try {
+      return zonedLocalToUtcMs(naiveUtc, tzLookup(latitude, longitude));
+    } catch {
+      // Fall through to the longitude approximation.
+    }
+  }
+  const approximateOffsetHours = typeof longitude === "number" && Number.isFinite(longitude)
+    ? Math.max(-12, Math.min(14, longitude / 15))
+    : 0;
+  return naiveUtc - approximateOffsetHours * 3_600_000;
+}
+
 export function filterRecentLocalObservations(
   observations: EbirdObservation[],
   maxAgeHours = 75,
@@ -68,15 +123,10 @@ export function filterRecentLocalObservations(
   return observations.filter((observation) => {
     const trimmed = observation.obsDt?.trim();
     if (!trimmed) return false;
-    const hasTimezone = /(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(trimmed);
-    const normalized = hasTimezone ? trimmed : `${trimmed.includes("T") ? trimmed : trimmed.replace(" ", "T")}Z`;
-    const naiveUtc = Date.parse(normalized);
-    if (!Number.isFinite(naiveUtc)) return false;
-    const approximateOffsetHours = typeof observation.lng === "number" && Number.isFinite(observation.lng)
-      ? Math.max(-12, Math.min(14, observation.lng / 15))
-      : 0;
-    const ageHours = (now - (naiveUtc - approximateOffsetHours * 3_600_000)) / 3_600_000;
-    return ageHours <= maxAgeHours;
+    const observedAt = observationUtcMs(trimmed, observation.lng, observation.lat);
+    if (!Number.isFinite(observedAt)) return false;
+    const ageHours = (now - observedAt) / 3_600_000;
+    return ageHours >= -2 && ageHours <= maxAgeHours;
   });
 }
 
