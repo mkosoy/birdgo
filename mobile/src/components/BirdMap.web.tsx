@@ -8,7 +8,7 @@ import { observationTimeMs } from "../utils/observationTime";
 import { API_BASE_URL } from "../config";
 
 interface LeafletMessage {
-  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow" | "tracking" | "hotspotArrived" | "tileError" | "tileRecovered";
+  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow" | "tracking" | "hotspotArrived";
   open?: boolean;
   paused?: boolean;
   state?: "peek" | "half";
@@ -40,7 +40,7 @@ function relativeTime(date?: string, longitude?: number, latitude?: number): str
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
-export function BirdMap({ center, userLocation, birds, captureCounts, mode, firstPerson, heading, weather, trainer, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, closePopupRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onHotspotArrived, onTileError, onTileRecovered, onRegionChange }: BirdMapProps) {
+export function BirdMap({ center, userLocation, birds, captureCounts, mode, firstPerson, heading, weather, trainer, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, closePopupRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onHotspotArrived, onRegionChange }: BirdMapProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
@@ -138,17 +138,13 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
       );
     } else if (message.type === "hotspotArrived") {
       onHotspotArrived?.({ id: message.id, name: message.name });
-      } else if (message.type === "tileError") {
-        onTileError?.();
-      } else if (message.type === "tileRecovered") {
-        onTileRecovered?.();
       } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
         onRegionChange({ latitude: message.latitude, longitude: message.longitude });
       }
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [markerLookup, onAbout, onCapture, onDirections, onNearbyStateChange, onPopupChange, onRegionChange, onToastChange, onFollowChange, onTrackingChange, onHotspotArrived, onTileError]);
+  }, [markerLookup, onAbout, onCapture, onDirections, onNearbyStateChange, onPopupChange, onRegionChange, onToastChange, onFollowChange, onTrackingChange, onHotspotArrived]);
 
   const postData = useCallback((latestData: LeafletData, forceMarkers = false) => {
     const includeMarkers = forceMarkers || latestData.markers !== postedMarkersRef.current;

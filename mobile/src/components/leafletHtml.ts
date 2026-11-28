@@ -7,6 +7,7 @@ export function buildLeafletHtml(options: { apiBaseUrl?: string } = {}): string 
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
   <style>
     html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; }
     .bird-marker, .user-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; color: white; font-size: 18px; font-weight: bold; }
@@ -53,46 +54,18 @@ export function buildLeafletHtml(options: { apiBaseUrl?: string } = {}): string 
 </head>
 <body>
   <div id="map"></div>
-  <div id="map-attribution"><button id="map-attribution-toggle" type="button" aria-label="Show map credits">ⓘ</button><div id="map-attribution-copy">Map tiles © OpenStreetMap contributors · Walking routes © OSRM</div></div>
+  <div id="map-attribution"><button id="map-attribution-toggle" type="button" aria-label="Show map credits">ⓘ</button><div id="map-attribution-copy">Map tiles © OpenFreeMap · © OpenStreetMap contributors · Walking routes © OSRM</div></div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/dist/leaflet-maplibre-gl.js"></script>
   <script>
     (function () {
       var map = L.map('map', { zoomControl: true, attributionControl: false }).setView([37.7749, -122.4194], 13);
-      var tileErrorCount = 0;
-      var tileSuccessCount = 0;
-      var tileOutageReported = false;
-      var tileCheckTimer = null;
-      function resetTileBatch() {
-        tileErrorCount = 0;
-        tileSuccessCount = 0;
-      }
-      function scheduleTileCheck() {
-        if (tileCheckTimer) clearTimeout(tileCheckTimer);
-        tileCheckTimer = setTimeout(function () {
-          if (!tileOutageReported && tileErrorCount > 0 && tileSuccessCount === 0) {
-            tileOutageReported = true;
-            postOutward({ type: 'tileError' });
-          }
-          resetTileBatch();
-        }, 2500);
-      }
-      var osmTiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
+      var baseTiles = L.maplibreGL({
+        style: 'https://tiles.openfreemap.org/styles/positron',
+        attribution: '© OpenFreeMap © OpenStreetMap contributors'
       });
-      osmTiles.on('tileerror', function () {
-        tileErrorCount += 1;
-        scheduleTileCheck();
-      });
-      osmTiles.on('tileload', function () {
-        tileSuccessCount += 1;
-        if (tileOutageReported) {
-          tileOutageReported = false;
-          postOutward({ type: 'tileRecovered' });
-        }
-        scheduleTileCheck();
-      });
-      osmTiles.addTo(map);
+      baseTiles.addTo(map);
       var markers = L.layerGroup().addTo(map);
       var userMarker = null;
       var firstData = true;
