@@ -457,6 +457,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     dismissRareHunt(rareHuntInstanceId(bird));
   };
   const visibleRareHunt = rareHunt && !dismissedRareHuntIds.includes(rareHuntInstanceId(rareHunt)) && !popupOpen && !tracking && (!birdwalk || mode === "classic") && !completionNotice && !locationNotice && !error ? rareHunt : undefined;
+  const visibleRareHuntRarity = visibleRareHunt ? rarityForSpecies(visibleRareHunt.speciesCode, visibleRareHunt.comName, Boolean(visibleRareHunt.isNotable), visibleRareHunt.sciName, visibleRareHunt.canonicalKey, visibleRareHunt.frequency, visibleRareHunt.abundanceCount) : undefined;
   const topMessage = completionNotice
     ? { text: completionNotice, onPress: () => setCompletionNotice(null) }
     : locationNotice
@@ -700,9 +701,9 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         )}
         </View>
         {visibleRareHunt ? <View style={[styles.rareCard, toastOpen && styles.rareCardBelowToast]}>
-          <Text style={styles.rareEyebrow}>Rare hunt nearby</Text>
+          <Text style={styles.rareEyebrow}>{visibleRareHuntRarity === "legendary" ? "Legendary hunt nearby" : visibleRareHuntRarity === "epic" ? "Epic hunt nearby" : "Rare hunt nearby"}</Text>
           <Text style={styles.rareTitle}>{visibleRareHunt.comName}</Text>
-          <Text style={styles.rareCopy}>{distanceKm(location, visibleRareHunt) < 1 ? `${Math.round(distanceKm(location, visibleRareHunt) * 1000)}m` : `${distanceKm(location, visibleRareHunt).toFixed(1)}km`} away · {formatObservationAge(visibleRareHunt.obsDt, visibleRareHunt.source, visibleRareHunt.longitude)}{visibleRareHunt.locName ? ` · ${visibleRareHunt.locName}` : ""}</Text>
+          <Text style={styles.rareCopy}>{distanceKm(location, visibleRareHunt) < 0.05 ? "here" : `${distanceKm(location, visibleRareHunt) < 1 ? `${Math.round(distanceKm(location, visibleRareHunt) * 1000)}m` : `${distanceKm(location, visibleRareHunt).toFixed(1)}km`} away`} · {formatObservationAge(visibleRareHunt.obsDt, visibleRareHunt.source, visibleRareHunt.longitude)}{visibleRareHunt.locName ? ` · ${visibleRareHunt.locName}` : ""}</Text>
           <Text style={styles.rareHint}>{visibleRareHunt.source === "birdweather"
             ? "Fresh audio clue — the bird may be anywhere within earshot of the station."
             : "Recent real-world report — the bird is not guaranteed to still be there."}</Text>
