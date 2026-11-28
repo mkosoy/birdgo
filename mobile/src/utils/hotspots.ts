@@ -50,7 +50,7 @@ export function findFreshHotspots(birds: EbirdObservation[], reference: Coordina
     if (bird.virtual || bird.source === "birdweather" || bird.locationPrivate || !bird.locId || !bird.comName || !bird.locName?.trim()) continue;
     if (!Number.isFinite(bird.latitude) || !Number.isFinite(bird.longitude)) continue;
     const ageHours = birdAgeHours(bird, now);
-    if (!Number.isFinite(ageHours) || ageHours < -2 || ageHours > 48 || distanceKm(reference, bird) > 5) continue;
+    if (!Number.isFinite(ageHours) || ageHours < -2 || ageHours > 48 || distanceKm(reference, bird) > 3) continue;
     const key = groupKey(bird);
     let group = groups.get(key);
     if (!group) {
