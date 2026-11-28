@@ -67,8 +67,9 @@ export function deduplicateObservations(
     const locationKey = observation.locId ?? `${observation.lat ?? ""}:${observation.lng ?? ""}`;
     const key = `${observation.speciesCode}:${locationKey}`;
     const time = evidenceTimeMs(observation.obsDt);
-    // Shared or simultaneous checklists are one birding event, not independent corroboration.
-    const evidenceKey = Number.isFinite(time)
+    const hasTimeOfDay = Boolean(observation.obsDt?.trim().match(/(?:\s|T)\d{1,2}:\d{2}/));
+    // Shared or simultaneous timed checklists are one birding event, not independent corroboration.
+    const evidenceKey = Number.isFinite(time) && hasTimeOfDay
       ? `time:${Math.round(time / 60000)}`
       : observation.subId ?? observation.obsId ?? "unknown";
     const existing = byKey.get(key);
