@@ -2,6 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { canonicalizeSpecies, fetchBirdAbundance, fetchNotableBirds, fetchRecentBirds } from "../api";
 import type { BirdAbundance, Coordinates, EbirdObservation } from "../types";
+import { rarityForSpecies } from "../utils/progression";
+import { observationTimeMs } from "../utils/observationTime";
 
 
 const BIRD_CACHE_KEY = "birdgo.nearby-birds-cache-v1";
@@ -129,6 +131,13 @@ function buildPrevalenceAnnotator(allBirds: EbirdObservation[], abundance: BirdA
   };
 }
 
+function annotateComputedRarity(bird: EbirdObservation): EbirdObservation {
+  return {
+    ...bird,
+    rarity: rarityForSpecies(bird.speciesCode, bird.comName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount),
+  };
+}
+
 export function useBirds(latitude: number, longitude: number) {
   const [birds, setBirds] = useState<EbirdObservation[]>([]);
   const [notable, setNotable] = useState<EbirdObservation[]>([]);
@@ -142,8 +151,8 @@ export function useBirds(latitude: number, longitude: number) {
     setError(null);
     const cached = await readBirdCache(latitude, longitude);
     if (currentRequest === requestId.current) {
-      setBirds(cached?.birds ?? []);
-      setNotable(cached?.notable ?? []);
+      setBirds(cached?.birds.map(annotateComputedRarity) ?? []);
+      setNotable(cached?.notable.map(annotateComputedRarity) ?? []);
       setLoadedArea(cached?.area ?? null);
     }
     try {
@@ -153,7 +162,14 @@ export function useBirds(latitude: number, longitude: number) {
         fetchBirdAbundance(latitude, longitude).catch(() => null),
       ]);
       const merged = new Map(recent.map((bird) => [`${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`, bird]));
-      for (const bird of rare) {
+      const now = Date.now();
+      const freshRare = rare.filter((bird) => {
+        if (!bird.obsDt) return true;
+        const observedAt = observationTimeMs(bird.obsDt, bird.longitude, bird.latitude);
+        const ageHours = observedAt == null ? Number.POSITIVE_INFINITY : (now - observedAt) / 3_600_000;
+        return Number.isFinite(ageHours) && ageHours <= 72;
+      });
+      for (const bird of freshRare) {
         const key = `${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`;
         merged.set(key, { ...merged.get(key), ...bird, isNotable: true });
       }
@@ -161,8 +177,8 @@ export function useBirds(latitude: number, longitude: number) {
       const notableByKey = new Map(rare.map((bird) => [`${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`, bird]));
       const mergedBirds = [...merged.values()];
       const annotatePrevalence = buildPrevalenceAnnotator(mergedBirds, abundance);
-      const notableBirds = [...notableByKey.values()].map(annotatePrevalence);
-      const frequencyMergedBirds = mergedBirds.map(annotatePrevalence);
+      const notableBirds = [...notableByKey.values()].map(annotatePrevalence).map(annotateComputedRarity);
+      const frequencyMergedBirds = mergedBirds.map(annotatePrevalence).map(annotateComputedRarity);
       setBirds(frequencyMergedBirds);
       setNotable(notableBirds);
       setLoadedArea({ latitude, longitude });
@@ -201,8 +217,8 @@ export function useBirds(latitude: number, longitude: number) {
         const canonicalMergedBirds = frequencyMergedBirds.map(annotate);
         const canonicalNotableBirds = notableBirds.map(annotate);
         const annotateCanonicalPrevalence = buildPrevalenceAnnotator(canonicalMergedBirds, abundance);
-        const finalBirds = canonicalMergedBirds.map(annotateCanonicalPrevalence);
-        const finalNotableBirds = canonicalNotableBirds.map(annotateCanonicalPrevalence);
+        const finalBirds = canonicalMergedBirds.map(annotateCanonicalPrevalence).map(annotateComputedRarity);
+        const finalNotableBirds = canonicalNotableBirds.map(annotateCanonicalPrevalence).map(annotateComputedRarity);
         setBirds(finalBirds);
         setNotable(finalNotableBirds);
         void writeBirdCache({ latitude, longitude }, finalBirds, finalNotableBirds);
@@ -210,8 +226,8 @@ export function useBirds(latitude: number, longitude: number) {
     } catch (cause) {
       if (currentRequest !== requestId.current) return;
       if (cached?.birds.length || cached?.notable.length) {
-        setBirds(cached.birds);
-        setNotable(cached.notable);
+        setBirds(cached.birds.map(annotateComputedRarity));
+        setNotable(cached.notable.map(annotateComputedRarity));
         setLoadedArea(cached.area);
         setError("Offline — showing your last nearby birds. Tap to retry.");
       } else {

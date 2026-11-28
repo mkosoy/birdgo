@@ -3,8 +3,9 @@ import { StyleSheet } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import { buildLeafletHtml } from "./leafletHtml";
 import { buildMapLibreHtml } from "./mapLibreHtml";
-import type { Coordinates, EbirdObservation, TrainerProfile, WeatherAtmosphere } from "../types";
+import type { BirdRarity, Coordinates, EbirdObservation, TrainerProfile, WeatherAtmosphere } from "../types";
 import { speciesKey } from "../utils/progression";
+import { observationTimeMs } from "../utils/observationTime";
 import { API_BASE_URL } from "../config";
 
 export type BirdMapMode = "classic" | "adventure";
@@ -61,7 +62,10 @@ export interface LeafletMarker {
   imageUrl?: string;
   virtual?: boolean;
   prismatic?: boolean;
+  source?: string;
+  obsValid?: boolean;
   captureCount?: number;
+  rarity?: BirdRarity;
 }
 
 export interface LeafletData {
@@ -95,9 +99,11 @@ interface LeafletMessage {
   longitude?: number;
 }
 
-function relativeTime(date?: string): string {
+function relativeTime(date?: string, longitude?: number, latitude?: number): string {
   if (!date) return "recently";
-  const hours = Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 3600000));
+  const observedAt = observationTimeMs(date, longitude, latitude);
+  if (observedAt == null) return "recently";
+  const hours = Math.max(0, Math.floor((Date.now() - observedAt) / 3600000));
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
@@ -126,7 +132,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     sciName: bird.sciName,
     locName: bird.locName,
     obsDt: bird.obsDt,
-    relativeTime: relativeTime(bird.obsDt),
+    relativeTime: relativeTime(bird.obsDt, bird.longitude, bird.latitude),
     howMany: bird.howMany,
     frequency: bird.frequency,
     reportCount: bird.reportCount,
@@ -135,6 +141,9 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     imageUrl: bird.imageUrl,
     virtual: Boolean(bird.virtual),
     prismatic: Boolean(bird.prismatic),
+    source: bird.source,
+    obsValid: bird.obsValid,
+    rarity: bird.rarity,
     captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
   })), [birds, captureCounts]);
   const data = useMemo<LeafletData>(() => ({

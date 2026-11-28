@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, AppState, Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useIsFocused, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { fetchSpeciesGuide } from "../api";
 import { SF_COORDS } from "../config";
 import { BirdMap } from "../components/BirdMap";
 import { SkyfriendWatch } from "../components/SkyfriendWatch";
@@ -18,7 +19,8 @@ import { useWeather } from "../hooks/useWeather";
 import { useTrainerProfile } from "../hooks/useTrainerProfile";
 import { claimDailyBonusXp, hasDailyBonus } from "../store/collection";
 import type { Coordinates, EbirdObservation, SeenSpecies } from "../types";
-import { rarityForSpecies, speciesKeyAliases } from "../utils/progression";
+import { observationTimeMs } from "../utils/observationTime";
+import { RARITY_ORDER, rarityForSpecies, speciesKeyAliases } from "../utils/progression";
 import { buildBirdwalkPlan, xpForBirdwalk, type BirdwalkState, type BirdwalkStop } from "../utils/birdwalk";
 import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround, skyfriendCellKeyFromEncounterId } from "../utils/skyfriends";
 
@@ -26,13 +28,38 @@ type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: stri
 type GuideTarget = { speciesCode: string; comName: string; sciName?: string };
 let persistentTrackTarget: TrackTarget | undefined;
 const MAP_PREFERENCES_KEY = "birdgo.map-preferences-v1";
+const DISMISSED_RARE_HUNTS_KEY = "birdgo.dismissed-rare-hunts-v1";
 
 function externalSpeciesUrl(target: GuideTarget): string {
   return target.speciesCode.startsWith("inat-")
     ? `https://www.inaturalist.org/taxa/${target.speciesCode.slice(5)}`
-    : target.speciesCode
+    : target.speciesCode && !target.speciesCode.startsWith("bw-")
     ? `https://ebird.org/species/${target.speciesCode}`
-    : `https://ebird.org/search?q=${encodeURIComponent(target.comName)}`;
+    : `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(target.comName)}`;
+}
+
+function formatObservationAge(obsDt: string | undefined, source?: string, longitude?: number, latitude?: number): string {
+  const verb = source === "birdweather" ? "detected" : "reported";
+  if (!obsDt) return `recently ${verb}`;
+  const observedAt = observationTimeMs(obsDt, longitude, latitude);
+  if (observedAt == null) return `recently ${verb}`;
+  const hours = Math.max(0, (Date.now() - observedAt) / 3_600_000);
+  if (hours < 1) return `${verb} within the hour`;
+  if (hours < 24) return `${verb} ${Math.round(hours)}h ago`;
+  return `${verb} ${Math.round(hours / 24)}d ago`;
+}
+
+
+function rareHuntInstanceId(bird: EbirdObservation): string {
+  return `${observationMarkerId(bird)}:${bird.obsDt ?? "unknown"}`;
+}
+
+function openWalkingDirections(latitude: number, longitude: number): void {
+  const destination = `${latitude},${longitude}`;
+  const url = Platform.OS === "ios"
+    ? `https://maps.apple.com/?daddr=${destination}&dirflg=w`
+    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=walking`;
+  void Linking.openURL(url);
 }
 
 export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: SeenSpecies) => void; targetCapture?: { speciesCode?: string; commonName: string; sciName?: string | null; encounterId?: string; timestamp: number } }) {
@@ -67,7 +94,9 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const [locationRetry, setLocationRetry] = useState(0);
   const hasRealLocation = useRef(false);
   const fallbackActive = useRef(true);
-  const [rareDismissed, setRareDismissed] = useState(false);
+  const [dismissedRareHuntIds, setDismissedRareHuntIds] = useState<string[]>([]);
+  const [rareHuntImageUrl, setRareHuntImageUrl] = useState<string>();
+  const rareDismissalsLoaded = useRef(false);
   const { birds, notable, loading, error, loadedArea, refresh } = useBirds(center.latitude, center.longitude);
   const weather = useWeather(location);
   const { trainer, refresh: refreshTrainer } = useTrainerProfile();
@@ -79,6 +108,30 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const [birdwalk, setBirdwalk] = useState<BirdwalkState | undefined>();
   const [birdwalkBonusClaimed, setBirdwalkBonusClaimed] = useState(false);
   const [guideTarget, setGuideTarget] = useState<GuideTarget | undefined>();
+
+  useEffect(() => {
+    let cancelled = false;
+    void AsyncStorage.getItem(DISMISSED_RARE_HUNTS_KEY).then((raw) => {
+      if (cancelled) return;
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as unknown;
+          if (Array.isArray(parsed)) setDismissedRareHuntIds(parsed.filter((id): id is string => typeof id === "string").slice(-20));
+        } catch {
+          // Ignore corrupt dismissal state.
+        }
+      }
+      rareDismissalsLoaded.current = true;
+    }).catch(() => {
+      rareDismissalsLoaded.current = true;
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!rareDismissalsLoaded.current) return;
+    void AsyncStorage.setItem(DISMISSED_RARE_HUNTS_KEY, JSON.stringify(dismissedRareHuntIds)).catch(() => undefined);
+  }, [dismissedRareHuntIds]);
   useEffect(() => {
     let cancelled = false;
     void AsyncStorage.getItem(MAP_PREFERENCES_KEY).then((raw) => {
@@ -369,15 +422,71 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     setCompletionNotice(`${bird.comName ?? "The Skyfriend"} slipped away. It may return soon.`);
     clearTrackedSkyfriend(encounterId);
   };
+  const rareHuntCandidates = new Map<string, EbirdObservation>();
+  notable.forEach((bird) => rareHuntCandidates.set(observationMarkerId(bird), bird));
+  birds.filter((bird) => bird.source === "birdweather").forEach((bird) => {
+    const id = observationMarkerId(bird);
+    if (!rareHuntCandidates.has(id)) rareHuntCandidates.set(id, bird);
+  });
+  const rareHunt = [...rareHuntCandidates.values()]
+    .filter((bird) => !dismissedRareHuntIds.includes(rareHuntInstanceId(bird)))
+    .filter((bird) => {
+      if (bird.virtual || !bird.comName || distanceKm(location, bird) > 15) return false;
+      const observedAt = observationTimeMs(bird.obsDt, bird.longitude, bird.latitude);
+      const ageHours = observedAt == null ? 24 : (Date.now() - observedAt) / 3_600_000;
+      if (!Number.isFinite(ageHours) || ageHours > 72) return false;
+      return RARITY_ORDER.indexOf(rarityForSpecies(bird.speciesCode, bird.comName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount)) >= RARITY_ORDER.indexOf("rare");
+    })
+    .sort((a, b) => {
+      const scoreOf = (bird: EbirdObservation) => {
+        const observedAt = observationTimeMs(bird.obsDt, bird.longitude, bird.latitude);
+        const ageHours = observedAt == null ? 24 : (Date.now() - observedAt) / 3_600_000;
+        const rarityRank = RARITY_ORDER.indexOf(rarityForSpecies(bird.speciesCode, bird.comName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount));
+        return rarityRank * 100 - ageHours * 3 - distanceKm(location, bird) * 2 - (bird.obsValid === false ? 50 : 0);
+      };
+      return scoreOf(b) - scoreOf(a);
+    })[0];
+  const dismissRareHunt = (id: string) => {
+    setDismissedRareHuntIds((current) => current.includes(id) ? current : [...current, id].slice(-20));
+  };
+  const startRareHunt = (bird: EbirdObservation) => {
+    const target = { latitude: bird.latitude, longitude: bird.longitude, name: bird.comName ?? "Rare bird", id: observationMarkerId(bird), speciesCode: bird.speciesCode };
+    if (mode === "classic") openWalkingDirections(target.latitude, target.longitude);
+    else {
+      setActiveTrackTarget(target);
+      setTrackRequest(target);
+    }
+    dismissRareHunt(rareHuntInstanceId(bird));
+  };
+  const visibleRareHunt = rareHunt && !dismissedRareHuntIds.includes(rareHuntInstanceId(rareHunt)) && !popupOpen && !tracking && (!birdwalk || mode === "classic") && !completionNotice && !locationNotice && !error ? rareHunt : undefined;
+  const visibleRareHuntInstanceId = visibleRareHunt ? rareHuntInstanceId(visibleRareHunt) : undefined;
+  useEffect(() => {
+    if (!visibleRareHunt) {
+      setRareHuntImageUrl(undefined);
+      return;
+    }
+    if (visibleRareHunt.imageUrl) {
+      setRareHuntImageUrl(visibleRareHunt.imageUrl);
+      return;
+    }
+    let cancelled = false;
+    setRareHuntImageUrl(undefined);
+    void fetchSpeciesGuide({ commonName: visibleRareHunt.comName, sciName: visibleRareHunt.sciName })
+      .then((guide) => {
+        if (!cancelled) setRareHuntImageUrl(guide.imageUrl);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [visibleRareHuntInstanceId]);
   const topMessage = completionNotice
     ? { text: completionNotice, onPress: () => setCompletionNotice(null) }
     : locationNotice
     ? { text: locationNotice, onPress: () => setLocationRetry((request) => request + 1) }
     : error
       ? { text: error, onPress: () => void refresh() }
-      : notable.length > 0 && !rareDismissed && !toastOpen
-          ? { text: `Rare bird nearby: ${notable[0].comName ?? "Unknown"}!`, onPress: () => setRareDismissed(true) }
-          : null;
+      : null;
   const handleRegionChange = (next: Coordinates) => {
     if (
       hasRealLocation.current
@@ -584,11 +693,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         }}
         onDirections={(target) => {
           if (mode === "classic") {
-            const destination = `${target.latitude},${target.longitude}`;
-            const url = Platform.OS === "ios"
-              ? `https://maps.apple.com/?daddr=${destination}&dirflg=w`
-              : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=walking`;
-            void Linking.openURL(url);
+            openWalkingDirections(target.latitude, target.longitude);
             return;
           }
           setActiveTrackTarget(target);
@@ -617,6 +722,26 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           </Pressable>
         )}
         </View>
+        {visibleRareHunt ? <View style={[styles.rareCard, toastOpen && styles.rareCardBelowToast]}>
+          <Text style={styles.rareEyebrow}>Rare hunt nearby</Text>
+          <View style={styles.rareMainRow}>
+            {rareHuntImageUrl ? <Image source={{ uri: rareHuntImageUrl }} style={styles.rareImage} /> : null}
+            <View style={styles.rareTextWrap}>
+              <Text numberOfLines={1} style={styles.rareTitle}>{visibleRareHunt.comName}</Text>
+              <Text numberOfLines={2} style={styles.rareCopy}>{distanceKm(location, visibleRareHunt) < 0.05 ? "here" : `${distanceKm(location, visibleRareHunt) < 1 ? `${Math.round(distanceKm(location, visibleRareHunt) * 1000)}m` : `${distanceKm(location, visibleRareHunt).toFixed(1)}km`} away`} · {formatObservationAge(visibleRareHunt.obsDt, visibleRareHunt.source, visibleRareHunt.longitude, visibleRareHunt.latitude)}{visibleRareHunt.locName ? ` · ${visibleRareHunt.locName}` : ""}</Text>
+            </View>
+          </View>
+          <Text numberOfLines={2} style={styles.rareHint}>{visibleRareHunt.source === "birdweather"
+            ? "Fresh audio clue — the bird may be anywhere within earshot of the station."
+            : visibleRareHunt.obsValid === false
+              ? "Unconfirmed real-world report — treat this as a lead, not a guarantee."
+              : "Recent real-world report — the bird is not guaranteed to still be there."}</Text>
+          <View style={styles.rareActions}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Track rare ${visibleRareHunt.comName}`} style={styles.rarePrimary} onPress={() => startRareHunt(visibleRareHunt)}><Text style={styles.rarePrimaryText}>Hunt</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${visibleRareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: visibleRareHunt.speciesCode, comName: visibleRareHunt.comName ?? "Unknown bird", sciName: visibleRareHunt.sciName })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Dismiss rare hunt" style={styles.rareDismiss} onPress={() => dismissRareHunt(rareHuntInstanceId(visibleRareHunt))}><Text style={styles.rareDismissText}>×</Text></Pressable>
+          </View>
+        </View> : null}
         {topMessage && !popupOpen && (
           <Pressable style={[styles.topMessage, toastOpen && styles.topMessageBelowToast]} onPress={topMessage.onPress}>
             <Text style={styles.topMessageText}>{topMessage.text}</Text>
@@ -686,6 +811,33 @@ const styles = StyleSheet.create({
   modeButton: { minWidth: 64, height: 44, paddingHorizontal: 5, backgroundColor: "#ffffffee", borderRadius: 14, elevation: 3, alignItems: "center", justifyContent: "center" },
   modeButtonActive: { backgroundColor: "#d9efe1", borderWidth: 2, borderColor: "#2f7d5b" },
   modeButtonText: { color: "#173c2b", fontWeight: "700" },
+  rareCard: { maxWidth: 360, alignSelf: "flex-start", backgroundColor: "#fff8df", borderColor: "#e3bc4f", borderWidth: 1, padding: 12, borderRadius: 16, elevation: 4, gap: 4 },
+  rareCardBelowToast: { marginTop: 52 },
+  rareEyebrow: { color: "#9a6908", fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.8 },
+  rareMainRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  rareImage: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: "#dce8df",
+  },
+  rareTextWrap: {
+    flex: 1,
+  },
+  rareTitle: { color: "#263816", fontSize: 19, fontWeight: "900" },
+  rareCopy: { color: "#46513a", fontSize: 12, fontWeight: "700" },
+  rareHint: { color: "#655d45", fontSize: 12, lineHeight: 17, marginTop: 2 },
+  rareActions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
+  rarePrimary: { minWidth: 78, minHeight: 40, borderRadius: 12, backgroundColor: "#c98d13", alignItems: "center", justifyContent: "center" },
+  rarePrimaryText: { color: "#fff", fontWeight: "900" },
+  rareSecondary: { minWidth: 72, minHeight: 40, borderRadius: 12, backgroundColor: "#fff", borderWidth: 1, borderColor: "#dfc77d", alignItems: "center", justifyContent: "center" },
+  rareSecondaryText: { color: "#7c5a10", fontWeight: "900" },
+  rareDismiss: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  rareDismissText: { color: "#7c5a10", fontSize: 22, lineHeight: 24 },
   topMessage: { minHeight: 44, maxWidth: 360, alignSelf: "flex-start", backgroundColor: "#ffffffee", paddingHorizontal: 12, borderRadius: 12, flexDirection: "row", alignItems: "center", gap: 8 },
   topMessageBelowToast: { marginTop: 52 },
   topMessageText: { flex: 1, color: "#173c2b", fontWeight: "700", fontSize: 13 },

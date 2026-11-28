@@ -88,8 +88,10 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
     .bird-marker.prismatic .bird-scale { animation-duration: .65s, 1.9s; }
     .bird-marker.prismatic { background: linear-gradient(145deg, #ffd766, #7d64f2 48%, #28e0c8); border-color: #fff3bd; box-shadow: 0 0 18px rgba(255,215,102,.88), 0 3px 10px rgba(0,0,0,.34); }
     .thumb-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-    .bird-scale .caught-badge, .bird-scale .skyfriend-badge { position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; }
+    .bird-scale .caught-badge, .bird-scale .skyfriend-badge, .bird-scale .audio-badge { position: absolute; right: -6px; bottom: -6px; width: 17px; height: 17px; border-radius: 50%; background: #65d184; color: #10351f; border: 1px solid white; font-size: 11px; line-height: 15px; text-align: center; font-weight: 900; }
     .bird-scale .skyfriend-badge { background: #72e7ff; color: #273075; }
+    .bird-scale .audio-badge { background: #7bd7ff; color: #123c64; }
+    .bird-marker.audio { background: linear-gradient(145deg, #36a8cf, #2466a7); border-color: #d8f3ff; }
     .skyfriend-tag { display: inline-block; margin-left: 6px; padding: 2px 7px; border-radius: 10px; background: linear-gradient(135deg, #735eea, #29bedd); color: white; font-size: 10px; font-weight: 900; vertical-align: middle; letter-spacing: .02em; }
     .nb-row.virtual .nb-thumb { box-shadow: 0 0 0 2px #72e7ff inset; background: linear-gradient(145deg, #ece7ff, #dffaff); }
     .nb-row.virtual .nb-name { color: #4241a0; }
@@ -103,6 +105,10 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
     @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(1.45); opacity: 0; } }
     .encounter { width: 242px; max-width: calc(100vw - 88px); line-height: 1.28; color: #26342d; font-size: 13px; }
     .encounter h3 { margin: 0 28px 2px 0; font-size: 17px; line-height: 21px; }
+    .encounter .encounter-head { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+    .encounter .encounter-photo { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%; object-fit: cover; border: 2px solid #e0c364; background: #e6eee9; box-shadow: 0 1px 4px rgba(0,0,0,.18); }
+    .encounter .encounter-title { flex: 1; min-width: 0; }
+    .encounter .encounter-title h3 { margin-right: 22px; }
     .encounter .scientific { font-style: italic; color: #64766d; font-size: 11px; }
     .encounter .meta, .encounter .distance, .encounter .info, .encounter .field-notes { margin-top: 5px; }
     .encounter .stale { color: #8b6418; font-weight: 800; margin-top: 5px; font-size: 11px; line-height: 14px; }
@@ -169,6 +175,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
     #track-actions { display: flex; gap: 4px; flex: none; }
     #track-snap { min-height: 44px; border: 0; border-radius: 22px; padding: 10px 10px; background: #2f7d5b; color: #fff; font-weight: 800; cursor: pointer; white-space: nowrap; }
     #track-snap.ready { background: #d99d21; animation: snappulse 1s infinite; }
+    #track-snap:disabled { background: #536a5e; opacity: .58; animation: none; cursor: default; }
     #track-stop { border: 0; border-radius: 22px; min-width: 44px; min-height: 44px; padding: 10px; background: #eceff0; color: #445; font-weight: 700; cursor: pointer; }
     #route-panel { position: absolute; left: 8px; right: 84px; bottom: calc(var(--bottom-hud) + var(--track-stack) + 12px); z-index: 8; max-height: 32%; display: none; background: rgba(255,255,255,.97); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.28); overflow: hidden; font-family: -apple-system, system-ui, sans-serif; pointer-events: auto; }
     #route-panel.on { display: block; }
@@ -523,6 +530,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
       }
 
       function setToast(open) {
+        if (open && currentPopup) open = false;
         snapToast.classList.toggle('on', open);
         reportToast(open);
         scheduleNearbyGeometry();
@@ -670,7 +678,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         return fallback;
       }
       function markerInnerHtml(bird) {
-        return '<span class="bird-scale">' + thumbInnerHtml(bird) + (bird.captureCount ? '<span class="caught-badge">✓</span>' : bird.virtual ? '<span class="skyfriend-badge">✦</span>' : '') + '</span>';
+        return '<span class="bird-scale">' + thumbInnerHtml(bird) + (bird.captureCount ? '<span class="caught-badge">✓</span>' : bird.virtual ? '<span class="skyfriend-badge">✦</span>' : bird.source === 'birdweather' ? '<span class="audio-badge">♪</span>' : '') + '</span>';
       }
       function refreshBirdMarkerIcons() {
         birdMarkers.forEach(function (marker) {
@@ -681,14 +689,18 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
       }
 
       function getBirdImage(bird) {
-        var names = [bird && bird.comName, bird && bird.sciName].filter(Boolean);
+        var names = [bird && bird.sciName, bird && bird.comName].filter(Boolean);
         var key = names[0] || (bird && bird.id);
         if (!key) return false;
         if (bird && typeof bird.imageUrl === 'string' && bird.imageUrl) {
           birdImageCache[key] = bird.imageUrl;
           return bird.imageUrl;
         }
-        if (Object.prototype.hasOwnProperty.call(birdImageCache, key)) return birdImageCache[key];
+        if (Object.prototype.hasOwnProperty.call(birdImageCache, key)) {
+          var cachedImage = birdImageCache[key];
+          if (typeof cachedImage === 'string' && cachedImage && bird && !bird.imageUrl) bird.imageUrl = cachedImage;
+          return cachedImage;
+        }
         birdImageCache[key] = null;
         function tryName(index) {
           if (index >= names.length) {
@@ -702,6 +714,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
               var image = summary.thumbnail && summary.thumbnail.source;
               if (image) {
                 birdImageCache[key] = image;
+                if (bird && !bird.imageUrl) bird.imageUrl = image;
                 refreshUi();
               } else {
                 tryName(index + 1);
@@ -835,6 +848,8 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
 
       function openBirdPopup(bird) {
         stopBirdAudio();
+        setToast(false);
+        snapToastAction = null;
         if (currentPopup) currentPopup.remove();
         var popup = new maplibregl.Popup({ offset: 24, maxWidth: '282px', closeButton: true })
           .setLngLat([bird.longitude, bird.latitude])
@@ -855,6 +870,19 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         setTimeout(function () { attachPopupActions(popup, bird); }, 0);
       }
 
+      function rarityValue(bird) {
+        if (!bird) return 0;
+        if (bird.rarity === 'legendary') return 4;
+        if (bird.rarity === 'epic') return 3;
+        if (bird.rarity === 'rare') return 2;
+        if (bird.rarity === 'uncommon') return 1;
+        return bird.isNotable ? 2 : 0;
+      }
+
+      function rareEncounter(bird) {
+        return rarityValue(bird) >= 2;
+      }
+
       function fmtDist(km) {
         return km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(1) + ' km';
       }
@@ -864,6 +892,22 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
 
       function etaMin(km) {
         return Math.max(1, Math.round(km * 1000 / 81));
+      }
+
+      function observationAgeHours(bird) {
+        if (!bird || !bird.obsDt) return 999;
+        var age = (Date.now() - new Date(bird.obsDt).getTime()) / 3600000;
+        return Number.isFinite(age) ? Math.max(0, age) : 999;
+      }
+
+      function freshnessBoostKm(bird) {
+        if (!bird || bird.virtual) return 0;
+        if (bird.source === 'birdweather') return 1.4;
+        var age = observationAgeHours(bird);
+        if (age <= 12) return 0.45;
+        if (age <= 36) return 0.2;
+        if (age > 48) return -0.35;
+        return 0;
       }
 
       function computeNearest() {
@@ -882,7 +926,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
             return new Date(right.bird.obsDt || 0).getTime() - new Date(left.bird.obsDt || 0).getTime();
           }
           if (sortMode === 'rarity') {
-            return Number(Boolean(right.bird.isNotable)) - Number(Boolean(left.bird.isNotable)) || left.distance - right.distance;
+            return rarityValue(right.bird) - rarityValue(left.bird) || left.distance - right.distance;
           }
           return left.distance - right.distance;
         });
@@ -1216,8 +1260,17 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           return;
         }
         var nearest = computeNearest();
-        var displayEntries = sortEntries(nearest.slice());
-        var filtered = rareOnly ? displayEntries.filter(function (entry) { return entry.bird.isNotable; }) : displayEntries;
+        var sortedEntries = sortEntries(nearest.slice());
+        var rarityFiltered = rareOnly ? sortedEntries.filter(function (entry) { return rareEncounter(entry.bird); }) : sortedEntries;
+        var rowSpecies = {};
+        var filtered = rarityFiltered.filter(function (entry) {
+          var bird = entry.bird;
+          var scientific = String(bird.sciName || '').toLowerCase().replace(/[^a-z0-9\\s]/g, ' ').trim().split(/\\s+/).slice(0, 2).join(' ');
+          var key = scientific || String(bird.comName || bird.speciesCode || bird.id).toLowerCase();
+          if (rowSpecies[key]) return false;
+          rowSpecies[key] = true;
+          return true;
+        });
         lastNearbyCount = filtered.length;
         nearbyTitle.textContent = nearbyTitleText(lastNearbyCount);
         sortToggle.textContent = sortLabel();
@@ -1228,11 +1281,11 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           nearbyList.innerHTML = filtered.slice(0, 14).map(function (entry) {
             var bird = entry.bird;
             var name = bird.comName || bird.sciName || 'Bird';
-            var rareClass = (bird.isNotable ? ' rare' : '') + (bird.virtual ? ' virtual' : '') + (bird.prismatic ? ' prismatic' : '');
+            var rareClass = (rareEncounter(bird) ? ' rare' : '') + (bird.virtual ? ' virtual' : '') + (bird.prismatic ? ' prismatic' : '');
             return '<div class="nb-row' + rareClass + '" data-bird-id="' + escapeHtml(bird.id) + '">' +
               '<div class="nb-thumb">' + thumbInnerHtml(bird) + '</div>' +
-              '<div class="nb-info"><div class="nb-name">' + escapeHtml(name) + (bird.isNotable ? ' <span class="star">★</span>' : '') + '</div>' +
-              '<div class="nb-sub">' + fmtDist(entry.distance) + ' away · ' + etaMin(entry.distance) + ' min walk · ' + (bird.virtual ? (bird.prismatic ? 'Prismatic Skyfriend' : 'Skyfriend') : 'seen ' + escapeHtml(bird.relativeTime || 'recently')) + (bird.captureCount ? ' · collected ×' + bird.captureCount : '') + '</div></div>' +
+              '<div class="nb-info"><div class="nb-name">' + escapeHtml(name) + (rareEncounter(bird) ? ' <span class="star">★</span>' : '') + '</div>' +
+              '<div class="nb-sub">' + (entry.distance < 0.05 ? 'here' : fmtDist(entry.distance) + ' away · ' + etaMin(entry.distance) + ' min walk') + ' · ' + (bird.virtual ? (bird.prismatic ? 'Prismatic Skyfriend' : 'Skyfriend') : (bird.source === 'birdweather' ? 'heard ' : 'seen ') + escapeHtml(bird.relativeTime || 'recently')) + (bird.captureCount ? ' · collected ×' + bird.captureCount : '') + '</div></div>' +
               '<button class="nb-go' + rareClass + '" type="button" data-go-id="' + escapeHtml(bird.id) + '">Go</button>' +
               '</div>';
           }).join('');
@@ -1266,6 +1319,22 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         return 'Birds nearby';
       }
 
+
+      function habitatSearchCopy(bird) {
+        var name = String((bird.comName || '') + ' ' + (bird.sciName || '')).toLowerCase();
+        var prefix = bird.source === 'birdweather' ? 'At the audio station' : 'At the report area';
+        var clue = 'listen first, then scan nearby cover and open sky';
+        if (/\\b(?:gull|tern|sandpiper|plover|dunlin|willet|godwit|dowitcher|curlew|stilt|avocet|oystercatcher|turnstone)\\b/.test(name)) clue = 'scan water edges, mudflats, and birds flying along the shore';
+        else if (/\\b(?:duck|goose|swan|grebe|loon|coot|gallinule|teal|mallard|merganser|scaup|bufflehead|canvasback|wigeon|pintail|shoveler)\\b/.test(name)) clue = 'scan open water, shoreline edges, and distant floating birds';
+        else if (/\\b(?:heron|egret|bittern|ibis|spoonbill|crane|rail)\\b/.test(name)) clue = 'move quietly and scan shallow water, reeds, and marsh edges';
+        else if (/\\bowl(?:s|et|ets)?\\b/.test(name)) clue = 'scan dense cover, cavities, and shaded roosts without flushing birds';
+        else if (/goshawk|sparrowhawk|\\b(?:hawk|eagle|falcon|kestrel|osprey|harrier|kite|vulture|accipiter|buteo)\\b/.test(name)) clue = 'scan the sky, treetops, poles, and other exposed perches';
+        else if (/\\b(?:woodpecker|flicker|sapsucker)\\b/.test(name)) clue = 'scan trunks and dead branches; listen for tapping or sharp calls';
+        else if (/\\bhummingbird\\b/.test(name)) clue = 'check flowers, feeders, and tiny exposed perches';
+        else if (/\\b(?:sparrow|warbler|wren|thrush|vireo|kinglet|nuthatch|chickadee|titmouse|robin|cardinal|jay|crow|blackbird|oriole|tanager|grosbeak|mockingbird|catbird|thrasher)\\b/.test(name) || /finch/.test(name)) clue = 'listen first, then scan shrubs, canopy edges, and repeated movement';
+        return prefix + ' — ' + clue;
+      }
+
       function updateTrackCard() {
         if (!trackId) return;
         var entry = latestMarkers.find(function (bird) { return bird.id === trackId; });
@@ -1275,23 +1344,26 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         }
         var name = entry.comName || entry.sciName || 'Bird';
         trackThumb.innerHTML = thumbInnerHtml(entry);
-        trackName.innerHTML = escapeHtml(name) + (entry.isNotable ? ' <span class="star">★</span>' : '');
-        trackCard.classList.toggle('rare', Boolean(entry.isNotable));
-        trackArrow.classList.toggle('rare', Boolean(entry.isNotable));
+        trackName.innerHTML = escapeHtml(name) + (rareEncounter(entry) ? ' <span class="star">★</span>' : '');
+        trackCard.classList.toggle('rare', rareEncounter(entry));
+        trackArrow.classList.toggle('rare', rareEncounter(entry));
         var distance = haversineKm(lastUserLocation, entry);
+        var snapInRange = distance != null && distance * 1000 <= SNAP_M;
+        trackSnap.disabled = entry.virtual && !snapInRange;
+        var trackActionLabel = entry.virtual ? (snapInRange ? 'Collect' : 'Too far') : (snapInRange ? 'Snap' : 'Log');
         if (distance != null && distance * 1000 <= ARRIVE_M) {
           if (routeSteps.length || routeGeometryCoordinates.length) clearRoute();
           trackSnap.classList.add('ready');
           trackSnap.textContent = entry.virtual ? 'Collect!' : 'Snap!';
-          trackDist.textContent = entry.virtual ? 'You’re here! Collect it' : 'You’re here! Snap it';
+          trackDist.textContent = entry.virtual ? 'You’re here! Collect it' : habitatSearchCopy(entry);
         } else if (distance != null && routeDistanceM != null && lastRouteTargetKey && lastRouteTargetKey.indexOf(trackId + ':') === 0) {
           trackSnap.classList.remove('ready');
-          trackSnap.textContent = entry.virtual ? 'Collect' : 'Snap';
+          trackSnap.textContent = trackActionLabel;
           trackDist.textContent = 'Walk · ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
         } else if (distance != null) {
           trackSnap.classList.remove('ready');
-          trackSnap.textContent = entry.virtual ? 'Collect' : 'Snap';
-          trackDist.textContent = 'Direct · ' + fmtDist(distance) + ' · Walk est. ' + etaMin(distance) + ' min';
+          trackSnap.textContent = trackActionLabel;
+          trackDist.textContent = 'Direct · ' + fmtDist(distance);
         } else {
           trackSnap.classList.remove('ready');
           trackSnap.textContent = entry.virtual ? 'Collect' : 'Snap';
@@ -1450,7 +1522,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         refreshNearby();
       });
       trackSnap.addEventListener('click', function () {
-        if (trackId) capture(trackId);
+        if (trackId && !trackSnap.disabled) capture(trackId);
       });
       trackStop.addEventListener('click', stopTrack);
       routeHeader.addEventListener('click', function () {
@@ -1472,19 +1544,23 @@ ${speciesAudioScript()}
         var distance = haversineKm(userLocation, bird);
         var count = typeof bird.howMany === 'number' && bird.howMany > 0 ? ' • ×' + bird.howMany : '';
         var virtual = Boolean(bird.virtual);
-        var frequencyCopy = !virtual && typeof bird.reportCount === 'number' && bird.reportCount > 0 ? 'Reported at ' + bird.reportCount + ' location' + (bird.reportCount === 1 ? '' : 's') + ' recently' : '';
-        var statusCopy = virtual ? (bird.prismatic ? 'Prismatic virtual encounter' : 'Virtual learning encounter') : 'Past sighting · ' + escapeHtml(bird.relativeTime || 'recently');
+        var frequencyCopy = !virtual && bird.source !== 'birdweather' && typeof bird.reportCount === 'number' && bird.reportCount > 0 ? 'Reported at ' + bird.reportCount + ' location' + (bird.reportCount === 1 ? '' : 's') + ' recently' : '';
+        var statusCopy = virtual ? (bird.prismatic ? 'Prismatic virtual encounter' : 'Virtual learning encounter') : bird.source === 'birdweather' ? 'Live acoustic detection · ' + escapeHtml(bird.relativeTime || 'recently') : (bird.obsValid === false ? 'Unconfirmed sighting · ' : 'Past sighting · ') + escapeHtml(bird.relativeTime || 'recently');
         var captureCopy = virtual
           ? distance != null && distance > 0.06
             ? 'A habitat-plausible Skyfriend. Move within 60m to collect it for your virtual field guide — it never counts as a real bird.'
             : 'Close enough! Collecting this Skyfriend builds your virtual field guide — it never counts as a real bird.'
           : bird.captureCount
             ? 'Already collected ×' + bird.captureCount + ' — recaptures still earn XP.'
-            : 'Not collected yet — capture it to add it to your Bird-dex.';
+            : bird.source === 'birdweather'
+              ? 'Heard recently by a nearby audio station — the bird may be anywhere within earshot, so use this as a fresh search clue.'
+              : 'Not collected yet — capture it to add it to your Bird-dex.';
         var actionLabel = virtual ? 'Collect' : bird.captureCount ? 'Recapture' : 'Capture';
+        var popupImage = getBirdImage(bird);
+        var photoCopy = typeof popupImage === 'string' && popupImage ? '<img class="encounter-photo" loading="lazy" referrerpolicy="no-referrer" src="' + escapeHtml(popupImage) + '" alt="" />' : '';
         return '<div class="encounter">' +
-          '<h3>' + escapeHtml(bird.comName || 'Bird') + (virtual ? '<span class="skyfriend-tag">' + (bird.prismatic ? 'Prismatic Skyfriend' : 'Skyfriend') + '</span>' : '') + '</h3>' +
-          '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div>' +
+          '<div class="encounter-head">' + photoCopy + '<div class="encounter-title"><h3>' + escapeHtml(bird.comName || 'Bird') + (virtual ? '<span class="skyfriend-tag">' + (bird.prismatic ? 'Prismatic Skyfriend' : 'Skyfriend') + '</span>' : '') + '</h3>' +
+          '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div></div></div>' +
           '<div class="stale">' + statusCopy + '</div>' +
           '<div class="where">' + escapeHtml(virtual ? 'Could occur in this habitat' : bird.locName || 'No hotspot recorded') + count + '</div>' +
           (distance == null ? '' : '<div class="distance">' + fmtDist(distance) + ' away · ' + etaMin(distance) + ' min walk</div>') +
@@ -1523,9 +1599,29 @@ ${speciesAudioScript()}
         listenButton.addEventListener('click', function () {
           toggleBirdAudio(bird, this, element);
         });
-        fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(bird.comName || 'Bird'))
-          .then(function (response) { if (!response.ok) throw new Error('Wikipedia unavailable'); return response.json(); })
+        var summaryNames = [bird.sciName, bird.comName].filter(Boolean);
+        function fetchSpeciesSummary(index) {
+          if (index >= summaryNames.length) return Promise.reject(new Error('Wikipedia unavailable'));
+          return fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(summaryNames[index]))
+            .then(function (response) { if (!response.ok) throw new Error('Wikipedia unavailable'); return response.json(); })
+            .catch(function (error) {
+              if (index + 1 < summaryNames.length) return fetchSpeciesSummary(index + 1);
+              throw error;
+            });
+        }
+        fetchSpeciesSummary(0)
           .then(function (summary) {
+            var head = element.querySelector('.encounter-head');
+            var image = summary.thumbnail && summary.thumbnail.source;
+            if (head && image && !head.querySelector('.encounter-photo')) {
+              var photo = document.createElement('img');
+              photo.className = 'encounter-photo';
+              photo.alt = '';
+              photo.loading = 'lazy';
+              photo.referrerPolicy = 'no-referrer';
+              photo.src = image;
+              head.insertBefore(photo, head.firstChild);
+            }
             var info = element.querySelector('[data-info]');
             if (info) {
               var extract = typeof summary.extract === 'string' ? summary.extract.trim() : '';
@@ -1679,7 +1775,7 @@ ${speciesAudioScript()}
         }
         function markerScore(bird) {
           var distance = lastUserLocation ? haversineKm(lastUserLocation, bird) : null;
-          return (distance == null ? 999 : distance) - (bird.isNotable ? 0.35 : 0) - (bird.captureCount ? 0.1 : 0);
+          return (distance == null ? 999 : distance) - freshnessBoostKm(bird) - (bird.isNotable ? 0.2 : 0) - (bird.captureCount ? 0.1 : 0);
         }
         var sorted = (markers || []).slice().sort(function (left, right) {
           var leftTracked = trackId && String(left.id) === String(trackId) ? 0 : 1;
@@ -1738,7 +1834,7 @@ ${speciesAudioScript()}
         birdMarkers = [];
         chosen.forEach(function (bird, chosenIndex) {
           var element = document.createElement('div');
-          element.className = 'bird-marker ' + visualStates[chosenIndex].presenceClass + (bird.virtual ? ' virtual' : '') + (bird.isNotable ? ' notable' : '') + (visualStates[chosenIndex].inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '') + (bird.prismatic ? ' prismatic' : '');
+          element.className = 'bird-marker ' + visualStates[chosenIndex].presenceClass + (bird.virtual ? ' virtual' : '') + (bird.source === 'birdweather' ? ' audio' : '') + (rareEncounter(bird) ? ' notable' : '') + (visualStates[chosenIndex].inRange ? ' in-range' : '') + (bird.captureCount ? ' captured' : '') + (bird.prismatic ? ' prismatic' : '');
           element.innerHTML = markerInnerHtml(bird);
           var marker = new maplibregl.Marker({ element: element })
             .setLngLat([wrappedLongitude(bird.longitude), bird.latitude])
