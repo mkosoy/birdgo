@@ -59,6 +59,25 @@ function evidenceTimeMs(obsDt?: string): number {
   return Date.parse(trimmed.includes("T") ? trimmed : trimmed.replace(" ", "T"));
 }
 
+
+export function filterRecentLocalObservations(
+  observations: EbirdObservation[],
+  maxAgeHours = 75,
+  now = Date.now(),
+): EbirdObservation[] {
+  return observations.filter((observation) => {
+    const trimmed = observation.obsDt?.trim();
+    if (!trimmed) return false;
+    const naiveUtc = Date.parse(`${trimmed.includes("T") ? trimmed : trimmed.replace(" ", "T")}Z`);
+    if (!Number.isFinite(naiveUtc)) return false;
+    const approximateOffsetHours = typeof observation.lng === "number" && Number.isFinite(observation.lng)
+      ? Math.max(-12, Math.min(14, observation.lng / 15))
+      : 0;
+    const ageHours = (now - (naiveUtc - approximateOffsetHours * 3_600_000)) / 3_600_000;
+    return ageHours >= -2 && ageHours <= maxAgeHours;
+  });
+}
+
 export function deduplicateObservations(
   observations: EbirdObservation[],
 ): EbirdObservation[] {
