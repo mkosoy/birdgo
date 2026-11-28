@@ -782,26 +782,19 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     }).catch(() => undefined);
   }, [notable]);
 
-  const resetMapInteraction = () => {
+  const toggleMode = () => {
     setActiveTrackTarget(undefined);
     setTrackRequest(undefined);
     setTracking(false);
     setFollowPaused(false);
     setToastOpen(false);
     setNearbyState("peek");
-  };
-  const switchToAdventure = () => {
-    resetMapInteraction();
-    setFirstPerson(true);
-    setMode("adventure");
-  };
-  const toggleMode = () => {
-    resetMapInteraction();
     if (mode === "adventure") {
       setFirstPerson(false);
       setMode("classic");
     } else {
-      switchToAdventure();
+      setFirstPerson(true);
+      setMode("adventure");
     }
   };
 
