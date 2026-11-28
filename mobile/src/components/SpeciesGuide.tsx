@@ -4,6 +4,18 @@ import { Audio } from "expo-av";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { fetchSpeciesGuide } from "../api";
 import type { SpeciesGuide as SpeciesGuideData, SpeciesGuideSound } from "../types";
+import { observationTimeMs } from "../utils/observationTime";
+
+interface HuntBrief {
+  latitude: number;
+  longitude: number;
+  locName?: string;
+  obsDt?: string;
+  obsValid?: boolean;
+  evidenceCount?: number;
+  source?: string;
+  distanceKm: number;
+}
 
 interface SpeciesGuideProps {
   commonName: string;
@@ -11,6 +23,40 @@ interface SpeciesGuideProps {
   showImage?: boolean;
   compact?: boolean;
   maxSounds?: number;
+  hunt?: HuntBrief;
+}
+
+function huntAgeLabel(obsDt: string | undefined, longitude: number, latitude: number): string {
+  const observedAt = observationTimeMs(obsDt, longitude, latitude);
+  if (observedAt == null) return "recently";
+  const hours = Math.max(0, (Date.now() - observedAt) / 3_600_000);
+  if (hours < 1) return "within the hour";
+  if (hours < 24) return `${Math.round(hours)}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+function localReportTimeLabel(obsDt?: string): string | undefined {
+  const time = obsDt?.trim().replace("T", " ").split(" ")[1]?.slice(0, 5);
+  if (!time) return undefined;
+  const [hourText, minute] = time.split(":");
+  const hour = Number(hourText);
+  if (!Number.isFinite(hour) || !minute) return undefined;
+  const suffix = hour >= 12 ? "PM" : "AM";
+  return `${hour % 12 || 12}:${minute} ${suffix}`;
+}
+
+function huntDistanceLabel(distanceKm: number): string {
+  if (distanceKm < 0.05) return "here";
+  return distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m away` : `${distanceKm.toFixed(1)}km away`;
+}
+
+function huntEvidenceLabel(hunt: HuntBrief): string {
+  if (hunt.source === "birdweather") return "Audio clue — search within earshot, not just at the station pin.";
+  const reports = hunt.evidenceCount ?? 1;
+  if (reports >= 3) return `${reports > 4 ? "5+" : reports} fresh reports — a strong lead, still not a guarantee.`;
+  if (reports === 2) return "Two fresh reports — a stronger lead, still not a guarantee.";
+  if (hunt.obsValid === false) return "Single unconfirmed report — treat this as a lead, not a guarantee.";
+  return "Single recent report — the bird is not guaranteed to still be there.";
 }
 
 function durationLabel(seconds?: number): string {
@@ -20,7 +66,7 @@ function durationLabel(seconds?: number): string {
   return `${minutes}:${remainder}`;
 }
 
-export function SpeciesGuide({ commonName, sciName, showImage = false, compact = false, maxSounds }: SpeciesGuideProps) {
+export function SpeciesGuide({ commonName, sciName, showImage = false, compact = false, maxSounds, hunt }: SpeciesGuideProps) {
   const [guide, setGuide] = useState<SpeciesGuideData>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -119,6 +165,12 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
       <View style={styles.headerIcon}><Ionicons name="book" size={16} color="#dff4e7" /></View>
       <Text style={styles.header}>Field guide</Text>
     </View>
+    {hunt ? <View style={styles.huntBrief}>
+      <Text style={styles.huntTitle}>Hunt brief</Text>
+      <Text style={styles.huntText}>Latest report {localReportTimeLabel(hunt.obsDt) ? `${localReportTimeLabel(hunt.obsDt)} local · ` : ""}{huntAgeLabel(hunt.obsDt, hunt.longitude, hunt.latitude)} · {huntDistanceLabel(hunt.distanceKm)}{hunt.locName ? ` · ${hunt.locName}` : ""}</Text>
+      <Text style={styles.huntText}>{huntEvidenceLabel(hunt)}</Text>
+      <Text style={styles.huntTip}>Listen first, then scan quietly near the report area.</Text>
+    </View> : null}
     {loading ? <View style={styles.loadingRow}><ActivityIndicator color="#2f7d5b" /><Text style={styles.loadingText}>Loading species notes and sounds…</Text></View> : null}
     {!loading && error ? <Text style={styles.emptyText}>Field guide unavailable right now.</Text> : null}
     {!loading && !error && !hasContent ? <Text style={styles.emptyText}>No species notes or sounds found yet.</Text> : null}
@@ -158,6 +210,10 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 8 },
   headerIcon: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: "#2f7d5b" },
   header: { color: "#173c2b", fontSize: 14, fontWeight: "900" },
+  huntBrief: { borderRadius: 12, backgroundColor: "#fff8df", borderWidth: 1, borderColor: "#e3bc4f", padding: 10, marginBottom: 9, gap: 4 },
+  huntTitle: { color: "#6c4d08", fontSize: 11, fontWeight: "900", letterSpacing: 0.7, textTransform: "uppercase" },
+  huntText: { color: "#40564a", fontSize: 12, lineHeight: 17, fontWeight: "700" },
+  huntTip: { color: "#2f7d5b", fontSize: 12, lineHeight: 17, fontWeight: "900" },
   loadingRow: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 38 },
   loadingText: { color: "#5c6f65", fontSize: 12, fontWeight: "700" },
   emptyText: { color: "#68796f", fontSize: 12, lineHeight: 17 },
