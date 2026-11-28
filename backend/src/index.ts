@@ -17,6 +17,7 @@ import { fetchSpeciesGuide } from "./speciesGuide.js";
 import { readSyncRecord, syncKeyFromSecret, syncStorageConfigured, writeSyncRecordIfRevision } from "./sync.js";
 import { fetchBirdweatherDetections } from "./birdweather.js";
 import { fetchHuntWeather } from "./weather.js";
+import { fetchChecklistNotes } from "./checklistNotes.js";
 
 dotenv.config();
 export const app = express();
@@ -220,6 +221,21 @@ app.get("/api/birds/notable", async (request, response) => {
     const deduplicated = deduplicateObservations(filterRecentLocalObservations(observations));
     deduplicated.sort((left, right) => distanceScore(lat, lng, left) - distanceScore(lat, lng, right));
     response.json(deduplicated);
+  } catch (error) {
+    handleEbirdError(error, response);
+  }
+});
+
+
+app.get("/api/checklist-notes", async (request, response) => {
+  const subId = typeof request.query.subId === "string" ? request.query.subId.trim() : "";
+  const speciesCode = typeof request.query.speciesCode === "string" ? request.query.speciesCode.trim() : "";
+  if (!/^[A-Za-z0-9_-]+$/.test(subId) || !/^[a-z0-9]+$/i.test(speciesCode)) {
+    response.status(400).json({ error: "Valid subId and speciesCode are required", status: 400 });
+    return;
+  }
+  try {
+    response.json(await fetchChecklistNotes(subId, speciesCode, token));
   } catch (error) {
     handleEbirdError(error, response);
   }

@@ -2,13 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { Audio } from "expo-av";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { fetchHuntWeather, fetchSpeciesGuide } from "../api";
-import type { HuntWeather, SpeciesGuide as SpeciesGuideData, SpeciesGuideSound } from "../types";
+import { fetchChecklistNotes, fetchHuntWeather, fetchSpeciesGuide } from "../api";
+import type { ChecklistNotes, HuntWeather, SpeciesGuide as SpeciesGuideData, SpeciesGuideSound } from "../types";
 import tzLookup from "@photostructure/tz-lookup";
 import { observationTimeMs } from "../utils/observationTime";
 
 interface HuntBrief {
   latitude: number;
+  speciesCode?: string;
+  subId?: string;
   longitude: number;
   locName?: string;
   obsDt?: string;
@@ -113,6 +115,7 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [weather, setWeather] = useState<HuntWeather>();
+  const [notes, setNotes] = useState<ChecklistNotes>();
   const [playingId, setPlayingId] = useState<string>();
   const [busyId, setBusyId] = useState<string>();
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -140,6 +143,23 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
       cancelled = true;
     };
   }, [commonName, sciName]);
+
+  useEffect(() => {
+    if (!hunt?.subId || !hunt.speciesCode) {
+      setNotes(undefined);
+      return;
+    }
+    let cancelled = false;
+    setNotes(undefined);
+    void fetchChecklistNotes(hunt.subId, hunt.speciesCode)
+      .then((result) => {
+        if (!cancelled) setNotes(result);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [hunt?.subId, hunt?.speciesCode]);
 
   useEffect(() => {
     if (!hunt) {
@@ -220,6 +240,7 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
   const visibleSounds = guide?.sounds.slice(0, maxSounds ?? guide.sounds.length) ?? [];
   const hasContent = Boolean(guide?.summary || visibleSounds.length);
   const huntReportTime = hunt ? localReportTimeLabel(hunt.obsDt, hunt.longitude, hunt.latitude) : undefined;
+  const observerNote = notes?.speciesComment ?? notes?.checklistComment;
 
   return <View style={[styles.container, compact && styles.compact]}>
     <View style={styles.headerRow}>
@@ -230,6 +251,7 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
       <Text style={styles.huntTitle}>Hunt brief</Text>
       <Text style={styles.huntText}>Latest report {huntReportTime ? `${huntReportTime} local · ` : ""}{huntAgeLabel(hunt.obsDt, hunt.longitude, hunt.latitude)} · {huntDistanceLabel(hunt.distanceKm)}{hunt.locName ? ` · ${hunt.locName}` : ""}</Text>
       <Text style={styles.huntText}>{huntEvidenceLabel(hunt)}</Text>
+      {observerNote ? <Text style={styles.huntText} numberOfLines={3}>Observer note: “{observerNote}”</Text> : null}
       {hunt.otherReport ? <Text style={styles.huntText}>Other fresh report: {hunt.otherReport.locName ?? "nearby location"} · {huntAgeLabel(hunt.otherReport.obsDt, hunt.otherReport.longitude, hunt.otherReport.latitude)} · {huntDistanceLabel(hunt.otherReport.distanceKm)}</Text> : null}
       {weather ? <Text style={styles.huntText}>Conditions now: {huntWeatherLabel(weather)}</Text> : null}
       {hunt.locationPrivate ? <Text style={styles.huntText}>Non-hotspot report — use public access points.</Text> : null}

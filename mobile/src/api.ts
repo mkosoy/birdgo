@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "./config";
-import type { BirdAbundance, CanonicalSpeciesResult, EbirdObservation, HuntWeather, IdentificationResult, SpeciesGuide } from "./types";
+import type { BirdAbundance, CanonicalSpeciesResult, EbirdObservation, ChecklistNotes, HuntWeather, IdentificationResult, SpeciesGuide } from "./types";
 
 interface RawEbirdObservation {
   lat?: number;
@@ -19,6 +19,8 @@ interface RawEbirdObservation {
   audioStartTime?: number;
   audioEndTime?: number;
   evidenceCount?: number;
+  subId?: string;
+  obsId?: string;
   source?: string;
 }
 
@@ -66,6 +68,8 @@ function mapObservation(raw: RawEbirdObservation, isNotable = false): EbirdObser
     audioStartTime: raw.audioStartTime,
     audioEndTime: raw.audioEndTime,
     evidenceCount: raw.evidenceCount,
+    subId: raw.subId,
+    obsId: raw.obsId,
     source: raw.source,
     ...(isNotable ? { isNotable: true } : {}),
   }];
@@ -83,6 +87,10 @@ export function canonicalizeSpecies(items: Array<{ speciesCode?: string; comName
     method: "POST",
     body: JSON.stringify({ items }),
   });
+}
+
+export function fetchChecklistNotes(subId: string, speciesCode: string): Promise<ChecklistNotes> {
+  return request(`/api/checklist-notes?subId=${encodeURIComponent(subId)}&speciesCode=${encodeURIComponent(speciesCode)}`);
 }
 
 export function fetchHuntWeather(latitude: number, longitude: number): Promise<HuntWeather> {

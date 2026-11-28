@@ -39,6 +39,8 @@ export interface EbirdObservation extends Coordinates {
   audioStartTime?: number;
   audioEndTime?: number;
   evidenceCount?: number;
+  subId?: string;
+  obsId?: string;
   source?: string;
   virtual?: boolean;
   prismatic?: boolean;
@@ -148,6 +150,13 @@ export interface SpeciesGuide {
     encyclopedia?: string;
     audio?: string;
   };
+}
+
+export interface ChecklistNotes {
+  speciesComment?: string;
+  checklistComment?: string;
+  howMany?: string;
+  mediaCount?: number;
 }
 
 export interface HuntWeather {
