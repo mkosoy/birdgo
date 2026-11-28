@@ -17,6 +17,7 @@ interface HuntBrief {
   source?: string;
   locationPrivate?: boolean;
   distanceKm: number;
+  otherReport?: { latitude: number; longitude: number; locName?: string; obsDt?: string; distanceKm: number };
 }
 
 interface SpeciesGuideProps {
@@ -229,6 +230,7 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
       <Text style={styles.huntTitle}>Hunt brief</Text>
       <Text style={styles.huntText}>Latest report {huntReportTime ? `${huntReportTime} local · ` : ""}{huntAgeLabel(hunt.obsDt, hunt.longitude, hunt.latitude)} · {huntDistanceLabel(hunt.distanceKm)}{hunt.locName ? ` · ${hunt.locName}` : ""}</Text>
       <Text style={styles.huntText}>{huntEvidenceLabel(hunt)}</Text>
+      {hunt.otherReport ? <Text style={styles.huntText}>Other fresh report: {hunt.otherReport.locName ?? "nearby location"} · {huntAgeLabel(hunt.otherReport.obsDt, hunt.otherReport.longitude, hunt.otherReport.latitude)} · {huntDistanceLabel(hunt.otherReport.distanceKm)}</Text> : null}
       {weather ? <Text style={styles.huntText}>Conditions now: {huntWeatherLabel(weather)}</Text> : null}
       {hunt.locationPrivate ? <Text style={styles.huntText}>Non-hotspot report — use public access points.</Text> : null}
       <Text style={styles.huntTip}>{fieldcraftTip(commonName, sciName)}</Text>
