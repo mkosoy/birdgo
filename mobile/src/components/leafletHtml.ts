@@ -185,8 +185,17 @@ ${speciesAudioScript()}
         listenButton.addEventListener('click', function () {
           toggleBirdAudio(bird, this, element);
         });
-        fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(bird.comName || 'Bird'))
-          .then(function (response) { if (!response.ok) throw new Error('Wikipedia unavailable'); return response.json(); })
+        var summaryNames = [bird.sciName, bird.comName].filter(Boolean);
+        function fetchSpeciesSummary(index) {
+          if (index >= summaryNames.length) return Promise.reject(new Error('Wikipedia unavailable'));
+          return fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(summaryNames[index]))
+            .then(function (response) { if (!response.ok) throw new Error('Wikipedia unavailable'); return response.json(); })
+            .catch(function (error) {
+              if (index + 1 < summaryNames.length) return fetchSpeciesSummary(index + 1);
+              throw error;
+            });
+        }
+        fetchSpeciesSummary(0)
           .then(function (summary) {
             var head = element.querySelector('.encounter-head');
             var image = summary.thumbnail && summary.thumbnail.source;
