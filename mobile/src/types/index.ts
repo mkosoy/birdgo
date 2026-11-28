@@ -149,3 +149,13 @@ export interface SpeciesGuide {
     audio?: string;
   };
 }
+
+export interface HuntWeather {
+  temperatureC: number;
+  precipitationMm: number;
+  weatherCode: number;
+  condition: string;
+  windSpeedKph: number;
+  isDay: boolean;
+  observedAt?: string;
+}
