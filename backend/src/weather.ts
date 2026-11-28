@@ -38,7 +38,7 @@ function conditionLabel(code: number): string {
 }
 
 function cacheKey(latitude: number, longitude: number): string {
-  return `${latitude.toFixed(2)}:${longitude.toFixed(2)}`;
+  return `${latitude.toFixed(4)}:${longitude.toFixed(4)}`;
 }
 
 export async function fetchHuntWeather(latitude: number, longitude: number): Promise<HuntWeather> {
