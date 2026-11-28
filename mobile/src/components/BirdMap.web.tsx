@@ -8,13 +8,14 @@ import { observationTimeMs } from "../utils/observationTime";
 import { API_BASE_URL } from "../config";
 
 interface LeafletMessage {
-  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow" | "tracking";
+  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow" | "tracking" | "hotspotArrived";
   open?: boolean;
   paused?: boolean;
   state?: "peek" | "half";
   height?: number;
   id?: string;
   speciesCode?: string;
+  kind?: "hotspot";
   comName?: string;
   sciName?: string;
   name?: string;
@@ -34,7 +35,7 @@ function relativeTime(date?: string, longitude?: number, latitude?: number): str
   return hours < 1 ? "now" : hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
-export function BirdMap({ center, userLocation, birds, captureCounts, mode, firstPerson, heading, weather, trainer, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, closePopupRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange }: BirdMapProps) {
+export function BirdMap({ center, userLocation, birds, captureCounts, mode, firstPerson, heading, weather, trainer, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, closePopupRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onHotspotArrived, onRegionChange }: BirdMapProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
@@ -107,16 +108,18 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
         onTrackingChange?.(
         Boolean(message.open),
         message.open && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name
-          ? { latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id, speciesCode: message.speciesCode }
+          ? { latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id, speciesCode: message.speciesCode, kind: message.kind }
           : undefined,
       );
+    } else if (message.type === "hotspotArrived") {
+      onHotspotArrived?.({ id: message.id, name: message.name });
       } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
         onRegionChange({ latitude: message.latitude, longitude: message.longitude });
       }
     };
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [markerLookup, onAbout, onCapture, onDirections, onNearbyStateChange, onPopupChange, onRegionChange, onToastChange, onFollowChange, onTrackingChange]);
+  }, [markerLookup, onAbout, onCapture, onDirections, onNearbyStateChange, onPopupChange, onRegionChange, onToastChange, onFollowChange, onTrackingChange, onHotspotArrived]);
 
   const postData = useCallback((latestData: LeafletData, forceMarkers = false) => {
     const includeMarkers = forceMarkers || latestData.markers !== postedMarkersRef.current;

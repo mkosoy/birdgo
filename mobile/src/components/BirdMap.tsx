@@ -27,7 +27,7 @@ export interface BirdMapProps {
   recenterRequest?: number;
   overviewRequest?: number;
   nearestRequest?: number;
-  trackRequest?: Coordinates & { name: string; id?: string };
+  trackRequest?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" };
   stopTrackRequest?: number;
   closePopupRequest?: number;
   loading?: boolean;
@@ -41,7 +41,8 @@ export interface BirdMapProps {
   onToastChange?: (open: boolean) => void;
   onNearbyStateChange?: (state: "peek" | "half", height?: number) => void;
   onFollowChange?: (paused: boolean) => void;
-  onTrackingChange?: (active: boolean, target?: Coordinates & { name: string; id?: string; speciesCode?: string }) => void;
+  onTrackingChange?: (active: boolean, target?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" }) => void;
+  onHotspotArrived?: (target: { id?: string; name?: string }) => void;
   onRegionChange: (coordinates: Coordinates) => void;
 }
 
@@ -77,7 +78,7 @@ export interface LeafletData {
   heading?: number;
   markers: LeafletMarker[];
   command?: "recenter" | "setView" | "overview" | "nearest" | "track" | "stopTrack" | "closePopup";
-  trackTarget?: Coordinates & { name: string; id?: string; speciesCode?: string };
+  trackTarget?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" };
   firstPerson?: boolean;
   safeArea?: SafeAreaInsets;
 }
@@ -85,13 +86,14 @@ export interface LeafletData {
 export type LeafletDataPayload = Omit<LeafletData, "markers"> & { markers?: LeafletMarker[] };
 
 interface LeafletMessage {
-  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow" | "tracking";
+  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow" | "tracking" | "hotspotArrived";
   open?: boolean;
   paused?: boolean;
   state?: "peek" | "half";
   height?: number;
   id?: string;
   speciesCode?: string;
+  kind?: "hotspot";
   comName?: string;
   sciName?: string;
   name?: string;
@@ -112,7 +114,7 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, captureCounts, mode, firstPerson, heading, weather, trainer, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, closePopupRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onRegionChange },
+  { center, userLocation, birds, captureCounts, mode, firstPerson, heading, weather, trainer, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, closePopupRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onHotspotArrived, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
@@ -234,9 +236,11 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       onTrackingChange?.(
         Boolean(message.open),
         message.open && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name
-          ? { latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id, speciesCode: message.speciesCode }
+          ? { latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id, speciesCode: message.speciesCode, kind: message.kind }
           : undefined,
       );
+    } else if (message.type === "hotspotArrived") {
+      onHotspotArrived?.({ id: message.id, name: message.name });
     } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
       onRegionChange({ latitude: message.latitude, longitude: message.longitude });
     }

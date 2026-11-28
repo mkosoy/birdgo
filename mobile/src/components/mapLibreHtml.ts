@@ -386,6 +386,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
       var arrowFrame = null;
       var trackId = null;
       var customTrackTarget = null;
+      var hotspotArrivalReported = false;
       var currentPopupBirdId = null;
       var currentAudio = null;
       var currentAudioKey = null;
@@ -1364,6 +1365,10 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           trackSnap.classList.add('ready');
           trackSnap.textContent = entry.virtual ? 'Collect!' : 'Snap!';
           trackDist.textContent = hotspotTarget ? 'You’re here — scan nearby birds' : entry.virtual ? 'You’re here! Collect it' : habitatSearchCopy(entry);
+          if (hotspotTarget && !hotspotArrivalReported) {
+            hotspotArrivalReported = true;
+            postOutward({ type: 'hotspotArrived', id: entry.id, name: entry.comName || entry.name });
+          }
         } else if (distance != null && routeDistanceM != null && lastRouteTargetKey && lastRouteTargetKey.indexOf(trackId + ':') === 0) {
           trackSnap.classList.remove('ready');
           trackSnap.textContent = trackActionLabel;
@@ -1392,8 +1397,9 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         if (currentPopup) currentPopup.remove();
         trackId = bird.id;
         customTrackTarget = bird.customTarget ? bird : null;
+        hotspotArrivalReported = false;
         renderBirdMarkers(latestMarkers);
-        postOutward({ type: 'tracking', open: true, id: bird.id, name: bird.comName || bird.name || 'Bird', speciesCode: bird.speciesCode, latitude: bird.latitude, longitude: bird.longitude });
+        postOutward({ type: 'tracking', open: true, id: bird.id, name: bird.comName || bird.name || 'Bird', speciesCode: bird.speciesCode, kind: bird.kind, latitude: bird.latitude, longitude: bird.longitude });
         follow = true;
         clearRoute();
         setToast(false);
