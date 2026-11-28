@@ -1264,7 +1264,8 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         var rowSpecies = {};
         displayEntries = displayEntries.filter(function (entry) {
           var bird = entry.bird;
-          var key = String(bird.speciesCode || bird.comName || bird.sciName || bird.id).toLowerCase();
+          var scientific = String(bird.sciName || '').toLowerCase().replace(/[^a-z0-9\\s]/g, ' ').trim().split(/\\s+/).slice(0, 2).join(' ');
+          var key = scientific || String(bird.comName || bird.speciesCode || bird.id).toLowerCase();
           if (rowSpecies[key]) return false;
           rowSpecies[key] = true;
           return true;
