@@ -433,8 +433,12 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
       return RARITY_ORDER.indexOf(rarityForSpecies(bird.speciesCode, bird.comName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount)) >= RARITY_ORDER.indexOf("rare");
     })
     .sort((a, b) => {
-      const rarityDelta = RARITY_ORDER.indexOf(rarityForSpecies(b.speciesCode, b.comName, Boolean(b.isNotable), b.sciName, b.canonicalKey, b.frequency, b.abundanceCount)) - RARITY_ORDER.indexOf(rarityForSpecies(a.speciesCode, a.comName, Boolean(a.isNotable), a.sciName, a.canonicalKey, a.frequency, a.abundanceCount));
-      return rarityDelta || distanceKm(location, a) - distanceKm(location, b);
+      const scoreOf = (bird: EbirdObservation) => {
+        const ageHours = bird.obsDt ? (Date.now() - new Date(bird.obsDt).getTime()) / 3_600_000 : 24;
+        const rarityRank = RARITY_ORDER.indexOf(rarityForSpecies(bird.speciesCode, bird.comName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount));
+        return rarityRank * 100 - ageHours * 3 - distanceKm(location, bird) * 2;
+      };
+      return scoreOf(b) - scoreOf(a);
     })[0];
   const dismissRareHunt = (id: string) => {
     setDismissedRareHuntIds((current) => current.includes(id) ? current : [...current, id].slice(-20));
