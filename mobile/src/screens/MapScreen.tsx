@@ -25,8 +25,8 @@ import { buildBirdwalkPlan, xpForBirdwalk, type BirdwalkState, type BirdwalkStop
 import { findFreshHotspots } from "../utils/hotspots";
 import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround, skyfriendCellKeyFromEncounterId } from "../utils/skyfriends";
 
-type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare"; frequency?: number; abundanceCount?: number; canonicalKey?: string; sciName?: string; imageUrl?: string; obsValid?: boolean; obsDt?: string; locName?: string; evidenceCount?: number; source?: string };
-type GuideTarget = { speciesCode: string; comName: string; sciName?: string; hunt?: { latitude: number; longitude: number; locName?: string; obsDt?: string; obsValid?: boolean; evidenceCount?: number; source?: string; distanceKm: number } };
+type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare"; frequency?: number; abundanceCount?: number; canonicalKey?: string; sciName?: string; imageUrl?: string; obsValid?: boolean; obsDt?: string; locName?: string; evidenceCount?: number; source?: string; locationPrivate?: boolean };
+type GuideTarget = { speciesCode: string; comName: string; sciName?: string; hunt?: { latitude: number; longitude: number; locName?: string; obsDt?: string; obsValid?: boolean; evidenceCount?: number; source?: string; locationPrivate?: boolean; distanceKm: number } };
 let persistentTrackTarget: TrackTarget | undefined;
 const MAP_PREFERENCES_KEY = "birdgo.map-preferences-v1";
 const DISMISSED_RARE_HUNTS_KEY = "birdgo.dismissed-rare-hunts-v1";
@@ -525,7 +525,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         const rarityRank = RARITY_ORDER.indexOf(rarityForSpecies(bird.speciesCode, bird.comName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount));
         const corroborationBonus = Math.min(Math.max((bird.evidenceCount ?? 1) - 1, 0), 4) * 30;
         const unconfirmedPenalty = bird.obsValid === false && (bird.evidenceCount ?? 1) < 3 ? 50 : 0;
-        return rarityRank * 40 + corroborationBonus + (hasCapturedSpecies(bird) ? 0 : 35) - ageHours * 3 - distanceKm(location, bird) * 4 - unconfirmedPenalty;
+        return rarityRank * 40 + corroborationBonus + (hasCapturedSpecies(bird) ? 0 : 35) - ageHours * 3 - distanceKm(location, bird) * 4 - unconfirmedPenalty - (bird.locationPrivate ? 8 : 0);
       };
       return scoreOf(b) - scoreOf(a);
     })[0];
@@ -533,7 +533,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     setDismissedRareHuntIds((current) => current.includes(id) ? current : [...current, id].slice(-20));
   };
   const startRareHunt = (bird: EbirdObservation) => {
-    const target = { latitude: bird.latitude, longitude: bird.longitude, name: bird.comName ?? "Rare bird", id: observationMarkerId(bird), speciesCode: bird.speciesCode, kind: "rare" as const, obsDt: bird.obsDt, frequency: bird.frequency, abundanceCount: bird.abundanceCount, canonicalKey: bird.canonicalKey, sciName: bird.sciName, imageUrl: bird.imageUrl, obsValid: bird.obsValid, locName: bird.locName, evidenceCount: bird.evidenceCount, source: bird.source };
+    const target = { latitude: bird.latitude, longitude: bird.longitude, name: bird.comName ?? "Rare bird", id: observationMarkerId(bird), speciesCode: bird.speciesCode, kind: "rare" as const, obsDt: bird.obsDt, frequency: bird.frequency, abundanceCount: bird.abundanceCount, canonicalKey: bird.canonicalKey, sciName: bird.sciName, imageUrl: bird.imageUrl, obsValid: bird.obsValid, locName: bird.locName, evidenceCount: bird.evidenceCount, source: bird.source, locationPrivate: bird.locationPrivate };
     if (mode === "classic") {
       openWalkingDirections(target.latitude, target.longitude);
       setActiveTrackTarget(target);
@@ -864,7 +864,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
               : "Recent real-world report — the bird is not guaranteed to still be there."}</Text>
           <View style={styles.rareActions}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Track rare ${visibleRareHunt.comName}`} style={styles.rarePrimary} onPress={() => startRareHunt(visibleRareHunt)}><Text style={styles.rarePrimaryText}>Hunt</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${visibleRareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: visibleRareHunt.speciesCode, comName: visibleRareHunt.comName ?? "Unknown bird", sciName: visibleRareHunt.sciName, hunt: { latitude: visibleRareHunt.latitude, longitude: visibleRareHunt.longitude, locName: visibleRareHunt.locName, obsDt: visibleRareHunt.obsDt, obsValid: visibleRareHunt.obsValid, evidenceCount: visibleRareHunt.evidenceCount, source: visibleRareHunt.source, distanceKm: distanceKm(location, visibleRareHunt) } })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${visibleRareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: visibleRareHunt.speciesCode, comName: visibleRareHunt.comName ?? "Unknown bird", sciName: visibleRareHunt.sciName, hunt: { latitude: visibleRareHunt.latitude, longitude: visibleRareHunt.longitude, locName: visibleRareHunt.locName, obsDt: visibleRareHunt.obsDt, obsValid: visibleRareHunt.obsValid, evidenceCount: visibleRareHunt.evidenceCount, source: visibleRareHunt.source, locationPrivate: visibleRareHunt.locationPrivate, distanceKm: distanceKm(location, visibleRareHunt) } })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Dismiss rare hunt" style={styles.rareDismiss} onPress={() => dismissRareHunt(rareHuntInstanceId(visibleRareHunt))}><Text style={styles.rareDismissText}>×</Text></Pressable>
           </View>
         </View> : null}
@@ -882,7 +882,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
             : "Real-world report — the bird is not guaranteed to still be there."}</Text>
           <View style={styles.rareActions}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Directions to rare ${activeClassicRareHunt.name}`} style={styles.rarePrimary} onPress={() => openWalkingDirections(activeClassicRareHunt.latitude, activeClassicRareHunt.longitude)}><Text style={styles.rarePrimaryText}>Directions</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${activeClassicRareHunt.name} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: activeClassicRareHunt.speciesCode ?? "unknown", comName: activeClassicRareHunt.name, sciName: activeClassicRareHunt.sciName, hunt: { latitude: activeClassicRareHunt.latitude, longitude: activeClassicRareHunt.longitude, locName: activeClassicRareHunt.locName, obsDt: activeClassicRareHunt.obsDt, obsValid: activeClassicRareHunt.obsValid, evidenceCount: activeClassicRareHunt.evidenceCount, source: activeClassicRareHunt.source, distanceKm: distanceKm(location, activeClassicRareHunt) } })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${activeClassicRareHunt.name} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: activeClassicRareHunt.speciesCode ?? "unknown", comName: activeClassicRareHunt.name, sciName: activeClassicRareHunt.sciName, hunt: { latitude: activeClassicRareHunt.latitude, longitude: activeClassicRareHunt.longitude, locName: activeClassicRareHunt.locName, obsDt: activeClassicRareHunt.obsDt, obsValid: activeClassicRareHunt.obsValid, evidenceCount: activeClassicRareHunt.evidenceCount, source: activeClassicRareHunt.source, locationPrivate: activeClassicRareHunt.locationPrivate, distanceKm: distanceKm(location, activeClassicRareHunt) } })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="End rare hunt" style={styles.rareDismiss} onPress={() => setActiveTrackTarget(undefined)}><Text style={styles.rareDismissText}>×</Text></Pressable>
           </View>
         </View> : null}
