@@ -480,7 +480,9 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         const observedAt = observationTimeMs(bird.obsDt, bird.longitude, bird.latitude);
         const ageHours = observedAt == null ? 24 : (Date.now() - observedAt) / 3_600_000;
         const rarityRank = RARITY_ORDER.indexOf(rarityForSpecies(bird.speciesCode, bird.comName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount));
-        return rarityRank * 100 + (hasCapturedSpecies(bird) ? 0 : 35) - ageHours * 3 - distanceKm(location, bird) * 2 - (bird.obsValid === false ? 50 : 0);
+        const corroborationBonus = Math.min(Math.max((bird.evidenceCount ?? 1) - 1, 0), 4) * 30;
+        const unconfirmedPenalty = bird.obsValid === false && (bird.evidenceCount ?? 1) < 3 ? 50 : 0;
+        return rarityRank * 40 + corroborationBonus + (hasCapturedSpecies(bird) ? 0 : 35) - ageHours * 3 - distanceKm(location, bird) * 4 - unconfirmedPenalty;
       };
       return scoreOf(b) - scoreOf(a);
     })[0];
@@ -500,6 +502,9 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   };
   const visibleRareHunt = rareHunt && !dismissedRareHuntIds.includes(rareHuntInstanceId(rareHunt)) && !popupOpen && !tracking && (!birdwalk || mode === "classic") && !completionNotice && !locationNotice && !error ? rareHunt : undefined;
   const visibleRareHuntIsNew = visibleRareHunt ? !hasCapturedSpecies(visibleRareHunt) : false;
+  const visibleRareHuntReportLabel = visibleRareHunt && visibleRareHunt.source !== "birdweather"
+    ? (visibleRareHunt.evidenceCount ?? 1) > 4 ? "5+ reports" : `${visibleRareHunt.evidenceCount ?? 1} report${(visibleRareHunt.evidenceCount ?? 1) === 1 ? "" : "s"}`
+    : "";
   const visibleRareHuntInstanceId = visibleRareHunt ? rareHuntInstanceId(visibleRareHunt) : undefined;
   useEffect(() => {
     if (!visibleRareHunt) {
@@ -797,13 +802,15 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
             {rareHuntImageUrl ? <Image source={{ uri: rareHuntImageUrl }} style={styles.rareImage} /> : null}
             <View style={styles.rareTextWrap}>
               <Text numberOfLines={1} style={styles.rareTitle}>{visibleRareHunt.comName}</Text>
-              <Text numberOfLines={2} style={styles.rareCopy}>{distanceKm(location, visibleRareHunt) < 0.05 ? "here" : `${distanceKm(location, visibleRareHunt) < 1 ? `${Math.round(distanceKm(location, visibleRareHunt) * 1000)}m` : `${distanceKm(location, visibleRareHunt).toFixed(1)}km`} away`} · {formatObservationAge(visibleRareHunt.obsDt, visibleRareHunt.source, visibleRareHunt.longitude, visibleRareHunt.latitude)}{visibleRareHunt.locName ? ` · ${visibleRareHunt.locName}` : ""}</Text>
+              <Text numberOfLines={2} style={styles.rareCopy}>{distanceKm(location, visibleRareHunt) < 0.05 ? "here" : `${distanceKm(location, visibleRareHunt) < 1 ? `${Math.round(distanceKm(location, visibleRareHunt) * 1000)}m` : `${distanceKm(location, visibleRareHunt).toFixed(1)}km`} away`} · {formatObservationAge(visibleRareHunt.obsDt, visibleRareHunt.source, visibleRareHunt.longitude, visibleRareHunt.latitude)}{visibleRareHuntReportLabel ? ` · ${visibleRareHuntReportLabel}` : ""}{visibleRareHunt.locName ? ` · ${visibleRareHunt.locName}` : ""}</Text>
             </View>
           </View>
           <Text numberOfLines={2} style={styles.rareHint}>{visibleRareHunt.source === "birdweather"
             ? "Fresh audio clue — the bird may be anywhere within earshot of the station."
             : visibleRareHunt.obsValid === false
-              ? "Unconfirmed real-world report — treat this as a lead, not a guarantee."
+              ? (visibleRareHunt.evidenceCount ?? 1) >= 3
+                ? "Multiple independent fresh reports — a strong lead, but still not a guarantee."
+                : "Unconfirmed real-world report — treat this as a lead, not a guarantee."
               : "Recent real-world report — the bird is not guaranteed to still be there."}</Text>
           <View style={styles.rareActions}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Track rare ${visibleRareHunt.comName}`} style={styles.rarePrimary} onPress={() => startRareHunt(visibleRareHunt)}><Text style={styles.rarePrimaryText}>Hunt</Text></Pressable>

@@ -13,6 +13,9 @@ export interface EbirdObservation {
   audioUrl?: string;
   audioStartTime?: number;
   audioEndTime?: number;
+  evidenceCount?: number;
+  subId?: string;
+  obsId?: string;
   source?: string;
   [key: string]: unknown;
 }
@@ -53,17 +56,26 @@ export function isSpeciesObservation(observation: EbirdObservation): boolean {
 export function deduplicateObservations(
   observations: EbirdObservation[],
 ): EbirdObservation[] {
-  const byKey = new Map<string, EbirdObservation>();
+  const byKey = new Map<string, { observation: EbirdObservation; evidence: Set<string> }>();
   for (const observation of observations.filter(isSpeciesObservation)) {
-    const key = `${observation.speciesCode}:${observation.locId ?? ""}`;
+    const locationKey = observation.locId ?? `${observation.lat ?? ""}:${observation.lng ?? ""}`;
+    const key = `${observation.speciesCode}:${locationKey}`;
+    const evidenceKey = observation.subId ?? observation.obsId ?? "unknown";
     const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, { observation, evidence: new Set([evidenceKey]) });
+      continue;
+    }
+    existing.evidence.add(evidenceKey);
     if (
-      !existing ||
       new Date(observation.obsDt ?? 0).getTime() >
-        new Date(existing.obsDt ?? 0).getTime()
+        new Date(existing.observation.obsDt ?? 0).getTime()
     ) {
-      byKey.set(key, observation);
+      existing.observation = observation;
     }
   }
-  return [...byKey.values()];
+  return [...byKey.values()].map(({ observation, evidence }) => ({
+    ...observation,
+    ...(evidence.size > 1 ? { evidenceCount: evidence.size } : {}),
+  }));
 }
