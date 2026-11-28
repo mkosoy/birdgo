@@ -471,7 +471,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     .filter((bird) => {
       if (bird.virtual || !bird.comName || distanceKm(location, bird) > 15) return false;
       const observedAt = observationTimeMs(bird.obsDt, bird.longitude, bird.latitude);
-      const ageHours = observedAt == null ? 24 : (Date.now() - observedAt) / 3_600_000;
+      const ageHours = observedAt == null ? 24 : Math.max(0, (Date.now() - observedAt) / 3_600_000);
       if (!Number.isFinite(ageHours) || ageHours > 72) return false;
       return RARITY_ORDER.indexOf(rarityForSpecies(bird.speciesCode, bird.comName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount)) >= RARITY_ORDER.indexOf("rare");
     })

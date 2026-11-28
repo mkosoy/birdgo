@@ -126,7 +126,7 @@ export function filterRecentLocalObservations(
     const observedAt = observationUtcMs(trimmed, observation.lng, observation.lat);
     if (!Number.isFinite(observedAt)) return false;
     const ageHours = (now - observedAt) / 3_600_000;
-    return ageHours >= -2 && ageHours <= maxAgeHours;
+    return ageHours >= -27 && ageHours <= maxAgeHours;
   });
 }
 
