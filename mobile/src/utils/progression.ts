@@ -48,9 +48,22 @@ export function speciesKeyAliases(speciesCode?: string, commonName?: string, sci
 export function rarityForSpecies(speciesCode?: string, commonName?: string, isNotable?: boolean, sciName?: string | null, canonicalKey?: string | null, frequency?: number, abundanceCount?: number): BirdRarity {
   const key = speciesKey(speciesCode, commonName, sciName, canonicalKey);
   if (!key || key === "unidentified bird") return "common";
+  const hasFrequency = typeof frequency === "number" && Number.isFinite(frequency);
   if (typeof abundanceCount === "number" && Number.isFinite(abundanceCount)) {
-    if (isNotable) return abundanceCount <= 2 ? "legendary" : abundanceCount <= 10 ? "epic" : "rare";
-    return abundanceCount >= 25 ? "common" : abundanceCount >= 5 ? "uncommon" : "rare";
+    if (isNotable) {
+      if (hasFrequency && frequency >= 9) return "rare";
+      if (abundanceCount <= 2) {
+        if (!hasFrequency) return "legendary";
+        return frequency <= 4 ? "legendary" : frequency <= 6 ? "epic" : "rare";
+      }
+      if (abundanceCount <= 10) {
+        if (!hasFrequency) return "epic";
+        return frequency <= 4 ? "epic" : "rare";
+      }
+      return "rare";
+    }
+    if (abundanceCount >= 25 || (hasFrequency && frequency >= 9)) return "common";
+    return abundanceCount >= 5 || (hasFrequency && frequency >= 5) ? "uncommon" : "rare";
   }
   if (typeof frequency === "number" && Number.isFinite(frequency)) {
     if (isNotable) return frequency <= 4 ? "legendary" : frequency <= 8 ? "epic" : "rare";
