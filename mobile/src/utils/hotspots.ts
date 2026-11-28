@@ -50,7 +50,7 @@ export function findFreshHotspots(birds: EbirdObservation[], reference: Coordina
     if (bird.virtual || bird.source === "birdweather" || bird.locationPrivate || !bird.locId || !bird.comName || !bird.locName?.trim()) continue;
     if (!Number.isFinite(bird.latitude) || !Number.isFinite(bird.longitude)) continue;
     const ageHours = birdAgeHours(bird, now);
-    if (!Number.isFinite(ageHours) || ageHours < -2 || ageHours > 72 || distanceKm(reference, bird) > 15) continue;
+    if (!Number.isFinite(ageHours) || ageHours < -2 || ageHours > 48 || distanceKm(reference, bird) > 15) continue;
     const key = groupKey(bird);
     let group = groups.get(key);
     if (!group) {
@@ -69,7 +69,7 @@ export function findFreshHotspots(birds: EbirdObservation[], reference: Coordina
     const representative = species.sort((left, right) => leadScore(right, reference, now) - leadScore(left, reference, now))[0];
     const freshestAgeHours = Math.min(...species.map((bird) => birdAgeHours(bird, now)));
     const distance = distanceKm(reference, group);
-    const freshnessScore = Math.max(0, 72 - freshestAgeHours) * 0.5;
+    const freshnessScore = Math.max(0, 48 - freshestAgeHours) * 0.5;
     const score = species.length * 12 + rareSpeciesCount * 25 + freshnessScore - distance * 3;
     return [{
       key: group.key,
