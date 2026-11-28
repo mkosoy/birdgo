@@ -1357,11 +1357,12 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         var name = String((bird.comName || '') + ' ' + (bird.sciName || '')).toLowerCase();
         var prefix = bird.source === 'birdweather' ? 'At the audio station' : 'At the report area';
         var clue = 'listen first, then scan nearby cover and open sky';
-        if (/\\b(?:gull|tern|sandpiper|plover|dunlin|willet|godwit|dowitcher|curlew|stilt|avocet|oystercatcher|turnstone)\\b/.test(name)) clue = 'scan water edges, mudflats, and birds flying along the shore';
+        if (/\\b(?:mountain plover|upland sandpiper|burrowing owl|snowy owl|short-eared owl)\\b/.test(name)) clue = 'scan open grassland, fields, low perches, and bare ground';
+        else if (/goshawk|sparrowhawk|\\b(?:hawk|eagle|falcon|kestrel|osprey|harrier|kite|vulture|accipiter|buteo)\\b/.test(name)) clue = 'scan the sky, treetops, poles, and other exposed perches';
+        else if (/\\b(?:gull|tern|sandpiper|plover|dunlin|willet|godwit|dowitcher|curlew|stilt|avocet|oystercatcher|turnstone)\\b/.test(name)) clue = 'scan water edges, mudflats, and birds flying along the shore';
         else if (/\\b(?:duck|goose|swan|grebe|loon|coot|gallinule|teal|mallard|merganser|scaup|bufflehead|canvasback|wigeon|pintail|shoveler)\\b/.test(name)) clue = 'scan open water, shoreline edges, and distant floating birds';
         else if (/\\b(?:heron|egret|bittern|ibis|spoonbill|crane|rail)\\b/.test(name)) clue = 'move quietly and scan shallow water, reeds, and marsh edges';
         else if (/\\bowl(?:s|et|ets)?\\b/.test(name)) clue = 'scan dense cover, cavities, and shaded roosts without flushing birds';
-        else if (/goshawk|sparrowhawk|\\b(?:hawk|eagle|falcon|kestrel|osprey|harrier|kite|vulture|accipiter|buteo)\\b/.test(name)) clue = 'scan the sky, treetops, poles, and other exposed perches';
         else if (/\\b(?:woodpecker|flicker|sapsucker)\\b/.test(name)) clue = 'scan trunks and dead branches; listen for tapping or sharp calls';
         else if (/\\bhummingbird\\b/.test(name)) clue = 'check flowers, feeders, and tiny exposed perches';
         else if (/\\b(?:sparrow|warbler|wren|thrush|vireo|kinglet|nuthatch|chickadee|titmouse|robin|cardinal|jay|crow|blackbird|oriole|tanager|grosbeak|mockingbird|catbird|thrasher)\\b/.test(name) || /finch/.test(name)) clue = 'listen first, then scan shrubs, canopy edges, and repeated movement';
