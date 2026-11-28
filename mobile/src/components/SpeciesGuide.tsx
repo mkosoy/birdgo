@@ -75,6 +75,19 @@ function huntEvidenceLabel(hunt: HuntBrief): string {
   return "Single recent report — the bird is not guaranteed to still be there.";
 }
 
+function fieldcraftTip(commonName: string, sciName?: string | null): string {
+  const name = `${commonName} ${sciName ?? ""}`.toLowerCase();
+  if (/\b(?:gull|tern|sandpiper|plover|dunlin|willet|godwit|dowitcher|curlew|stilt|avocet|oystercatcher|turnstone)\b/.test(name)) return "Scan water edges, mudflats, and birds flying along the shore.";
+  if (/\b(?:duck|goose|swan|grebe|loon|coot|gallinule|teal|mallard|merganser|scaup|bufflehead|canvasback|wigeon|pintail|shoveler)\b/.test(name)) return "Scan open water, shoreline edges, and distant floating birds.";
+  if (/\b(?:heron|egret|bittern|ibis|spoonbill|crane|rail)\b/.test(name)) return "Move quietly and scan shallow water, reeds, and marsh edges.";
+  if (/\bowl(?:s|et|ets)?\b/.test(name)) return "Scan dense cover, cavities, and shaded roosts without flushing birds.";
+  if (/goshawk|sparrowhawk|\b(?:hawk|eagle|falcon|kestrel|osprey|harrier|kite|vulture|accipiter|buteo)\b/.test(name)) return "Scan the sky, treetops, poles, and other exposed perches.";
+  if (/\b(?:woodpecker|flicker|sapsucker)\b/.test(name)) return "Scan trunks and dead branches; listen for tapping or sharp calls.";
+  if (/\bhummingbird\b/.test(name)) return "Check flowers, feeders, and tiny exposed perches.";
+  if (/\b(?:sparrow|warbler|wren|thrush|vireo|kinglet|nuthatch|chickadee|titmouse|robin|cardinal|jay|crow|blackbird|oriole|tanager|grosbeak|mockingbird|catbird|thrasher)\b/.test(name) || /finch/.test(name)) return "Listen first, then scan shrubs, canopy edges, and repeated movement.";
+  return "Listen first, then scan nearby cover and open sky.";
+}
+
 function durationLabel(seconds?: number): string {
   if (!seconds || !Number.isFinite(seconds)) return "audio";
   const minutes = Math.floor(seconds / 60);
@@ -186,7 +199,7 @@ export function SpeciesGuide({ commonName, sciName, showImage = false, compact =
       <Text style={styles.huntTitle}>Hunt brief</Text>
       <Text style={styles.huntText}>Latest report {huntReportTime ? `${huntReportTime} local · ` : ""}{huntAgeLabel(hunt.obsDt, hunt.longitude, hunt.latitude)} · {huntDistanceLabel(hunt.distanceKm)}{hunt.locName ? ` · ${hunt.locName}` : ""}</Text>
       <Text style={styles.huntText}>{huntEvidenceLabel(hunt)}</Text>
-      <Text style={styles.huntTip}>Listen first, then scan quietly near the report area.</Text>
+      <Text style={styles.huntTip}>{fieldcraftTip(commonName, sciName)}</Text>
     </View> : null}
     {loading ? <View style={styles.loadingRow}><ActivityIndicator color="#2f7d5b" /><Text style={styles.loadingText}>Loading species notes and sounds…</Text></View> : null}
     {!loading && error ? <Text style={styles.emptyText}>Field guide unavailable right now.</Text> : null}
