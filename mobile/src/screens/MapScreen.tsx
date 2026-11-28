@@ -25,12 +25,13 @@ import { buildBirdwalkPlan, xpForBirdwalk, type BirdwalkState, type BirdwalkStop
 import { findFreshHotspots } from "../utils/hotspots";
 import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround, skyfriendCellKeyFromEncounterId } from "../utils/skyfriends";
 
-type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare"; frequency?: number; abundanceCount?: number; canonicalKey?: string; sciName?: string; imageUrl?: string; obsValid?: boolean };
+type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare"; frequency?: number; abundanceCount?: number; canonicalKey?: string; sciName?: string; imageUrl?: string; obsValid?: boolean; obsDt?: string };
 type GuideTarget = { speciesCode: string; comName: string; sciName?: string; hunt?: { latitude: number; longitude: number; locName?: string; obsDt?: string; obsValid?: boolean; evidenceCount?: number; source?: string; distanceKm: number } };
 let persistentTrackTarget: TrackTarget | undefined;
 const MAP_PREFERENCES_KEY = "birdgo.map-preferences-v1";
 const DISMISSED_RARE_HUNTS_KEY = "birdgo.dismissed-rare-hunts-v1";
 const DISMISSED_HOTSPOTS_KEY = "birdgo.dismissed-hotspots-v1";
+const ACTIVE_RARE_HUNT_KEY = "birdgo.active-rare-hunt-v1";
 
 function externalSpeciesUrl(target: GuideTarget): string {
   return target.speciesCode.startsWith("inat-")
@@ -85,6 +86,11 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const setActiveTrackTarget = (target?: TrackTarget) => {
     persistentTrackTarget = target;
     setActiveTrackTargetState(target);
+    if (target?.kind === "rare" && target.obsDt) {
+      void AsyncStorage.setItem(ACTIVE_RARE_HUNT_KEY, JSON.stringify(target)).catch(() => undefined);
+    } else {
+      void AsyncStorage.removeItem(ACTIVE_RARE_HUNT_KEY).catch(() => undefined);
+    }
   };
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
   const [completionNotice, setCompletionNotice] = useState<string | null>(null);
@@ -112,6 +118,43 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const [birdwalk, setBirdwalk] = useState<BirdwalkState | undefined>();
   const [birdwalkBonusClaimed, setBirdwalkBonusClaimed] = useState(false);
   const [guideTarget, setGuideTarget] = useState<GuideTarget | undefined>();
+  const [storedRareHunt, setStoredRareHunt] = useState<TrackTarget | null>(null);
+  const [rareHuntStorageLoaded, setRareHuntStorageLoaded] = useState(false);
+  const rareHuntRestoreAttempted = useRef(false);
+
+
+  useEffect(() => {
+    let cancelled = false;
+    void AsyncStorage.getItem(ACTIVE_RARE_HUNT_KEY).then((raw) => {
+      if (cancelled) return;
+      if (!raw) {
+        setRareHuntStorageLoaded(true);
+        return;
+      }
+      try {
+        const parsed = JSON.parse(raw) as TrackTarget;
+        const observedAt = observationTimeMs(parsed.obsDt, parsed.longitude, parsed.latitude);
+        const ageHours = observedAt == null ? Number.POSITIVE_INFINITY : (Date.now() - observedAt) / 3_600_000;
+        const valid = parsed.kind === "rare" && typeof parsed.name === "string" && Number.isFinite(parsed.latitude) && Number.isFinite(parsed.longitude) && ageHours >= -2 && ageHours <= 72;
+        if (valid) setStoredRareHunt(parsed);
+        else void AsyncStorage.removeItem(ACTIVE_RARE_HUNT_KEY).catch(() => undefined);
+      } catch {
+        void AsyncStorage.removeItem(ACTIVE_RARE_HUNT_KEY).catch(() => undefined);
+      }
+      setRareHuntStorageLoaded(true);
+    }).catch(() => {
+      if (!cancelled) setRareHuntStorageLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!mapPreferencesLoaded || !rareHuntStorageLoaded || rareHuntRestoreAttempted.current) return;
+    rareHuntRestoreAttempted.current = true;
+    if (activeTrackTarget || !storedRareHunt) return;
+    setActiveTrackTarget(storedRareHunt);
+    if (mode === "adventure") setTrackRequest({ ...storedRareHunt });
+  }, [activeTrackTarget, mapPreferencesLoaded, mode, rareHuntStorageLoaded, storedRareHunt]);
 
   useEffect(() => {
     let cancelled = false;
@@ -490,7 +533,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     setDismissedRareHuntIds((current) => current.includes(id) ? current : [...current, id].slice(-20));
   };
   const startRareHunt = (bird: EbirdObservation) => {
-    const target = { latitude: bird.latitude, longitude: bird.longitude, name: bird.comName ?? "Rare bird", id: observationMarkerId(bird), speciesCode: bird.speciesCode, kind: "rare" as const, frequency: bird.frequency, abundanceCount: bird.abundanceCount, canonicalKey: bird.canonicalKey, sciName: bird.sciName, imageUrl: bird.imageUrl, obsValid: bird.obsValid };
+    const target = { latitude: bird.latitude, longitude: bird.longitude, name: bird.comName ?? "Rare bird", id: observationMarkerId(bird), speciesCode: bird.speciesCode, kind: "rare" as const, obsDt: bird.obsDt, frequency: bird.frequency, abundanceCount: bird.abundanceCount, canonicalKey: bird.canonicalKey, sciName: bird.sciName, imageUrl: bird.imageUrl, obsValid: bird.obsValid };
     if (mode === "classic") {
       openWalkingDirections(target.latitude, target.longitude);
       setActiveTrackTarget(target);
@@ -768,8 +811,14 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         onFollowChange={setFollowPaused}
         onTrackingChange={(open, target) => {
           setTracking(open);
-          if (open && target) setActiveTrackTarget(target);
-          if (!open) setActiveTrackTarget(undefined);
+          if (open && target) {
+            const mergedTarget = activeTrackTarget?.id && activeTrackTarget.id === target.id ? { ...activeTrackTarget, ...target } : target;
+            setActiveTrackTarget(mergedTarget);
+          }
+          if (!open) {
+            setActiveTrackTarget(undefined);
+            setTrackRequest(undefined);
+          }
         }}
         onHotspotArrived={(target) => {
           if (!activeTrackTarget || activeTrackTarget.kind !== "hotspot" || activeTrackTarget.id !== target.id) return;
