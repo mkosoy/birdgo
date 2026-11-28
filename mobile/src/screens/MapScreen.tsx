@@ -549,18 +549,31 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     const targetKeys = new Set(speciesKeyAliases(visibleRareHunt.speciesCode, visibleRareHunt.comName, visibleRareHunt.sciName, visibleRareHunt.canonicalKey));
     const targetId = observationMarkerId(visibleRareHunt);
     const candidates = new Map<string, EbirdObservation>();
-    birds.filter((bird) => !bird.virtual).forEach((bird) => candidates.set(observationMarkerId(bird), bird));
-    notable.forEach((bird) => candidates.set(observationMarkerId(bird), bird));
+    const timeOf = (bird: EbirdObservation) => observationTimeMs(bird.obsDt, bird.longitude, bird.latitude);
+    const addCandidate = (bird: EbirdObservation) => {
+      if (bird.virtual) return;
+      const id = observationMarkerId(bird);
+      const existing = candidates.get(id);
+      if (!existing) {
+        candidates.set(id, bird);
+        return;
+      }
+      const birdTime = timeOf(bird) ?? Number.NEGATIVE_INFINITY;
+      const existingTime = timeOf(existing) ?? Number.NEGATIVE_INFINITY;
+      if (birdTime > existingTime) candidates.set(id, bird);
+    };
+    birds.forEach(addCandidate);
+    notable.forEach(addCandidate);
     return [...candidates.values()].filter((bird) => {
       if (observationMarkerId(bird) === targetId) return false;
       if (!speciesKeyAliases(bird.speciesCode, bird.comName, bird.sciName, bird.canonicalKey).some((key) => targetKeys.has(key))) return false;
       if (distanceKm(location, bird) > 15) return false;
-      const observedAt = observationTimeMs(bird.obsDt, bird.longitude, bird.latitude);
+      const observedAt = timeOf(bird);
       const ageHours = observedAt == null ? Number.POSITIVE_INFINITY : (Date.now() - observedAt) / 3_600_000;
       return Number.isFinite(ageHours) && ageHours >= -2 && ageHours <= 72;
     }).sort((a, b) => {
       const scoreOf = (bird: EbirdObservation) => {
-        const observedAt = observationTimeMs(bird.obsDt, bird.longitude, bird.latitude);
+        const observedAt = timeOf(bird);
         const ageHours = observedAt == null ? 72 : Math.max(0, (Date.now() - observedAt) / 3_600_000);
         return ageHours * 1.5 + distanceKm(location, bird) + (bird.locationPrivate ? 3 : 0);
       };
