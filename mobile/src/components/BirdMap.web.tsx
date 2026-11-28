@@ -58,6 +58,9 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
     speciesCode: bird.speciesCode,
     isNotable: Boolean(bird.isNotable),
     imageUrl: bird.imageUrl,
+    audioUrl: bird.audioUrl,
+    audioStartTime: bird.audioStartTime,
+    audioEndTime: bird.audioEndTime,
     virtual: Boolean(bird.virtual),
     prismatic: Boolean(bird.prismatic),
     source: bird.source,
@@ -83,6 +86,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
+      if (event.source !== iframeRef.current?.contentWindow) return;
       let message: LeafletMessage;
       try {
         message = typeof event.data === "string" ? JSON.parse(event.data) as LeafletMessage : event.data as LeafletMessage;
