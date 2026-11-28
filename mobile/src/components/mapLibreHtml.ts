@@ -1327,7 +1327,8 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         trackArrow.classList.toggle('rare', Boolean(entry.isNotable));
         var distance = haversineKm(lastUserLocation, entry);
         var snapInRange = distance != null && distance * 1000 <= SNAP_M;
-        trackSnap.disabled = !snapInRange;
+        trackSnap.disabled = entry.virtual && !snapInRange;
+        var trackActionLabel = entry.virtual ? (snapInRange ? 'Collect' : 'Too far') : (snapInRange ? 'Snap' : 'Log');
         if (distance != null && distance * 1000 <= ARRIVE_M) {
           if (routeSteps.length || routeGeometryCoordinates.length) clearRoute();
           trackSnap.classList.add('ready');
@@ -1335,11 +1336,11 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           trackDist.textContent = entry.virtual ? 'You’re here! Collect it' : habitatSearchCopy(entry);
         } else if (distance != null && routeDistanceM != null && lastRouteTargetKey && lastRouteTargetKey.indexOf(trackId + ':') === 0) {
           trackSnap.classList.remove('ready');
-          trackSnap.textContent = snapInRange ? (entry.virtual ? 'Collect' : 'Snap') : 'Too far';
+          trackSnap.textContent = trackActionLabel;
           trackDist.textContent = 'Walk · ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
         } else if (distance != null) {
           trackSnap.classList.remove('ready');
-          trackSnap.textContent = snapInRange ? (entry.virtual ? 'Collect' : 'Snap') : 'Too far';
+          trackSnap.textContent = trackActionLabel;
           trackDist.textContent = 'Direct · ' + fmtDist(distance);
         } else {
           trackSnap.classList.remove('ready');

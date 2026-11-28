@@ -448,7 +448,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     }
     dismissRareHunt(rareHuntInstanceId(bird));
   };
-  const visibleRareHunt = rareHunt && !dismissedRareHuntIds.includes(rareHuntInstanceId(rareHunt)) && !popupOpen && !completionNotice && !locationNotice && !error ? rareHunt : undefined;
+  const visibleRareHunt = rareHunt && !dismissedRareHuntIds.includes(rareHuntInstanceId(rareHunt)) && !popupOpen && !tracking && !completionNotice && !locationNotice && !error ? rareHunt : undefined;
   const topMessage = completionNotice
     ? { text: completionNotice, onPress: () => setCompletionNotice(null) }
     : locationNotice
