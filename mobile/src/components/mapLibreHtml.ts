@@ -1258,7 +1258,11 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           kind: bird && bird.kind,
           latitude: bird && bird.latitude,
           longitude: bird && bird.longitude,
-          imageUrl: bird && bird.imageUrl
+          imageUrl: bird && bird.imageUrl,
+          canonicalKey: bird && bird.canonicalKey,
+          frequency: bird && bird.frequency,
+          abundanceCount: bird && bird.abundanceCount,
+          obsValid: bird && bird.obsValid
         });
       }
 
@@ -1999,7 +2003,7 @@ ${speciesAudioScript()}
               if (exactBird) {
                 startTrack(Object.assign({}, exactBird, { kind: 'rare' }));
               } else {
-                startTrack({ id: data.trackTarget.id, latitude: data.trackTarget.latitude, longitude: data.trackTarget.longitude, name: data.trackTarget.name, comName: data.trackTarget.name, speciesCode: data.trackTarget.speciesCode, kind: 'rare', customTarget: true });
+                startTrack({ id: data.trackTarget.id, latitude: data.trackTarget.latitude, longitude: data.trackTarget.longitude, name: data.trackTarget.name, comName: data.trackTarget.name, speciesCode: data.trackTarget.speciesCode, kind: 'rare', frequency: data.trackTarget.frequency, abundanceCount: data.trackTarget.abundanceCount, canonicalKey: data.trackTarget.canonicalKey, sciName: data.trackTarget.sciName, imageUrl: data.trackTarget.imageUrl, obsValid: data.trackTarget.obsValid, customTarget: true });
               }
             } else if (targetBird && targetBird.bird) {
               var trackedBird = data.trackTarget.kind ? Object.assign({}, targetBird.bird, { kind: data.trackTarget.kind }) : targetBird.bird;

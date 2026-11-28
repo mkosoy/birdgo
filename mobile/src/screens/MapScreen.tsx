@@ -25,7 +25,7 @@ import { buildBirdwalkPlan, xpForBirdwalk, type BirdwalkState, type BirdwalkStop
 import { findFreshHotspots } from "../utils/hotspots";
 import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround, skyfriendCellKeyFromEncounterId } from "../utils/skyfriends";
 
-type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare" };
+type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare"; frequency?: number; abundanceCount?: number; canonicalKey?: string; sciName?: string; imageUrl?: string; obsValid?: boolean };
 type GuideTarget = { speciesCode: string; comName: string; sciName?: string };
 let persistentTrackTarget: TrackTarget | undefined;
 const MAP_PREFERENCES_KEY = "birdgo.map-preferences-v1";
@@ -488,7 +488,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     setDismissedRareHuntIds((current) => current.includes(id) ? current : [...current, id].slice(-20));
   };
   const startRareHunt = (bird: EbirdObservation) => {
-    const target = { latitude: bird.latitude, longitude: bird.longitude, name: bird.comName ?? "Rare bird", id: observationMarkerId(bird), speciesCode: bird.speciesCode, kind: "rare" as const };
+    const target = { latitude: bird.latitude, longitude: bird.longitude, name: bird.comName ?? "Rare bird", id: observationMarkerId(bird), speciesCode: bird.speciesCode, kind: "rare" as const, frequency: bird.frequency, abundanceCount: bird.abundanceCount, canonicalKey: bird.canonicalKey, sciName: bird.sciName, imageUrl: bird.imageUrl, obsValid: bird.obsValid };
     if (mode === "classic") {
       openWalkingDirections(target.latitude, target.longitude);
       setActiveTrackTarget(target);

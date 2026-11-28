@@ -27,7 +27,7 @@ export interface BirdMapProps {
   recenterRequest?: number;
   overviewRequest?: number;
   nearestRequest?: number;
-  trackRequest?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare" };
+  trackRequest?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare"; frequency?: number; abundanceCount?: number; canonicalKey?: string; sciName?: string; imageUrl?: string; obsValid?: boolean };
   stopTrackRequest?: number;
   closePopupRequest?: number;
   loading?: boolean;
@@ -81,7 +81,7 @@ export interface LeafletData {
   heading?: number;
   markers: LeafletMarker[];
   command?: "recenter" | "setView" | "overview" | "nearest" | "track" | "stopTrack" | "closePopup";
-  trackTarget?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare" };
+  trackTarget?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare"; frequency?: number; abundanceCount?: number; canonicalKey?: string; sciName?: string; imageUrl?: string; obsValid?: boolean };
   firstPerson?: boolean;
   safeArea?: SafeAreaInsets;
 }
@@ -103,6 +103,10 @@ interface LeafletMessage {
   latitude?: number;
   longitude?: number;
   imageUrl?: string;
+  canonicalKey?: string;
+  frequency?: number;
+  abundanceCount?: number;
+  obsValid?: boolean;
 }
 
 function relativeTime(date?: string, longitude?: number, latitude?: number): string {
@@ -234,6 +238,10 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
             speciesCode: message.speciesCode,
             isNotable: true,
             imageUrl: message.imageUrl,
+            canonicalKey: message.canonicalKey,
+            frequency: message.frequency,
+            abundanceCount: message.abundanceCount,
+            obsValid: message.obsValid,
           }
         : undefined;
       const bird = markerLookup.get(message.id) ?? fallbackRareBird;
