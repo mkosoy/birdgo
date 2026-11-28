@@ -53,20 +53,30 @@ export function isSpeciesObservation(observation: EbirdObservation): boolean {
   return !/\b(?:unknown|unidentified)\b/i.test(name);
 }
 
+function evidenceTimeMs(obsDt?: string): number {
+  const trimmed = obsDt?.trim();
+  if (!trimmed) return Number.NaN;
+  return Date.parse(trimmed.includes("T") ? trimmed : trimmed.replace(" ", "T"));
+}
+
 export function deduplicateObservations(
   observations: EbirdObservation[],
 ): EbirdObservation[] {
-  const byKey = new Map<string, { observation: EbirdObservation; evidence: Set<string> }>();
+  const byKey = new Map<string, { observation: EbirdObservation; evidence: Map<string, number> }>();
   for (const observation of observations.filter(isSpeciesObservation)) {
     const locationKey = observation.locId ?? `${observation.lat ?? ""}:${observation.lng ?? ""}`;
     const key = `${observation.speciesCode}:${locationKey}`;
-    const evidenceKey = observation.subId ?? observation.obsId ?? "unknown";
+    const time = evidenceTimeMs(observation.obsDt);
+    // Shared or simultaneous checklists are one birding event, not independent corroboration.
+    const evidenceKey = Number.isFinite(time)
+      ? `time:${Math.round(time / 60000)}`
+      : observation.subId ?? observation.obsId ?? "unknown";
     const existing = byKey.get(key);
     if (!existing) {
-      byKey.set(key, { observation, evidence: new Set([evidenceKey]) });
+      byKey.set(key, { observation, evidence: new Map([[evidenceKey, time]]) });
       continue;
     }
-    existing.evidence.add(evidenceKey);
+    existing.evidence.set(evidenceKey, time);
     if (
       new Date(observation.obsDt ?? 0).getTime() >
         new Date(existing.observation.obsDt ?? 0).getTime()
@@ -74,8 +84,15 @@ export function deduplicateObservations(
       existing.observation = observation;
     }
   }
-  return [...byKey.values()].map(({ observation, evidence }) => ({
-    ...observation,
-    ...(evidence.size > 1 ? { evidenceCount: evidence.size } : {}),
-  }));
+  return [...byKey.values()].map(({ observation, evidence }) => {
+    const times = [...evidence.values()].filter(Number.isFinite);
+    const newest = times.length ? Math.max(...times) : Number.NaN;
+    const freshCount = Number.isFinite(newest)
+      ? [...evidence.values()].filter((time) => Number.isFinite(time) && newest - time <= 72 * 3_600_000).length
+      : evidence.size;
+    return {
+      ...observation,
+      ...(freshCount > 1 ? { evidenceCount: freshCount } : {}),
+    };
+  });
 }
