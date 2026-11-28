@@ -1260,9 +1260,10 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           return;
         }
         var nearest = computeNearest();
-        var displayEntries = sortEntries(nearest.slice());
+        var sortedEntries = sortEntries(nearest.slice());
+        var rarityFiltered = rareOnly ? sortedEntries.filter(function (entry) { return rareEncounter(entry.bird); }) : sortedEntries;
         var rowSpecies = {};
-        displayEntries = displayEntries.filter(function (entry) {
+        var filtered = rarityFiltered.filter(function (entry) {
           var bird = entry.bird;
           var scientific = String(bird.sciName || '').toLowerCase().replace(/[^a-z0-9\\s]/g, ' ').trim().split(/\\s+/).slice(0, 2).join(' ');
           var key = scientific || String(bird.comName || bird.speciesCode || bird.id).toLowerCase();
@@ -1270,7 +1271,6 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           rowSpecies[key] = true;
           return true;
         });
-        var filtered = rareOnly ? displayEntries.filter(function (entry) { return rareEncounter(entry.bird); }) : displayEntries;
         lastNearbyCount = filtered.length;
         nearbyTitle.textContent = nearbyTitleText(lastNearbyCount);
         sortToggle.textContent = sortLabel();
