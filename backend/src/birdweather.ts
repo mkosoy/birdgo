@@ -20,6 +20,7 @@ query NearbyDetections($ne: InputLocation, $sw: InputLocation, $after: String) {
       confidence
       score
       coords { lat lon }
+      soundscape { url startTime endTime duration }
       species {
         id
         commonName
@@ -44,6 +45,7 @@ interface BirdweatherDetection {
   confidence: number;
   score: number;
   coords?: { lat?: number; lon?: number };
+  soundscape?: { url?: string; startTime?: number; endTime?: number; duration?: number };
   species?: {
     id?: string;
     commonName?: string;
@@ -143,6 +145,9 @@ export async function fetchBirdweatherDetections(latitude: number, longitude: nu
         lat,
         lng,
         imageUrl: species.imageUrl,
+        audioUrl: detection.soundscape?.url,
+        audioStartTime: detection.soundscape?.startTime,
+        audioEndTime: detection.soundscape?.endTime,
         source: "birdweather",
       }];
     });

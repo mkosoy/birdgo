@@ -15,6 +15,9 @@ interface RawEbirdObservation {
   locationPrivate?: boolean;
   howMany?: number;
   imageUrl?: string;
+  audioUrl?: string;
+  audioStartTime?: number;
+  audioEndTime?: number;
   source?: string;
 }
 
@@ -58,6 +61,9 @@ function mapObservation(raw: RawEbirdObservation, isNotable = false): EbirdObser
     locationPrivate: raw.locationPrivate,
     howMany: raw.howMany,
     imageUrl: raw.imageUrl,
+    audioUrl: raw.audioUrl,
+    audioStartTime: raw.audioStartTime,
+    audioEndTime: raw.audioEndTime,
     source: raw.source,
     ...(isNotable ? { isNotable: true } : {}),
   }];

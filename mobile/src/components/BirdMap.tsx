@@ -61,6 +61,9 @@ export interface LeafletMarker {
   speciesCode: string;
   isNotable: boolean;
   imageUrl?: string;
+  audioUrl?: string;
+  audioStartTime?: number;
+  audioEndTime?: number;
   virtual?: boolean;
   prismatic?: boolean;
   source?: string;
@@ -141,6 +144,9 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     speciesCode: bird.speciesCode,
     isNotable: Boolean(bird.isNotable),
     imageUrl: bird.imageUrl,
+    audioUrl: bird.audioUrl,
+    audioStartTime: bird.audioStartTime,
+    audioEndTime: bird.audioEndTime,
     virtual: Boolean(bird.virtual),
     prismatic: Boolean(bird.prismatic),
     source: bird.source,

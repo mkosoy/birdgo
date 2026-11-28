@@ -35,6 +35,9 @@ export interface EbirdObservation extends Coordinates {
   howMany?: number;
   isNotable?: boolean;
   imageUrl?: string;
+  audioUrl?: string;
+  audioStartTime?: number;
+  audioEndTime?: number;
   source?: string;
   virtual?: boolean;
   prismatic?: boolean;
