@@ -26,7 +26,7 @@ import { findFreshHotspots } from "../utils/hotspots";
 import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround, skyfriendCellKeyFromEncounterId } from "../utils/skyfriends";
 
 type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare"; frequency?: number; abundanceCount?: number; canonicalKey?: string; sciName?: string; imageUrl?: string; obsValid?: boolean };
-type GuideTarget = { speciesCode: string; comName: string; sciName?: string };
+type GuideTarget = { speciesCode: string; comName: string; sciName?: string; hunt?: { latitude: number; longitude: number; locName?: string; obsDt?: string; obsValid?: boolean; evidenceCount?: number; source?: string; distanceKm: number } };
 let persistentTrackTarget: TrackTarget | undefined;
 const MAP_PREFERENCES_KEY = "birdgo.map-preferences-v1";
 const DISMISSED_RARE_HUNTS_KEY = "birdgo.dismissed-rare-hunts-v1";
@@ -809,12 +809,12 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
             ? "Fresh audio clue — the bird may be anywhere within earshot of the station."
             : visibleRareHunt.obsValid === false
               ? (visibleRareHunt.evidenceCount ?? 1) >= 3
-                ? "Multiple independent fresh reports — a strong lead, but still not a guarantee."
+                ? "Multiple fresh reports — a strong lead, but still not a guarantee."
                 : "Unconfirmed real-world report — treat this as a lead, not a guarantee."
               : "Recent real-world report — the bird is not guaranteed to still be there."}</Text>
           <View style={styles.rareActions}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Track rare ${visibleRareHunt.comName}`} style={styles.rarePrimary} onPress={() => startRareHunt(visibleRareHunt)}><Text style={styles.rarePrimaryText}>Hunt</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${visibleRareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: visibleRareHunt.speciesCode, comName: visibleRareHunt.comName ?? "Unknown bird", sciName: visibleRareHunt.sciName })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${visibleRareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: visibleRareHunt.speciesCode, comName: visibleRareHunt.comName ?? "Unknown bird", sciName: visibleRareHunt.sciName, hunt: { latitude: visibleRareHunt.latitude, longitude: visibleRareHunt.longitude, locName: visibleRareHunt.locName, obsDt: visibleRareHunt.obsDt, obsValid: visibleRareHunt.obsValid, evidenceCount: visibleRareHunt.evidenceCount, source: visibleRareHunt.source, distanceKm: distanceKm(location, visibleRareHunt) } })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Dismiss rare hunt" style={styles.rareDismiss} onPress={() => dismissRareHunt(rareHuntInstanceId(visibleRareHunt))}><Text style={styles.rareDismissText}>×</Text></Pressable>
           </View>
         </View> : null}
@@ -874,7 +874,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
                   </View>
                   <Pressable accessibilityLabel="Close field guide" style={styles.guideClose} onPress={() => setGuideTarget(undefined)}><Ionicons name="close" size={22} color="#31513d" /></Pressable>
                 </View>
-                <SpeciesGuide commonName={guideTarget.comName} sciName={guideTarget.sciName} showImage />
+                <SpeciesGuide commonName={guideTarget.comName} sciName={guideTarget.sciName} hunt={guideTarget.hunt} showImage />
                 <Pressable accessibilityRole="link" style={styles.externalGuideButton} onPress={() => void Linking.openURL(externalSpeciesUrl(guideTarget))}>
                   <Text style={styles.externalGuideText}>Open full species page</Text>
                   <Ionicons name="open-outline" size={16} color="#2878d1" />
