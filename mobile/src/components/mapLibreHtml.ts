@@ -1248,7 +1248,18 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
       }
 
       function capture(id) {
-        postOutward({ type: 'capture', id: id });
+        var bird = (trackId && String(trackId) === String(id) ? trackedEntry() : null) || latestMarkers.find(function (entry) { return String(entry.id) === String(id); });
+        postOutward({
+          type: 'capture',
+          id: id,
+          speciesCode: bird && bird.speciesCode,
+          comName: bird && (bird.comName || bird.name),
+          sciName: bird && bird.sciName,
+          kind: bird && bird.kind,
+          latitude: bird && bird.latitude,
+          longitude: bird && bird.longitude,
+          imageUrl: bird && bird.imageUrl
+        });
       }
 
       function refreshNearby() {

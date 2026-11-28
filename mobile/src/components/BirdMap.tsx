@@ -102,6 +102,7 @@ interface LeafletMessage {
   name?: string;
   latitude?: number;
   longitude?: number;
+  imageUrl?: string;
 }
 
 function relativeTime(date?: string, longitude?: number, latitude?: number): string {
@@ -224,7 +225,18 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       return;
     }
     if (message.type === "capture" && message.id) {
-      const bird = markerLookup.get(message.id);
+      const fallbackRareBird = message.kind === "rare" && message.speciesCode && message.comName && typeof message.latitude === "number" && typeof message.longitude === "number"
+        ? {
+            latitude: message.latitude,
+            longitude: message.longitude,
+            comName: message.comName,
+            sciName: message.sciName,
+            speciesCode: message.speciesCode,
+            isNotable: true,
+            imageUrl: message.imageUrl,
+          }
+        : undefined;
+      const bird = markerLookup.get(message.id) ?? fallbackRareBird;
       if (bird) onCapture(bird);
     } else if (message.type === "directions" && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name) {
       onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id });
