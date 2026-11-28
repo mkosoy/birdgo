@@ -68,7 +68,9 @@ export function filterRecentLocalObservations(
   return observations.filter((observation) => {
     const trimmed = observation.obsDt?.trim();
     if (!trimmed) return false;
-    const naiveUtc = Date.parse(`${trimmed.includes("T") ? trimmed : trimmed.replace(" ", "T")}Z`);
+    const hasTimezone = /(?:[zZ]|[+-]\d{2}:?\d{2})$/.test(trimmed);
+    const normalized = hasTimezone ? trimmed : `${trimmed.includes("T") ? trimmed : trimmed.replace(" ", "T")}Z`;
+    const naiveUtc = Date.parse(normalized);
     if (!Number.isFinite(naiveUtc)) return false;
     const approximateOffsetHours = typeof observation.lng === "number" && Number.isFinite(observation.lng)
       ? Math.max(-12, Math.min(14, observation.lng / 15))
