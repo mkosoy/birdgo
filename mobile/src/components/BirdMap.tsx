@@ -43,6 +43,7 @@ export interface BirdMapProps {
   onFollowChange?: (paused: boolean) => void;
   onTrackingChange?: (active: boolean, target?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare" }) => void;
   onHotspotArrived?: (target: { id?: string; name?: string }) => void;
+  onTileError?: () => void;
   onRegionChange: (coordinates: Coordinates) => void;
 }
 
@@ -89,7 +90,7 @@ export interface LeafletData {
 export type LeafletDataPayload = Omit<LeafletData, "markers"> & { markers?: LeafletMarker[] };
 
 interface LeafletMessage {
-  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow" | "tracking" | "hotspotArrived";
+  type: "capture" | "directions" | "about" | "regionChange" | "popup" | "toast" | "nearbyState" | "follow" | "tracking" | "hotspotArrived" | "tileError";
   open?: boolean;
   paused?: boolean;
   state?: "peek" | "half";
@@ -122,7 +123,7 @@ function markerId(bird: EbirdObservation): string {
 }
 
 export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
-  { center, userLocation, birds, captureCounts, mode, firstPerson, heading, weather, trainer, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, closePopupRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onHotspotArrived, onRegionChange },
+  { center, userLocation, birds, captureCounts, mode, firstPerson, heading, weather, trainer, recenterRequest, overviewRequest, nearestRequest, trackRequest, stopTrackRequest, closePopupRequest, safeArea, loading, onCapture, onDirections, onAbout, onPopupChange, onToastChange, onNearbyStateChange, onFollowChange, onTrackingChange, onHotspotArrived, onTileError, onRegionChange },
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
@@ -269,6 +270,8 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       );
     } else if (message.type === "hotspotArrived") {
       onHotspotArrived?.({ id: message.id, name: message.name });
+    } else if (message.type === "tileError") {
+      onTileError?.();
     } else if (message.type === "regionChange" && typeof message.latitude === "number" && typeof message.longitude === "number") {
       onRegionChange({ latitude: message.latitude, longitude: message.longitude });
     }

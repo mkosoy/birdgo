@@ -93,6 +93,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     }
   };
   const [locationNotice, setLocationNotice] = useState<string | null>(null);
+  const [tileNotice, setTileNotice] = useState<string | null>(null);
   const [completionNotice, setCompletionNotice] = useState<string | null>(null);
   const [popupOpen, setPopupOpen] = useState(false);
   const [toastOpen, setToastOpen] = useState(false);
@@ -627,6 +628,8 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   };
   const topMessage = completionNotice
     ? { text: completionNotice, onPress: () => setCompletionNotice(null) }
+    : tileNotice
+    ? { text: tileNotice, onPress: () => switchToAdventure() }
     : locationNotice
     ? { text: locationNotice, onPress: () => setLocationRetry((request) => request + 1) }
     : error
@@ -782,19 +785,28 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     }).catch(() => undefined);
   }, [notable]);
 
-  const toggleMode = () => {
+  const resetMapInteraction = () => {
     setActiveTrackTarget(undefined);
     setTrackRequest(undefined);
     setTracking(false);
     setFollowPaused(false);
     setToastOpen(false);
     setNearbyState("peek");
+  };
+  const switchToAdventure = () => {
+    resetMapInteraction();
+    setTileNotice(null);
+    setFirstPerson(true);
+    setMode("adventure");
+  };
+  const toggleMode = () => {
+    resetMapInteraction();
+    setTileNotice(null);
     if (mode === "adventure") {
       setFirstPerson(false);
       setMode("classic");
     } else {
-      setFirstPerson(true);
-      setMode("adventure");
+      switchToAdventure();
     }
   };
 
@@ -872,6 +884,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
             setCompletionNotice(`Scout complete: ${hotspotName}!${awarded ? ` +${rewardXp} XP` : " Scan nearby birds."}`);
           }).catch(() => setCompletionNotice(`Scout complete: ${hotspotName}!`));
         }}
+        onTileError={() => setTileNotice("Classic map tiles unavailable — tap for Adventure mode.")}
         onRegionChange={handleRegionChange}
       />
       <View pointerEvents="box-none" style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}>

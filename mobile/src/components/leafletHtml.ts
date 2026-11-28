@@ -58,10 +58,20 @@ export function buildLeafletHtml(options: { apiBaseUrl?: string } = {}): string 
   <script>
     (function () {
       var map = L.map('map', { zoomControl: true, attributionControl: false }).setView([37.7749, -122.4194], 13);
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      var tileErrorCount = 0;
+      var tileErrorReported = false;
+      var osmTiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
+      });
+      osmTiles.on('tileerror', function () {
+        tileErrorCount += 1;
+        if (!tileErrorReported && tileErrorCount >= 6) {
+          tileErrorReported = true;
+          postOutward({ type: 'tileError' });
+        }
+      });
+      osmTiles.addTo(map);
       var markers = L.layerGroup().addTo(map);
       var userMarker = null;
       var firstData = true;
