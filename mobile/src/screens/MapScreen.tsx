@@ -545,9 +545,12 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   };
   const activeClassicRareHunt = mode === "classic" && activeTrackTarget?.kind === "rare" ? activeTrackTarget : undefined;
   const visibleRareHunt = rareHunt && !activeClassicRareHunt && !dismissedRareHuntIds.includes(rareHuntInstanceId(rareHunt)) && !popupOpen && !tracking && (!birdwalk || mode === "classic") && !completionNotice && !locationNotice && !error ? rareHunt : undefined;
-  const visibleRareHuntOtherReport = visibleRareHunt ? (() => {
-    const targetKeys = new Set(speciesKeyAliases(visibleRareHunt.speciesCode, visibleRareHunt.comName, visibleRareHunt.sciName, visibleRareHunt.canonicalKey));
-    const targetId = observationMarkerId(visibleRareHunt);
+  const rareHuntFallbackTarget = activeClassicRareHunt ?? visibleRareHunt;
+  const rareHuntOtherReport = rareHuntFallbackTarget ? (() => {
+    const targetIsObservation = "comName" in rareHuntFallbackTarget;
+    const targetName = targetIsObservation ? (rareHuntFallbackTarget as EbirdObservation).comName : (rareHuntFallbackTarget as TrackTarget).name;
+    const targetKeys = new Set(speciesKeyAliases(rareHuntFallbackTarget.speciesCode, targetName, rareHuntFallbackTarget.sciName, rareHuntFallbackTarget.canonicalKey));
+    const targetId = targetIsObservation ? observationMarkerId(rareHuntFallbackTarget as EbirdObservation) : (rareHuntFallbackTarget as TrackTarget).id;
     const candidates = new Map<string, EbirdObservation>();
     const timeOf = (bird: EbirdObservation) => observationTimeMs(bird.obsDt, bird.longitude, bird.latitude);
     const addCandidate = (bird: EbirdObservation) => {
@@ -565,7 +568,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     birds.forEach(addCandidate);
     notable.forEach(addCandidate);
     return [...candidates.values()].filter((bird) => {
-      if (observationMarkerId(bird) === targetId) return false;
+      if (targetId ? observationMarkerId(bird) === targetId : distanceKm(rareHuntFallbackTarget, bird) < 0.001) return false;
       if (!speciesKeyAliases(bird.speciesCode, bird.comName, bird.sciName, bird.canonicalKey).some((key) => targetKeys.has(key))) return false;
       if (distanceKm(location, bird) > 15) return false;
       const observedAt = timeOf(bird);
@@ -580,6 +583,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
       return scoreOf(a) - scoreOf(b);
     })[0];
   })() : undefined;
+  const rareHuntOtherReportTarget = rareHuntOtherReport ? { latitude: rareHuntOtherReport.latitude, longitude: rareHuntOtherReport.longitude, locName: rareHuntOtherReport.locName, obsDt: rareHuntOtherReport.obsDt, distanceKm: distanceKm(location, rareHuntOtherReport) } : undefined;
   const visibleRareHuntIsNew = visibleRareHunt ? !hasCapturedSpecies(visibleRareHunt) : false;
   const visibleRareHuntReportLabel = visibleRareHunt && visibleRareHunt.source !== "birdweather"
     ? (visibleRareHunt.evidenceCount ?? 1) > 4 ? "5+ reports" : `${visibleRareHunt.evidenceCount ?? 1} report${(visibleRareHunt.evidenceCount ?? 1) === 1 ? "" : "s"}`
@@ -899,7 +903,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
               : "Recent real-world report — the bird is not guaranteed to still be there."}</Text>
           <View style={styles.rareActions}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Track rare ${visibleRareHunt.comName}`} style={styles.rarePrimary} onPress={() => startRareHunt(visibleRareHunt)}><Text style={styles.rarePrimaryText}>Hunt</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${visibleRareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: visibleRareHunt.speciesCode, comName: visibleRareHunt.comName ?? "Unknown bird", sciName: visibleRareHunt.sciName, hunt: { latitude: visibleRareHunt.latitude, longitude: visibleRareHunt.longitude, locName: visibleRareHunt.locName, obsDt: visibleRareHunt.obsDt, obsValid: visibleRareHunt.obsValid, evidenceCount: visibleRareHunt.evidenceCount, source: visibleRareHunt.source, locationPrivate: visibleRareHunt.locationPrivate, distanceKm: distanceKm(location, visibleRareHunt), otherReport: visibleRareHuntOtherReport ? { latitude: visibleRareHuntOtherReport.latitude, longitude: visibleRareHuntOtherReport.longitude, locName: visibleRareHuntOtherReport.locName, obsDt: visibleRareHuntOtherReport.obsDt, distanceKm: distanceKm(location, visibleRareHuntOtherReport) } : undefined } })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${visibleRareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: visibleRareHunt.speciesCode, comName: visibleRareHunt.comName ?? "Unknown bird", sciName: visibleRareHunt.sciName, hunt: { latitude: visibleRareHunt.latitude, longitude: visibleRareHunt.longitude, locName: visibleRareHunt.locName, obsDt: visibleRareHunt.obsDt, obsValid: visibleRareHunt.obsValid, evidenceCount: visibleRareHunt.evidenceCount, source: visibleRareHunt.source, locationPrivate: visibleRareHunt.locationPrivate, distanceKm: distanceKm(location, visibleRareHunt), otherReport: rareHuntOtherReportTarget } })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Dismiss rare hunt" style={styles.rareDismiss} onPress={() => dismissRareHunt(rareHuntInstanceId(visibleRareHunt))}><Text style={styles.rareDismissText}>×</Text></Pressable>
           </View>
         </View> : null}
@@ -917,7 +921,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
             : "Real-world report — the bird is not guaranteed to still be there."}</Text>
           <View style={styles.rareActions}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Directions to rare ${activeClassicRareHunt.name}`} style={styles.rarePrimary} onPress={() => openWalkingDirections(activeClassicRareHunt.latitude, activeClassicRareHunt.longitude)}><Text style={styles.rarePrimaryText}>Directions</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${activeClassicRareHunt.name} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: activeClassicRareHunt.speciesCode ?? "unknown", comName: activeClassicRareHunt.name, sciName: activeClassicRareHunt.sciName, hunt: { latitude: activeClassicRareHunt.latitude, longitude: activeClassicRareHunt.longitude, locName: activeClassicRareHunt.locName, obsDt: activeClassicRareHunt.obsDt, obsValid: activeClassicRareHunt.obsValid, evidenceCount: activeClassicRareHunt.evidenceCount, source: activeClassicRareHunt.source, locationPrivate: activeClassicRareHunt.locationPrivate, distanceKm: distanceKm(location, activeClassicRareHunt) } })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${activeClassicRareHunt.name} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: activeClassicRareHunt.speciesCode ?? "unknown", comName: activeClassicRareHunt.name, sciName: activeClassicRareHunt.sciName, hunt: { latitude: activeClassicRareHunt.latitude, longitude: activeClassicRareHunt.longitude, locName: activeClassicRareHunt.locName, obsDt: activeClassicRareHunt.obsDt, obsValid: activeClassicRareHunt.obsValid, evidenceCount: activeClassicRareHunt.evidenceCount, source: activeClassicRareHunt.source, locationPrivate: activeClassicRareHunt.locationPrivate, distanceKm: distanceKm(location, activeClassicRareHunt), otherReport: rareHuntOtherReportTarget } })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="End rare hunt" style={styles.rareDismiss} onPress={() => setActiveTrackTarget(undefined)}><Text style={styles.rareDismissText}>×</Text></Pressable>
           </View>
         </View> : null}
