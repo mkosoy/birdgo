@@ -60,12 +60,16 @@ export function buildLeafletHtml(options: { apiBaseUrl?: string } = {}): string 
   <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.4/dist/leaflet-maplibre-gl.js"></script>
   <script>
     (function () {
-      var map = L.map('map', { zoomControl: true, attributionControl: false }).setView([37.7749, -122.4194], 13);
+      var map = L.map('map', { zoomControl: true, attributionControl: false, maxZoom: 23 }).setView([37.7749, -122.4194], 13);
       var baseTiles = L.maplibreGL({
         style: 'https://tiles.openfreemap.org/styles/positron',
         attribution: '© OpenFreeMap © OpenStreetMap contributors'
       });
-      baseTiles.addTo(map);
+      try {
+        baseTiles.addTo(map);
+      } catch (error) {
+        console.warn('Vector basemap unavailable', error);
+      }
       var markers = L.layerGroup().addTo(map);
       var userMarker = null;
       var firstData = true;
