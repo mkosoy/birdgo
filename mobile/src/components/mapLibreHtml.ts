@@ -170,7 +170,9 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
     #track-thumb { position: relative; width: 54px; height: 54px; border-radius: 50%; overflow: hidden; flex: none; background: #dbe7df; display: flex; align-items: center; justify-content: center; font-size: 26px; }
     #track-thumb img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; }
     #track-meta { flex: 1; min-width: 0; }
-    #track-name { font-weight: 800; color: #173c2b; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #track-name { display: flex; align-items: flex-start; gap: 3px; font-weight: 800; color: #173c2b; font-size: 15px; line-height: 18px; }
+    #track-name .track-name-text { flex: 0 1 auto; min-width: 0; max-width: 100%; max-height: 36px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+    #track-name .star { flex: none; color: #d99d21; line-height: 18px; }
     #track-dist { color: #2f7d5b; font-weight: 700; font-size: 13px; line-height: 17px; margin-top: 2px; min-width: 0; overflow-wrap: anywhere; }
     #track-actions { display: flex; gap: 4px; flex: none; }
     #track-snap { min-height: 44px; border: 0; border-radius: 22px; padding: 10px 10px; background: #2f7d5b; color: #fff; font-weight: 800; cursor: pointer; white-space: nowrap; }
@@ -886,7 +888,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
       }
 
       function fmtDist(km) {
-        return km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(1) + ' km';
+        return km < 1 ? Math.round(km * 1000) + '\u00a0m' : km.toFixed(1) + '\u00a0km';
       }
       function compactToast() {
         return window.innerWidth <= 400;
@@ -894,6 +896,12 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
 
       function etaMin(km) {
         return Math.max(1, Math.round(km * 1000 / 81));
+      }
+
+      function journeyLabel(km) {
+        if (km >= 12) return 'Expedition';
+        if (km >= 5) return 'Long walk';
+        return 'Walk';
       }
 
       function observationAgeHours(bird) {
@@ -1057,7 +1065,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           routeCurrentText.textContent = approachM >= 80
             ? approachText
             : approachText + maneuverText(currentStep);
-          routeCurrentDistance.textContent = fmtDist(approachM / 1000);
+          routeCurrentDistance.textContent = ' · ' + fmtDist(approachM / 1000);
         }
         routeStepsElement.querySelectorAll('.route-step').forEach(function (element, index) {
           element.classList.toggle('current', index === routeStepIndex);
@@ -1065,7 +1073,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         });
         routeSummary.textContent = routeDistanceM == null
           ? 'Walking route'
-          : 'Walk · ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
+          : 'Turn-by-turn walking route';
       }
 
       function renderRouteSteps(steps) {
@@ -1093,7 +1101,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
             '<span class="route-step-distance">' + escapeHtml(distance) + '</span>' +
             '</div>';
         }).join('');
-        routeSummary.textContent = routeDistanceM == null ? 'Walk route' : 'Walk · ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
+        routeSummary.textContent = routeDistanceM == null ? 'Walk route' : 'Turn-by-turn walking route';
         routePanel.classList.add('on');
         routePanel.classList.toggle('collapsed', routePanelCollapsed);
         routeCaret.textContent = routePanelCollapsed ? '▸' : '▾';
@@ -1367,7 +1375,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         var name = entry.comName || entry.sciName || 'Bird';
         var hotspotTarget = entry.kind === 'hotspot';
         trackThumb.innerHTML = hotspotTarget ? '📍' : thumbInnerHtml(entry);
-        trackName.innerHTML = escapeHtml(name) + (!hotspotTarget && rareEncounter(entry) ? ' <span class="star">★</span>' : '');
+        trackName.innerHTML = '<span class="track-name-text">' + escapeHtml(name) + '</span>' + (!hotspotTarget && rareEncounter(entry) ? '<span class="star">★</span>' : '');
         trackCard.classList.toggle('rare', rareEncounter(entry));
         trackArrow.classList.toggle('rare', rareEncounter(entry));
         var distance = haversineKm(lastUserLocation, entry);
@@ -1387,7 +1395,8 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         } else if (distance != null && routeDistanceM != null && lastRouteTargetKey && lastRouteTargetKey.indexOf(trackId + ':') === 0) {
           trackSnap.classList.remove('ready');
           trackSnap.textContent = trackActionLabel;
-          trackDist.textContent = 'Walk · ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
+          var walkingKm = routeDistanceM / 1000;
+          trackDist.textContent = journeyLabel(walkingKm) + ' · ' + fmtDist(walkingKm) + ' · ' + etaMin(walkingKm) + '\u00a0min';
         } else if (distance != null) {
           trackSnap.classList.remove('ready');
           trackSnap.textContent = trackActionLabel;
