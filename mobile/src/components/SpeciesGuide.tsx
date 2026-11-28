@@ -65,8 +65,12 @@ function huntDistanceLabel(distanceKm: number): string {
 function huntEvidenceLabel(hunt: HuntBrief): string {
   if (hunt.source === "birdweather") return "Audio clue — search within earshot, not just at the station pin.";
   const reports = hunt.evidenceCount ?? 1;
-  if (reports >= 3) return `${reports > 4 ? "5+" : reports} fresh reports — a strong lead, still not a guarantee.`;
-  if (reports === 2) return "Two fresh reports — a stronger lead, still not a guarantee.";
+  if (reports >= 3) return hunt.obsValid === false
+    ? `${reports > 4 ? "5+" : reports} fresh reports — a strong lead, though the latest report is still unconfirmed.`
+    : `${reports > 4 ? "5+" : reports} fresh reports — a strong lead, still not a guarantee.`;
+  if (reports === 2) return hunt.obsValid === false
+    ? "Two fresh reports, but the latest is unconfirmed — treat this as a lead."
+    : "Two fresh reports — a stronger lead, still not a guarantee.";
   if (hunt.obsValid === false) return "Single unconfirmed report — treat this as a lead, not a guarantee.";
   return "Single recent report — the bird is not guaranteed to still be there.";
 }
