@@ -227,11 +227,40 @@ app.get("/api/birds/notable", async (request, response) => {
 });
 
 
+
+const CHECKLIST_NOTES_PER_IP_LIMIT = 12;
+const CHECKLIST_NOTES_GLOBAL_LIMIT = 200;
+const CHECKLIST_NOTES_WINDOW_MS = 60 * 60 * 1000;
+const checklistNotesRequests = new Map<string, number[]>();
+let checklistNotesGlobalRequests: number[] = [];
+
+function pruneTimestamps(values: number[], now: number): number[] {
+  return values.filter((value) => now - value < CHECKLIST_NOTES_WINDOW_MS);
+}
+
+function checklistNotesRateLimited(ip: string): boolean {
+  const now = Date.now();
+  checklistNotesGlobalRequests = pruneTimestamps(checklistNotesGlobalRequests, now);
+  const ipRequests = pruneTimestamps(checklistNotesRequests.get(ip) ?? [], now);
+  if (ipRequests.length >= CHECKLIST_NOTES_PER_IP_LIMIT || checklistNotesGlobalRequests.length >= CHECKLIST_NOTES_GLOBAL_LIMIT) {
+    checklistNotesRequests.set(ip, ipRequests);
+    return true;
+  }
+  ipRequests.push(now);
+  checklistNotesGlobalRequests.push(now);
+  checklistNotesRequests.set(ip, ipRequests);
+  return false;
+}
+
 app.get("/api/checklist-notes", async (request, response) => {
   const subId = typeof request.query.subId === "string" ? request.query.subId.trim() : "";
   const speciesCode = typeof request.query.speciesCode === "string" ? request.query.speciesCode.trim() : "";
-  if (!/^[A-Za-z0-9_-]+$/.test(subId) || !/^[a-z0-9]+$/i.test(speciesCode)) {
+  if (!/^S\d{6,}$/.test(subId) || !/^[a-z0-9]{4,12}$/i.test(speciesCode)) {
     response.status(400).json({ error: "Valid subId and speciesCode are required", status: 400 });
+    return;
+  }
+  if (checklistNotesRateLimited(request.ip ?? "unknown")) {
+    response.status(429).json({ error: "Too many checklist note requests", status: 429 });
     return;
   }
   try {

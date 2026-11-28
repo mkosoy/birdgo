@@ -9,14 +9,17 @@ export interface ChecklistNotes {
 
 interface ChecklistObservation {
   speciesCode?: string;
+  comments?: string;
   obsComments?: string;
   howManyStr?: string;
   photoCounts?: number;
   audioCounts?: number;
   videoCounts?: number;
+  mediaCounts?: { P?: number; A?: number; V?: number };
 }
 
 interface ChecklistDetail {
+  comments?: string;
   subComments?: string;
   obs?: ChecklistObservation[];
 }
@@ -53,10 +56,11 @@ function writeCache(key: string, value: ChecklistNotes): void {
 
 export function parseChecklistNotes(detail: ChecklistDetail, speciesCode: string): ChecklistNotes {
   const observation = detail.obs?.find((entry) => entry.speciesCode === speciesCode);
-  const mediaCount = (observation?.photoCounts ?? 0) + (observation?.audioCounts ?? 0) + (observation?.videoCounts ?? 0);
+  const media = observation?.mediaCounts ?? {};
+  const mediaCount = (observation?.photoCounts ?? media.P ?? 0) + (observation?.audioCounts ?? media.A ?? 0) + (observation?.videoCounts ?? media.V ?? 0);
   return {
-    speciesComment: cleanComment(observation?.obsComments),
-    checklistComment: cleanComment(detail.subComments),
+    speciesComment: cleanComment(observation?.comments ?? observation?.obsComments),
+    checklistComment: cleanComment(detail.comments ?? detail.subComments),
     howMany: typeof observation?.howManyStr === "string" && observation.howManyStr.trim() ? observation.howManyStr.trim() : undefined,
     mediaCount: mediaCount > 0 ? mediaCount : undefined,
   };
