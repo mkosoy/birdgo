@@ -3,7 +3,7 @@ import { StyleSheet } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import { buildLeafletHtml } from "./leafletHtml";
 import { buildMapLibreHtml } from "./mapLibreHtml";
-import type { Coordinates, EbirdObservation, TrainerProfile, WeatherAtmosphere } from "../types";
+import type { BirdRarity, Coordinates, EbirdObservation, TrainerProfile, WeatherAtmosphere } from "../types";
 import { speciesKey } from "../utils/progression";
 import { API_BASE_URL } from "../config";
 
@@ -63,6 +63,7 @@ export interface LeafletMarker {
   prismatic?: boolean;
   source?: string;
   captureCount?: number;
+  rarity?: BirdRarity;
 }
 
 export interface LeafletData {
@@ -137,6 +138,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     virtual: Boolean(bird.virtual),
     prismatic: Boolean(bird.prismatic),
     source: bird.source,
+    rarity: bird.rarity,
     captureCount: captureCounts?.[speciesKey(bird.speciesCode, bird.comName, bird.sciName)] ?? captureCounts?.[speciesKey(bird.speciesCode, bird.comName)] ?? 0,
   })), [birds, captureCounts]);
   const data = useMemo<LeafletData>(() => ({

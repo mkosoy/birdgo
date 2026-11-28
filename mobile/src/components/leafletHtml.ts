@@ -94,13 +94,17 @@ export function buildLeafletHtml(options: { apiBaseUrl?: string } = {}): string 
         else window.postMessage(serialized, '*');
       }
 
+      function rareEncounter(bird) {
+        return Boolean(bird && (bird.isNotable || bird.rarity === 'rare' || bird.rarity === 'epic' || bird.rarity === 'legendary'));
+      }
+
       function birdGlyph() {
         return '<svg viewBox="0 0 64 64" width="20" height="20" aria-hidden="true"><path d="M12 39c4-13 15-23 29-23 7 0 12 3 14 8l7 3-6 4c-2 9-10 15-20 15-8 0-15-2-24-7z" fill="currentColor"/><circle cx="47" cy="24" r="2.4" fill="#234236"/><path d="M14 39 4 45l13 2z" fill="currentColor" opacity=".82"/></svg>';
       }
       function markerIcon(bird) {
         return L.divIcon({
           className: '',
-          html: '<div class="bird-marker' + (bird.virtual ? ' virtual' : '') + (bird.source === 'birdweather' ? ' audio' : '') + (bird.isNotable ? ' notable' : '') + (bird.captureCount ? ' captured' : '') + (bird.prismatic ? ' prismatic' : '') + '">' + birdGlyph() + (bird.captureCount ? '<span class="caught-badge">✓</span>' : bird.virtual ? '<span class="skyfriend-badge">✦</span>' : bird.source === 'birdweather' ? '<span class="audio-badge">♪</span>' : '') + '</div>',
+          html: '<div class="bird-marker' + (bird.virtual ? ' virtual' : '') + (bird.source === 'birdweather' ? ' audio' : '') + (rareEncounter(bird) ? ' notable' : '') + (bird.captureCount ? ' captured' : '') + (bird.prismatic ? ' prismatic' : '') + '">' + birdGlyph() + (bird.captureCount ? '<span class="caught-badge">✓</span>' : bird.virtual ? '<span class="skyfriend-badge">✦</span>' : bird.source === 'birdweather' ? '<span class="audio-badge">♪</span>' : '') + '</div>',
           iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -18]
         });
       }
@@ -254,7 +258,7 @@ ${speciesAudioScript()}
         var sortedBirds = latestMarkers.slice().sort(function (left, right) {
           function score(bird) {
             var distance = haversineKm(referenceLocation, bird);
-            return (distance == null ? 999 : distance) - (bird.isNotable ? 0.35 : 0) - (bird.captureCount ? 0.1 : 0) - (bird.virtual ? 0.05 : 0);
+            return (distance == null ? 999 : distance) - (rareEncounter(bird) ? 0.35 : 0) - (bird.captureCount ? 0.1 : 0) - (bird.virtual ? 0.05 : 0);
           }
           return score(left) - score(right);
         });

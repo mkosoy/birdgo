@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { canonicalizeSpecies, fetchBirdAbundance, fetchNotableBirds, fetchRecentBirds } from "../api";
 import type { BirdAbundance, Coordinates, EbirdObservation } from "../types";
+import { rarityForSpecies } from "../utils/progression";
 
 
 const BIRD_CACHE_KEY = "birdgo.nearby-birds-cache-v1";
@@ -129,6 +130,13 @@ function buildPrevalenceAnnotator(allBirds: EbirdObservation[], abundance: BirdA
   };
 }
 
+function annotateComputedRarity(bird: EbirdObservation): EbirdObservation {
+  return {
+    ...bird,
+    rarity: rarityForSpecies(bird.speciesCode, bird.comName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount),
+  };
+}
+
 export function useBirds(latitude: number, longitude: number) {
   const [birds, setBirds] = useState<EbirdObservation[]>([]);
   const [notable, setNotable] = useState<EbirdObservation[]>([]);
@@ -161,8 +169,8 @@ export function useBirds(latitude: number, longitude: number) {
       const notableByKey = new Map(rare.map((bird) => [`${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`, bird]));
       const mergedBirds = [...merged.values()];
       const annotatePrevalence = buildPrevalenceAnnotator(mergedBirds, abundance);
-      const notableBirds = [...notableByKey.values()].map(annotatePrevalence);
-      const frequencyMergedBirds = mergedBirds.map(annotatePrevalence);
+      const notableBirds = [...notableByKey.values()].map(annotatePrevalence).map(annotateComputedRarity);
+      const frequencyMergedBirds = mergedBirds.map(annotatePrevalence).map(annotateComputedRarity);
       setBirds(frequencyMergedBirds);
       setNotable(notableBirds);
       setLoadedArea({ latitude, longitude });
@@ -201,8 +209,8 @@ export function useBirds(latitude: number, longitude: number) {
         const canonicalMergedBirds = frequencyMergedBirds.map(annotate);
         const canonicalNotableBirds = notableBirds.map(annotate);
         const annotateCanonicalPrevalence = buildPrevalenceAnnotator(canonicalMergedBirds, abundance);
-        const finalBirds = canonicalMergedBirds.map(annotateCanonicalPrevalence);
-        const finalNotableBirds = canonicalNotableBirds.map(annotateCanonicalPrevalence);
+        const finalBirds = canonicalMergedBirds.map(annotateCanonicalPrevalence).map(annotateComputedRarity);
+        const finalNotableBirds = canonicalNotableBirds.map(annotateCanonicalPrevalence).map(annotateComputedRarity);
         setBirds(finalBirds);
         setNotable(finalNotableBirds);
         void writeBirdCache({ latitude, longitude }, finalBirds, finalNotableBirds);

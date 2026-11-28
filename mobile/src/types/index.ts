@@ -38,6 +38,7 @@ export interface EbirdObservation extends Coordinates {
   frequency?: number;
   reportCount?: number;
   abundanceCount?: number;
+  rarity?: BirdRarity;
 }
 
 export interface BirdAbundance {
