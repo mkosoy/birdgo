@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, AppState, Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useIsFocused, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { fetchSpeciesGuide } from "../api";
 import { SF_COORDS } from "../config";
 import { BirdMap } from "../components/BirdMap";
 import { SkyfriendWatch } from "../components/SkyfriendWatch";
@@ -94,6 +95,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   const hasRealLocation = useRef(false);
   const fallbackActive = useRef(true);
   const [dismissedRareHuntIds, setDismissedRareHuntIds] = useState<string[]>([]);
+  const [rareHuntImageUrl, setRareHuntImageUrl] = useState<string>();
   const rareDismissalsLoaded = useRef(false);
   const { birds, notable, loading, error, loadedArea, refresh } = useBirds(center.latitude, center.longitude);
   const weather = useWeather(location);
@@ -457,6 +459,27 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     dismissRareHunt(rareHuntInstanceId(bird));
   };
   const visibleRareHunt = rareHunt && !dismissedRareHuntIds.includes(rareHuntInstanceId(rareHunt)) && !popupOpen && !tracking && (!birdwalk || mode === "classic") && !completionNotice && !locationNotice && !error ? rareHunt : undefined;
+  const visibleRareHuntInstanceId = visibleRareHunt ? rareHuntInstanceId(visibleRareHunt) : undefined;
+  useEffect(() => {
+    if (!visibleRareHunt) {
+      setRareHuntImageUrl(undefined);
+      return;
+    }
+    if (visibleRareHunt.imageUrl) {
+      setRareHuntImageUrl(visibleRareHunt.imageUrl);
+      return;
+    }
+    let cancelled = false;
+    setRareHuntImageUrl(undefined);
+    void fetchSpeciesGuide({ commonName: visibleRareHunt.comName, sciName: visibleRareHunt.sciName })
+      .then((guide) => {
+        if (!cancelled) setRareHuntImageUrl(guide.imageUrl);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [visibleRareHuntInstanceId]);
   const topMessage = completionNotice
     ? { text: completionNotice, onPress: () => setCompletionNotice(null) }
     : locationNotice
@@ -701,8 +724,13 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         </View>
         {visibleRareHunt ? <View style={[styles.rareCard, toastOpen && styles.rareCardBelowToast]}>
           <Text style={styles.rareEyebrow}>Rare hunt nearby</Text>
-          <Text numberOfLines={1} style={styles.rareTitle}>{visibleRareHunt.comName}</Text>
-          <Text numberOfLines={2} style={styles.rareCopy}>{distanceKm(location, visibleRareHunt) < 0.05 ? "here" : `${distanceKm(location, visibleRareHunt) < 1 ? `${Math.round(distanceKm(location, visibleRareHunt) * 1000)}m` : `${distanceKm(location, visibleRareHunt).toFixed(1)}km`} away`} · {formatObservationAge(visibleRareHunt.obsDt, visibleRareHunt.source, visibleRareHunt.longitude)}{visibleRareHunt.locName ? ` · ${visibleRareHunt.locName}` : ""}</Text>
+          <View style={styles.rareMainRow}>
+            {rareHuntImageUrl ? <Image source={{ uri: rareHuntImageUrl }} style={styles.rareImage} /> : null}
+            <View style={styles.rareTextWrap}>
+              <Text numberOfLines={1} style={styles.rareTitle}>{visibleRareHunt.comName}</Text>
+              <Text numberOfLines={2} style={styles.rareCopy}>{distanceKm(location, visibleRareHunt) < 0.05 ? "here" : `${distanceKm(location, visibleRareHunt) < 1 ? `${Math.round(distanceKm(location, visibleRareHunt) * 1000)}m` : `${distanceKm(location, visibleRareHunt).toFixed(1)}km`} away`} · {formatObservationAge(visibleRareHunt.obsDt, visibleRareHunt.source, visibleRareHunt.longitude)}{visibleRareHunt.locName ? ` · ${visibleRareHunt.locName}` : ""}</Text>
+            </View>
+          </View>
           <Text numberOfLines={2} style={styles.rareHint}>{visibleRareHunt.source === "birdweather"
             ? "Fresh audio clue — the bird may be anywhere within earshot of the station."
             : visibleRareHunt.obsValid === false
@@ -786,6 +814,20 @@ const styles = StyleSheet.create({
   rareCard: { maxWidth: 360, alignSelf: "flex-start", backgroundColor: "#fff8df", borderColor: "#e3bc4f", borderWidth: 1, padding: 12, borderRadius: 16, elevation: 4, gap: 4 },
   rareCardBelowToast: { marginTop: 52 },
   rareEyebrow: { color: "#9a6908", fontSize: 11, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.8 },
+  rareMainRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  rareImage: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: "#dce8df",
+  },
+  rareTextWrap: {
+    flex: 1,
+  },
   rareTitle: { color: "#263816", fontSize: 19, fontWeight: "900" },
   rareCopy: { color: "#46513a", fontSize: 12, fontWeight: "700" },
   rareHint: { color: "#655d45", fontSize: 12, lineHeight: 17, marginTop: 2 },
