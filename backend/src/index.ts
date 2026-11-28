@@ -4,6 +4,7 @@ import express, { type Request, type Response } from "express";
 import { fileURLToPath } from "node:url";
 import {
   deduplicateObservations,
+  filterRecentLocalObservations,
   ebirdGet,
   EbirdError,
   isSpeciesObservation,
@@ -215,7 +216,7 @@ app.get("/api/birds/notable", async (request, response) => {
   const back = queryNumber(request, "back", 3);
   try {
     const observations = await fetchNotableEbirdObservations(lat, lng, dist, detail, back);
-    const deduplicated = deduplicateObservations(observations);
+    const deduplicated = deduplicateObservations(filterRecentLocalObservations(observations));
     deduplicated.sort((left, right) => distanceScore(lat, lng, left) - distanceScore(lat, lng, right));
     response.json(deduplicated);
   } catch (error) {

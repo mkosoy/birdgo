@@ -18,6 +18,7 @@ interface RawEbirdObservation {
   audioUrl?: string;
   audioStartTime?: number;
   audioEndTime?: number;
+  evidenceCount?: number;
   source?: string;
 }
 
@@ -64,6 +65,7 @@ function mapObservation(raw: RawEbirdObservation, isNotable = false): EbirdObser
     audioUrl: raw.audioUrl,
     audioStartTime: raw.audioStartTime,
     audioEndTime: raw.audioEndTime,
+    evidenceCount: raw.evidenceCount,
     source: raw.source,
     ...(isNotable ? { isNotable: true } : {}),
   }];
