@@ -303,7 +303,6 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     }) && advanceBirdwalk(walkStop.id, targetCapture.commonName)) return;
     const completionTarget = activeTrackTarget;
     if (!completionTarget || !matchesCapture(completionTarget)) return;
-    if (completionTarget.id && advanceBirdwalk(completionTarget.id, targetCapture.commonName)) return;
     if (completionTarget.kind === "rare") {
       const rewardXp = 25;
       void claimDailyBonusXp("rare-hunt", rewardXp).then((awarded) => {
@@ -311,6 +310,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         setCompletionNotice(`Rare hunt complete: ${targetCapture.commonName}!${awarded ? ` +${rewardXp} XP` : ""}`);
       }).catch(() => setCompletionNotice(`Rare hunt complete: ${targetCapture.commonName}!`));
     } else {
+      if (completionTarget.id && advanceBirdwalk(completionTarget.id, targetCapture.commonName)) return;
       setCompletionNotice(`Encounter complete: ${targetCapture.commonName}!`);
     }
     setActiveTrackTarget(undefined);
