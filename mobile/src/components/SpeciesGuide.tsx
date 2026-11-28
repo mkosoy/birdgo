@@ -77,11 +77,12 @@ function huntEvidenceLabel(hunt: HuntBrief): string {
 
 function fieldcraftTip(commonName: string, sciName?: string | null): string {
   const name = `${commonName} ${sciName ?? ""}`.toLowerCase();
+  if (/\b(?:mountain plover|upland sandpiper|burrowing owl|snowy owl|short-eared owl)\b/.test(name)) return "Scan open grassland, fields, low perches, and bare ground.";
+  if (/goshawk|sparrowhawk|\b(?:hawk|eagle|falcon|kestrel|osprey|harrier|kite|vulture|accipiter|buteo)\b/.test(name)) return "Scan the sky, treetops, poles, and other exposed perches.";
   if (/\b(?:gull|tern|sandpiper|plover|dunlin|willet|godwit|dowitcher|curlew|stilt|avocet|oystercatcher|turnstone)\b/.test(name)) return "Scan water edges, mudflats, and birds flying along the shore.";
   if (/\b(?:duck|goose|swan|grebe|loon|coot|gallinule|teal|mallard|merganser|scaup|bufflehead|canvasback|wigeon|pintail|shoveler)\b/.test(name)) return "Scan open water, shoreline edges, and distant floating birds.";
   if (/\b(?:heron|egret|bittern|ibis|spoonbill|crane|rail)\b/.test(name)) return "Move quietly and scan shallow water, reeds, and marsh edges.";
   if (/\bowl(?:s|et|ets)?\b/.test(name)) return "Scan dense cover, cavities, and shaded roosts without flushing birds.";
-  if (/goshawk|sparrowhawk|\b(?:hawk|eagle|falcon|kestrel|osprey|harrier|kite|vulture|accipiter|buteo)\b/.test(name)) return "Scan the sky, treetops, poles, and other exposed perches.";
   if (/\b(?:woodpecker|flicker|sapsucker)\b/.test(name)) return "Scan trunks and dead branches; listen for tapping or sharp calls.";
   if (/\bhummingbird\b/.test(name)) return "Check flowers, feeders, and tiny exposed perches.";
   if (/\b(?:sparrow|warbler|wren|thrush|vireo|kinglet|nuthatch|chickadee|titmouse|robin|cardinal|jay|crow|blackbird|oriole|tanager|grosbeak|mockingbird|catbird|thrasher)\b/.test(name) || /finch/.test(name)) return "Listen first, then scan shrubs, canopy edges, and repeated movement.";
