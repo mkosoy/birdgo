@@ -242,10 +242,9 @@ function checklistNotesRateLimited(ip: string): boolean {
   const now = Date.now();
   checklistNotesGlobalRequests = pruneTimestamps(checklistNotesGlobalRequests, now);
   const ipRequests = pruneTimestamps(checklistNotesRequests.get(ip) ?? [], now);
-  if (ipRequests.length >= CHECKLIST_NOTES_PER_IP_LIMIT || checklistNotesGlobalRequests.length >= CHECKLIST_NOTES_GLOBAL_LIMIT) {
-    checklistNotesRequests.set(ip, ipRequests);
-    return true;
-  }
+  if (ipRequests.length) checklistNotesRequests.set(ip, ipRequests);
+  else checklistNotesRequests.delete(ip);
+  if (ipRequests.length >= CHECKLIST_NOTES_PER_IP_LIMIT || checklistNotesGlobalRequests.length >= CHECKLIST_NOTES_GLOBAL_LIMIT) return true;
   ipRequests.push(now);
   checklistNotesGlobalRequests.push(now);
   checklistNotesRequests.set(ip, ipRequests);
