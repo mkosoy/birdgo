@@ -161,7 +161,13 @@ export function useBirds(latitude: number, longitude: number) {
         fetchBirdAbundance(latitude, longitude).catch(() => null),
       ]);
       const merged = new Map(recent.map((bird) => [`${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`, bird]));
-      for (const bird of rare) {
+      const now = Date.now();
+      const freshRare = rare.filter((bird) => {
+        if (!bird.obsDt) return true;
+        const ageHours = (now - new Date(bird.obsDt).getTime()) / 3_600_000;
+        return Number.isFinite(ageHours) && ageHours <= 72;
+      });
+      for (const bird of freshRare) {
         const key = `${bird.speciesCode}:${bird.locId ?? `${bird.latitude}:${bird.longitude}`}`;
         merged.set(key, { ...merged.get(key), ...bird, isNotable: true });
       }
