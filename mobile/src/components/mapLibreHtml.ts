@@ -105,6 +105,10 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
     @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(1.45); opacity: 0; } }
     .encounter { width: 242px; max-width: calc(100vw - 88px); line-height: 1.28; color: #26342d; font-size: 13px; }
     .encounter h3 { margin: 0 28px 2px 0; font-size: 17px; line-height: 21px; }
+    .encounter .encounter-head { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+    .encounter .encounter-photo { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%; object-fit: cover; border: 2px solid #e0c364; background: #e6eee9; box-shadow: 0 1px 4px rgba(0,0,0,.18); }
+    .encounter .encounter-title { flex: 1; min-width: 0; }
+    .encounter .encounter-title h3 { margin-right: 22px; }
     .encounter .scientific { font-style: italic; color: #64766d; font-size: 11px; }
     .encounter .meta, .encounter .distance, .encounter .info, .encounter .field-notes { margin-top: 5px; }
     .encounter .stale { color: #8b6418; font-weight: 800; margin-top: 5px; font-size: 11px; line-height: 14px; }
@@ -171,6 +175,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
     #track-actions { display: flex; gap: 4px; flex: none; }
     #track-snap { min-height: 44px; border: 0; border-radius: 22px; padding: 10px 10px; background: #2f7d5b; color: #fff; font-weight: 800; cursor: pointer; white-space: nowrap; }
     #track-snap.ready { background: #d99d21; animation: snappulse 1s infinite; }
+    #track-snap:disabled { background: #536a5e; opacity: .58; animation: none; cursor: default; }
     #track-stop { border: 0; border-radius: 22px; min-width: 44px; min-height: 44px; padding: 10px; background: #eceff0; color: #445; font-weight: 700; cursor: pointer; }
     #route-panel { position: absolute; left: 8px; right: 84px; bottom: calc(var(--bottom-hud) + var(--track-stack) + 12px); z-index: 8; max-height: 32%; display: none; background: rgba(255,255,255,.97); border-radius: 16px; box-shadow: 0 4px 18px rgba(0,0,0,.28); overflow: hidden; font-family: -apple-system, system-ui, sans-serif; pointer-events: auto; }
     #route-panel.on { display: block; }
@@ -525,6 +530,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
       }
 
       function setToast(open) {
+        if (open && currentPopup) open = false;
         snapToast.classList.toggle('on', open);
         reportToast(open);
         scheduleNearbyGeometry();
@@ -690,7 +696,11 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           birdImageCache[key] = bird.imageUrl;
           return bird.imageUrl;
         }
-        if (Object.prototype.hasOwnProperty.call(birdImageCache, key)) return birdImageCache[key];
+        if (Object.prototype.hasOwnProperty.call(birdImageCache, key)) {
+          var cachedImage = birdImageCache[key];
+          if (typeof cachedImage === 'string' && cachedImage && bird && !bird.imageUrl) bird.imageUrl = cachedImage;
+          return cachedImage;
+        }
         birdImageCache[key] = null;
         function tryName(index) {
           if (index >= names.length) {
@@ -704,6 +714,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
               var image = summary.thumbnail && summary.thumbnail.source;
               if (image) {
                 birdImageCache[key] = image;
+                if (bird && !bird.imageUrl) bird.imageUrl = image;
                 refreshUi();
               } else {
                 tryName(index + 1);
@@ -837,6 +848,8 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
 
       function openBirdPopup(bird) {
         stopBirdAudio();
+        setToast(false);
+        snapToastAction = null;
         if (currentPopup) currentPopup.remove();
         var popup = new maplibregl.Popup({ offset: 24, maxWidth: '282px', closeButton: true })
           .setLngLat([bird.longitude, bird.latitude])
@@ -1313,6 +1326,8 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         trackCard.classList.toggle('rare', Boolean(entry.isNotable));
         trackArrow.classList.toggle('rare', Boolean(entry.isNotable));
         var distance = haversineKm(lastUserLocation, entry);
+        var snapInRange = distance != null && distance * 1000 <= SNAP_M;
+        trackSnap.disabled = !snapInRange;
         if (distance != null && distance * 1000 <= ARRIVE_M) {
           if (routeSteps.length || routeGeometryCoordinates.length) clearRoute();
           trackSnap.classList.add('ready');
@@ -1320,12 +1335,12 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
           trackDist.textContent = entry.virtual ? 'You’re here! Collect it' : habitatSearchCopy(entry);
         } else if (distance != null && routeDistanceM != null && lastRouteTargetKey && lastRouteTargetKey.indexOf(trackId + ':') === 0) {
           trackSnap.classList.remove('ready');
-          trackSnap.textContent = entry.virtual ? 'Collect' : 'Snap';
+          trackSnap.textContent = snapInRange ? (entry.virtual ? 'Collect' : 'Snap') : 'Too far';
           trackDist.textContent = 'Walk · ' + fmtDist(routeDistanceM / 1000) + ' · ' + etaMin(routeDistanceM / 1000) + ' min';
         } else if (distance != null) {
           trackSnap.classList.remove('ready');
-          trackSnap.textContent = entry.virtual ? 'Collect' : 'Snap';
-          trackDist.textContent = 'Direct · ' + fmtDist(distance) + ' · Walk est. ' + etaMin(distance) + ' min';
+          trackSnap.textContent = snapInRange ? (entry.virtual ? 'Collect' : 'Snap') : 'Too far';
+          trackDist.textContent = 'Direct · ' + fmtDist(distance);
         } else {
           trackSnap.classList.remove('ready');
           trackSnap.textContent = entry.virtual ? 'Collect' : 'Snap';
@@ -1484,7 +1499,7 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         refreshNearby();
       });
       trackSnap.addEventListener('click', function () {
-        if (trackId) capture(trackId);
+        if (trackId && !trackSnap.disabled) capture(trackId);
       });
       trackStop.addEventListener('click', stopTrack);
       routeHeader.addEventListener('click', function () {
@@ -1518,9 +1533,11 @@ ${speciesAudioScript()}
               ? 'Heard recently by a nearby audio station — the bird may be anywhere within earshot, so use this as a fresh search clue.'
               : 'Not collected yet — capture it to add it to your Bird-dex.';
         var actionLabel = virtual ? 'Collect' : bird.captureCount ? 'Recapture' : 'Capture';
+        var popupImage = getBirdImage(bird);
+        var photoCopy = typeof popupImage === 'string' && popupImage ? '<img class="encounter-photo" loading="lazy" referrerpolicy="no-referrer" src="' + escapeHtml(popupImage) + '" alt="" />' : '';
         return '<div class="encounter">' +
-          '<h3>' + escapeHtml(bird.comName || 'Bird') + (virtual ? '<span class="skyfriend-tag">' + (bird.prismatic ? 'Prismatic Skyfriend' : 'Skyfriend') + '</span>' : '') + '</h3>' +
-          '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div>' +
+          '<div class="encounter-head">' + photoCopy + '<div class="encounter-title"><h3>' + escapeHtml(bird.comName || 'Bird') + (virtual ? '<span class="skyfriend-tag">' + (bird.prismatic ? 'Prismatic Skyfriend' : 'Skyfriend') + '</span>' : '') + '</h3>' +
+          '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div></div></div>' +
           '<div class="stale">' + statusCopy + '</div>' +
           '<div class="where">' + escapeHtml(virtual ? 'Could occur in this habitat' : bird.locName || 'No hotspot recorded') + count + '</div>' +
           (distance == null ? '' : '<div class="distance">' + fmtDist(distance) + ' away · ' + etaMin(distance) + ' min walk</div>') +

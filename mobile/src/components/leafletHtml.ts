@@ -28,6 +28,9 @@ export function buildLeafletHtml(options: { apiBaseUrl?: string } = {}): string 
     @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(0.55); opacity: 0.9; } 100% { transform: translate(-50%, -50%) scale(1.45); opacity: 0; } }
     .encounter { min-width: 220px; line-height: 1.35; }
     .encounter h3 { margin: 0 0 2px; font-size: 16px; }
+    .encounter .encounter-head { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+    .encounter .encounter-photo { width: 42px; height: 42px; flex: 0 0 42px; border-radius: 50%; object-fit: cover; border: 2px solid #e0c364; background: #e6eee9; }
+    .encounter .encounter-title { flex: 1; min-width: 0; }
     .encounter .scientific { font-style: italic; color: #4c5c54; }
     .encounter .meta, .encounter .distance, .encounter .info, .encounter .field-notes { margin-top: 6px; }
     .encounter .stale { color: #7b5d27; font-weight: 700; margin-top: 6px; }
@@ -140,9 +143,10 @@ ${speciesAudioScript()}
               ? 'Heard recently by a nearby audio station — use this as a fresh search clue, not an exact perch.'
               : 'Not collected yet — capture it to add it to your Bird-dex.';
         var actionLabel = virtual ? 'Collect' : bird.captureCount ? 'Recapture' : 'Capture';
+        var photoCopy = bird.imageUrl ? '<img class="encounter-photo" loading="lazy" referrerpolicy="no-referrer" src="' + escapeHtml(bird.imageUrl) + '" alt="" />' : '';
         return '<div class="encounter">' +
-          '<h3>' + escapeHtml(bird.comName || 'Bird') + (virtual ? '<span class="skyfriend-tag">' + (prismatic ? 'Prismatic Skyfriend' : 'Skyfriend') + '</span>' : '') + '</h3>' +
-          '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div>' +
+          '<div class="encounter-head">' + photoCopy + '<div class="encounter-title"><h3>' + escapeHtml(bird.comName || 'Bird') + (virtual ? '<span class="skyfriend-tag">' + (prismatic ? 'Prismatic Skyfriend' : 'Skyfriend') + '</span>' : '') + '</h3>' +
+          '<div class="scientific">' + escapeHtml(bird.sciName || '') + '</div></div></div>' +
           '<div class="stale">' + statusCopy + '</div>' +
           '<div class="where">Where to look: ' + escapeHtml(virtual ? 'Could occur in this habitat' : bird.locName || 'No hotspot recorded') + count + '</div>' +
           (distance == null ? '' : '<div class="distance">' + (distance < 1 ? Math.round(distance * 1000) + ' m' : distance.toFixed(1) + ' km') + ' away · ' + Math.max(1, Math.round(distance * 1000 / 81)) + ' min walk</div>') +

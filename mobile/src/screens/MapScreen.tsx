@@ -448,6 +448,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     }
     dismissRareHunt(rareHuntInstanceId(bird));
   };
+  const visibleRareHunt = rareHunt && !dismissedRareHuntIds.includes(rareHuntInstanceId(rareHunt)) && !popupOpen && !completionNotice && !locationNotice && !error ? rareHunt : undefined;
   const topMessage = completionNotice
     ? { text: completionNotice, onPress: () => setCompletionNotice(null) }
     : locationNotice
@@ -690,17 +691,17 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           </Pressable>
         )}
         </View>
-        {rareHunt && !dismissedRareHuntIds.includes(rareHuntInstanceId(rareHunt)) && !popupOpen && !completionNotice && !locationNotice && !error ? <View style={[styles.rareCard, toastOpen && styles.rareCardBelowToast]}>
+        {visibleRareHunt ? <View style={[styles.rareCard, toastOpen && styles.rareCardBelowToast]}>
           <Text style={styles.rareEyebrow}>Rare hunt nearby</Text>
-          <Text style={styles.rareTitle}>{rareHunt.comName}</Text>
-          <Text style={styles.rareCopy}>{distanceKm(location, rareHunt) < 1 ? `${Math.round(distanceKm(location, rareHunt) * 1000)}m` : `${distanceKm(location, rareHunt).toFixed(1)}km`} away · {formatObservationAge(rareHunt.obsDt, rareHunt.source)}{rareHunt.locName ? ` · ${rareHunt.locName}` : ""}</Text>
-          <Text style={styles.rareHint}>{rareHunt.source === "birdweather"
-            ? "A fresh high-confidence audio detection — the bird may be anywhere within earshot of the station, so listen and scan the habitat carefully."
-            : "A real recent report — search the habitat carefully; the bird is not guaranteed to still be there."}</Text>
+          <Text style={styles.rareTitle}>{visibleRareHunt.comName}</Text>
+          <Text style={styles.rareCopy}>{distanceKm(location, visibleRareHunt) < 1 ? `${Math.round(distanceKm(location, visibleRareHunt) * 1000)}m` : `${distanceKm(location, visibleRareHunt).toFixed(1)}km`} away · {formatObservationAge(visibleRareHunt.obsDt, visibleRareHunt.source)}{visibleRareHunt.locName ? ` · ${visibleRareHunt.locName}` : ""}</Text>
+          <Text style={styles.rareHint}>{visibleRareHunt.source === "birdweather"
+            ? "Fresh audio clue — the bird may be anywhere within earshot of the station."
+            : "Recent real-world report — the bird is not guaranteed to still be there."}</Text>
           <View style={styles.rareActions}>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Track rare ${rareHunt.comName}`} style={styles.rarePrimary} onPress={() => startRareHunt(rareHunt)}><Text style={styles.rarePrimaryText}>Hunt</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${rareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: rareHunt.speciesCode, comName: rareHunt.comName ?? "Unknown bird", sciName: rareHunt.sciName })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="Dismiss rare hunt" style={styles.rareDismiss} onPress={() => dismissRareHunt(rareHuntInstanceId(rareHunt))}><Text style={styles.rareDismissText}>×</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Track rare ${visibleRareHunt.comName}`} style={styles.rarePrimary} onPress={() => startRareHunt(visibleRareHunt)}><Text style={styles.rarePrimaryText}>Hunt</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${visibleRareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: visibleRareHunt.speciesCode, comName: visibleRareHunt.comName ?? "Unknown bird", sciName: visibleRareHunt.sciName })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Dismiss rare hunt" style={styles.rareDismiss} onPress={() => dismissRareHunt(rareHuntInstanceId(visibleRareHunt))}><Text style={styles.rareDismissText}>×</Text></Pressable>
           </View>
         </View> : null}
         {topMessage && !popupOpen && (
@@ -710,7 +711,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           </Pressable>
         )}
         {loading && <ActivityIndicator color="#fff" />}
-        {mode === "adventure" && !popupOpen && !topMessage && !toastOpen ? <BirdwalkPlanner
+        {mode === "adventure" && !popupOpen && !topMessage && !toastOpen && !visibleRareHunt ? <BirdwalkPlanner
           plan={birdwalkPlan}
           active={birdwalk}
           tracking={Boolean(tracking && birdwalk && activeTrackTarget?.id === birdwalk.stops[birdwalk.index]?.id)}
