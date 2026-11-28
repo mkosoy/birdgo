@@ -188,6 +188,17 @@ ${speciesAudioScript()}
         fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(bird.comName || 'Bird'))
           .then(function (response) { if (!response.ok) throw new Error('Wikipedia unavailable'); return response.json(); })
           .then(function (summary) {
+            var head = element.querySelector('.encounter-head');
+            var image = summary.thumbnail && summary.thumbnail.source;
+            if (head && image && !head.querySelector('.encounter-photo')) {
+              var photo = document.createElement('img');
+              photo.className = 'encounter-photo';
+              photo.alt = '';
+              photo.loading = 'lazy';
+              photo.referrerPolicy = 'no-referrer';
+              photo.src = image;
+              head.insertBefore(photo, head.firstChild);
+            }
             var info = element.querySelector('[data-info]');
             if (info) {
               var extract = typeof summary.extract === 'string' ? summary.extract.trim() : '';
