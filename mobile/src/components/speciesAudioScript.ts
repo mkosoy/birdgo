@@ -56,7 +56,17 @@ export function speciesAudioScript(): string {
                 credit.textContent = currentAudioAttribution;
                 credit.classList.add('on');
               }
-            }).catch(function () { button.textContent = 'Listen'; });
+            }).catch(function (error) {
+              if (!error || error.name !== 'NotAllowedError') {
+                var retryAudio = currentAudio;
+                var retryFallback = retryAudio ? useFallbackForAudio(retryAudio) : null;
+                if (retryFallback) {
+                  retryFallback.catch(showNoAudio);
+                  return;
+                }
+              }
+              button.textContent = 'Listen';
+            });
           } else {
             currentAudio.pause();
             button.textContent = 'Listen';
@@ -105,13 +115,46 @@ export function speciesAudioScript(): string {
           resetListenButtons();
         }
 
+        function showNoAudio() {
+          if (requestId !== audioRequest) return;
+          stopBirdAudio();
+          button.disabled = false;
+          button.textContent = 'No audio';
+          if (credit) {
+            credit.textContent = 'No licensed species recording is available right now.';
+            credit.classList.add('on');
+          }
+        }
+
+        function useFallbackForAudio(audio) {
+          var fallbackRequest = audio.birdgoFallbackRequest;
+          if (!fallbackRequest || audio.birdgoFallbackUsed) return null;
+          audio.birdgoFallbackUsed = true;
+          if (currentAudio === audio) {
+            currentAudio = null;
+            currentAudioKey = null;
+            currentAudioAttribution = '';
+          }
+          try { audio.pause(); } catch (error) { /* noop */ }
+          return fallbackRequest().then(function (fallbackSound) {
+            return playSelectedSound(fallbackSound, null);
+          });
+        }
+
         function playSelectedSound(sound, fallbackRequest) {
           if (requestId !== audioRequest) return undefined;
           var audio = new Audio(sound.url);
-          var fallbackUsed = false;
+          audio.birdgoFallbackRequest = fallbackRequest;
+          audio.birdgoFallbackUsed = false;
           currentAudio = audio;
           currentAudioKey = bird.id;
           audio.addEventListener('ended', function () { finishAudioPlayback(audio); });
+          audio.addEventListener('error', function () {
+            if (currentAudio !== audio) return;
+            var fallback = useFallbackForAudio(audio);
+            if (fallback) fallback.catch(showNoAudio);
+            else showNoAudio();
+          });
           if (typeof sound.startTime === 'number' && typeof sound.endTime === 'number' && sound.endTime > sound.startTime) {
             audio.addEventListener('loadedmetadata', function () {
               if (audio.currentTime < sound.startTime - 0.5 || audio.currentTime >= sound.endTime) {
@@ -144,17 +187,8 @@ export function speciesAudioScript(): string {
             throw error;
           }).catch(function (error) {
             if (!playbackBlocked) {
-              if (fallbackRequest && !fallbackUsed) {
-                fallbackUsed = true;
-                if (currentAudio === audio) {
-                  currentAudio = null;
-                  currentAudioKey = null;
-                  currentAudioAttribution = '';
-                }
-                return fallbackRequest().then(function (fallbackSound) {
-                  return playSelectedSound(fallbackSound, null);
-                });
-              }
+              var fallback = useFallbackForAudio(audio);
+              if (fallback) return fallback;
               throw error;
             }
             if (requestId !== audioRequest) return undefined;
@@ -174,16 +208,7 @@ export function speciesAudioScript(): string {
           .then(function (sound) {
             return playSelectedSound(sound, directSound ? guideSoundRequest : null);
           })
-          .catch(function () {
-            if (requestId !== audioRequest) return;
-            stopBirdAudio();
-            button.disabled = false;
-            button.textContent = 'No audio';
-            if (credit) {
-              credit.textContent = 'No licensed species recording is available right now.';
-              credit.classList.add('on');
-            }
-          });
+          .catch(showNoAudio);
       }
 
 `;
