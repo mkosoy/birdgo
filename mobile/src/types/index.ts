@@ -29,6 +29,8 @@ export interface EbirdObservation extends Coordinates {
   locId?: string;
   locName?: string;
   obsDt?: string;
+  obsValid?: boolean;
+  obsReviewed?: boolean;
   howMany?: number;
   isNotable?: boolean;
   imageUrl?: string;

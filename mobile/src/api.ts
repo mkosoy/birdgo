@@ -10,6 +10,8 @@ interface RawEbirdObservation {
   locId?: string;
   locName?: string;
   obsDt?: string;
+  obsValid?: boolean;
+  obsReviewed?: boolean;
   howMany?: number;
   imageUrl?: string;
   source?: string;
@@ -50,6 +52,8 @@ function mapObservation(raw: RawEbirdObservation, isNotable = false): EbirdObser
     locId: raw.locId,
     locName: raw.locName,
     obsDt: raw.obsDt,
+    obsValid: raw.obsValid,
+    obsReviewed: raw.obsReviewed,
     howMany: raw.howMany,
     imageUrl: raw.imageUrl,
     source: raw.source,
