@@ -25,7 +25,7 @@ import { buildBirdwalkPlan, xpForBirdwalk, type BirdwalkState, type BirdwalkStop
 import { findFreshHotspots } from "../utils/hotspots";
 import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround, skyfriendCellKeyFromEncounterId } from "../utils/skyfriends";
 
-type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string };
+type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" };
 type GuideTarget = { speciesCode: string; comName: string; sciName?: string };
 let persistentTrackTarget: TrackTarget | undefined;
 const MAP_PREFERENCES_KEY = "birdgo.map-preferences-v1";
@@ -516,7 +516,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     setDismissedHotspotKeys((current) => current.includes(key) ? current : [...current, key].slice(-12));
   };
   const startHotspotScout = (hotspot: NonNullable<typeof visibleHotspot>) => {
-    const target = { latitude: hotspot.latitude, longitude: hotspot.longitude, name: hotspot.name, id: hotspot.key };
+    const target = { latitude: hotspot.latitude, longitude: hotspot.longitude, name: hotspot.name, id: hotspot.key, kind: "hotspot" as const };
     if (mode === "classic") openWalkingDirections(target.latitude, target.longitude);
     else {
       setActiveTrackTarget(target);

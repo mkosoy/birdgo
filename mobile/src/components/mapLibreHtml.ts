@@ -1959,13 +1959,17 @@ ${speciesAudioScript()}
         } else if (data.command === 'closePopup') {
           if (currentPopup) currentPopup.remove();
         } else if (data.command === 'track' && data.trackTarget) {
-          var exactBird = data.trackTarget.id ? latestMarkers.find(function (bird) { return String(bird.id) === String(data.trackTarget.id); }) : null;
-          var targetBird = exactBird ? { bird: exactBird } : latestMarkers.reduce(function (closest, bird) {
-            var candidateDistance = haversineKm(data.trackTarget, bird);
-            if (!closest || candidateDistance < closest.distance) return { bird: bird, distance: candidateDistance };
-            return closest;
-          }, null);
-          if (targetBird && targetBird.bird) startTrack(targetBird.bird);
+          if (data.trackTarget.kind === 'hotspot') {
+            startTrack({ id: data.trackTarget.id, latitude: data.trackTarget.latitude, longitude: data.trackTarget.longitude, name: data.trackTarget.name, comName: data.trackTarget.name });
+          } else {
+            var exactBird = data.trackTarget.id ? latestMarkers.find(function (bird) { return String(bird.id) === String(data.trackTarget.id); }) : null;
+            var targetBird = exactBird ? { bird: exactBird } : latestMarkers.reduce(function (closest, bird) {
+              var candidateDistance = haversineKm(data.trackTarget, bird);
+              if (!closest || candidateDistance < closest.distance) return { bird: bird, distance: candidateDistance };
+              return closest;
+            }, null);
+            if (targetBird && targetBird.bird) startTrack(targetBird.bird);
+          }
         } else if (headingFollow && data.firstPerson && !userGesture) {
           follow = true;
         }
