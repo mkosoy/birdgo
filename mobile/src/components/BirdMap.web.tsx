@@ -15,12 +15,17 @@ interface LeafletMessage {
   height?: number;
   id?: string;
   speciesCode?: string;
-  kind?: "hotspot";
+  kind?: "hotspot" | "rare";
   comName?: string;
   sciName?: string;
   name?: string;
   latitude?: number;
   longitude?: number;
+  imageUrl?: string;
+  canonicalKey?: string;
+  frequency?: number;
+  abundanceCount?: number;
+  obsValid?: boolean;
 }
 
 function markerId(bird: EbirdObservation): string {
@@ -86,6 +91,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
+      if (event.source !== iframeRef.current?.contentWindow) return;
       let message: LeafletMessage;
       try {
         message = typeof event.data === "string" ? JSON.parse(event.data) as LeafletMessage : event.data as LeafletMessage;
@@ -93,7 +99,22 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
         return;
       }
       if (message.type === "capture" && message.id) {
-        const bird = markerLookup.get(message.id);
+        const fallbackRareBird = message.kind === "rare" && message.speciesCode && message.comName && typeof message.latitude === "number" && typeof message.longitude === "number"
+          ? {
+              latitude: message.latitude,
+              longitude: message.longitude,
+              comName: message.comName,
+              sciName: message.sciName,
+              speciesCode: message.speciesCode,
+              isNotable: true,
+              imageUrl: message.imageUrl,
+              canonicalKey: message.canonicalKey,
+              frequency: message.frequency,
+              abundanceCount: message.abundanceCount,
+              obsValid: message.obsValid,
+            }
+          : undefined;
+        const bird = markerLookup.get(message.id) ?? fallbackRareBird;
         if (bird) onCapture(bird);
       } else if (message.type === "directions" && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name) {
         onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id });

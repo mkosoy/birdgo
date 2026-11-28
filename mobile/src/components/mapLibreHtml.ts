@@ -1248,7 +1248,22 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
       }
 
       function capture(id) {
-        postOutward({ type: 'capture', id: id });
+        var bird = (trackId && String(trackId) === String(id) ? trackedEntry() : null) || latestMarkers.find(function (entry) { return String(entry.id) === String(id); });
+        postOutward({
+          type: 'capture',
+          id: id,
+          speciesCode: bird && bird.speciesCode,
+          comName: bird && (bird.comName || bird.name),
+          sciName: bird && bird.sciName,
+          kind: bird && bird.kind,
+          latitude: bird && bird.latitude,
+          longitude: bird && bird.longitude,
+          imageUrl: bird && bird.imageUrl,
+          canonicalKey: bird && bird.canonicalKey,
+          frequency: bird && bird.frequency,
+          abundanceCount: bird && bird.abundanceCount,
+          obsValid: bird && bird.obsValid
+        });
       }
 
       function refreshNearby() {
@@ -1984,7 +1999,16 @@ ${speciesAudioScript()}
               if (!closest || candidateDistance < closest.distance) return { bird: bird, distance: candidateDistance };
               return closest;
             }, null);
-            if (targetBird && targetBird.bird) startTrack(targetBird.bird);
+            if (data.trackTarget.kind === 'rare') {
+              if (exactBird) {
+                startTrack(Object.assign({}, exactBird, { kind: 'rare' }));
+              } else {
+                startTrack({ id: data.trackTarget.id, latitude: data.trackTarget.latitude, longitude: data.trackTarget.longitude, name: data.trackTarget.name, comName: data.trackTarget.name, speciesCode: data.trackTarget.speciesCode, kind: 'rare', frequency: data.trackTarget.frequency, abundanceCount: data.trackTarget.abundanceCount, canonicalKey: data.trackTarget.canonicalKey, sciName: data.trackTarget.sciName, imageUrl: data.trackTarget.imageUrl, obsValid: data.trackTarget.obsValid, customTarget: true });
+              }
+            } else if (targetBird && targetBird.bird) {
+              var trackedBird = data.trackTarget.kind ? Object.assign({}, targetBird.bird, { kind: data.trackTarget.kind }) : targetBird.bird;
+              startTrack(trackedBird);
+            }
           }
         } else if (headingFollow && data.firstPerson && !userGesture) {
           follow = true;

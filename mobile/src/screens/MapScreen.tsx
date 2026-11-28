@@ -25,7 +25,7 @@ import { buildBirdwalkPlan, xpForBirdwalk, type BirdwalkState, type BirdwalkStop
 import { findFreshHotspots } from "../utils/hotspots";
 import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround, skyfriendCellKeyFromEncounterId } from "../utils/skyfriends";
 
-type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" };
+type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare"; frequency?: number; abundanceCount?: number; canonicalKey?: string; sciName?: string; imageUrl?: string; obsValid?: boolean };
 type GuideTarget = { speciesCode: string; comName: string; sciName?: string };
 let persistentTrackTarget: TrackTarget | undefined;
 const MAP_PREFERENCES_KEY = "birdgo.map-preferences-v1";
@@ -287,6 +287,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         (target.speciesCode && targetCapture.speciesCode && target.speciesCode === targetCapture.speciesCode)
         || (targetName && captureName && targetName === captureName)
       );
+      if (target.kind === "rare") return sameSpecies;
       const sameEncounter = target.id
         ? targetCapture.encounterId === target.id
         : sameSpecies;
@@ -302,12 +303,20 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     }) && advanceBirdwalk(walkStop.id, targetCapture.commonName)) return;
     const completionTarget = activeTrackTarget;
     if (!completionTarget || !matchesCapture(completionTarget)) return;
-    if (completionTarget.id && advanceBirdwalk(completionTarget.id, targetCapture.commonName)) return;
-    setCompletionNotice(`Encounter complete: ${targetCapture.commonName}!`);
+    if (completionTarget.kind === "rare") {
+      const rewardXp = 25;
+      void claimDailyBonusXp("rare-hunt", rewardXp).then((awarded) => {
+        if (awarded) void refreshCollection();
+        setCompletionNotice(`Rare hunt complete: ${targetCapture.commonName}!${awarded ? ` +${rewardXp} XP` : ""}`);
+      }).catch(() => setCompletionNotice(`Rare hunt complete: ${targetCapture.commonName}!`));
+    } else {
+      if (completionTarget.id && advanceBirdwalk(completionTarget.id, targetCapture.commonName)) return;
+      setCompletionNotice(`Encounter complete: ${targetCapture.commonName}!`);
+    }
     setActiveTrackTarget(undefined);
     setTracking(false);
     setStopTrackRequest((request) => request + 1);
-  }, [targetCapture, activeTrackTarget, birdwalk]);
+  }, [targetCapture, activeTrackTarget, birdwalk, refreshCollection]);
 
   useEffect(() => {
     if (!completionNotice || !isFocused) return;
@@ -479,9 +488,11 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     setDismissedRareHuntIds((current) => current.includes(id) ? current : [...current, id].slice(-20));
   };
   const startRareHunt = (bird: EbirdObservation) => {
-    const target = { latitude: bird.latitude, longitude: bird.longitude, name: bird.comName ?? "Rare bird", id: observationMarkerId(bird), speciesCode: bird.speciesCode };
-    if (mode === "classic") openWalkingDirections(target.latitude, target.longitude);
-    else {
+    const target = { latitude: bird.latitude, longitude: bird.longitude, name: bird.comName ?? "Rare bird", id: observationMarkerId(bird), speciesCode: bird.speciesCode, kind: "rare" as const, frequency: bird.frequency, abundanceCount: bird.abundanceCount, canonicalKey: bird.canonicalKey, sciName: bird.sciName, imageUrl: bird.imageUrl, obsValid: bird.obsValid };
+    if (mode === "classic") {
+      openWalkingDirections(target.latitude, target.longitude);
+      setActiveTrackTarget(target);
+    } else {
       setActiveTrackTarget(target);
       setTrackRequest(target);
     }

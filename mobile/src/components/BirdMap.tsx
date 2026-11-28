@@ -27,7 +27,7 @@ export interface BirdMapProps {
   recenterRequest?: number;
   overviewRequest?: number;
   nearestRequest?: number;
-  trackRequest?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" };
+  trackRequest?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare"; frequency?: number; abundanceCount?: number; canonicalKey?: string; sciName?: string; imageUrl?: string; obsValid?: boolean };
   stopTrackRequest?: number;
   closePopupRequest?: number;
   loading?: boolean;
@@ -41,7 +41,7 @@ export interface BirdMapProps {
   onToastChange?: (open: boolean) => void;
   onNearbyStateChange?: (state: "peek" | "half", height?: number) => void;
   onFollowChange?: (paused: boolean) => void;
-  onTrackingChange?: (active: boolean, target?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" }) => void;
+  onTrackingChange?: (active: boolean, target?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare" }) => void;
   onHotspotArrived?: (target: { id?: string; name?: string }) => void;
   onRegionChange: (coordinates: Coordinates) => void;
 }
@@ -81,7 +81,7 @@ export interface LeafletData {
   heading?: number;
   markers: LeafletMarker[];
   command?: "recenter" | "setView" | "overview" | "nearest" | "track" | "stopTrack" | "closePopup";
-  trackTarget?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" };
+  trackTarget?: Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare"; frequency?: number; abundanceCount?: number; canonicalKey?: string; sciName?: string; imageUrl?: string; obsValid?: boolean };
   firstPerson?: boolean;
   safeArea?: SafeAreaInsets;
 }
@@ -96,12 +96,17 @@ interface LeafletMessage {
   height?: number;
   id?: string;
   speciesCode?: string;
-  kind?: "hotspot";
+  kind?: "hotspot" | "rare";
   comName?: string;
   sciName?: string;
   name?: string;
   latitude?: number;
   longitude?: number;
+  imageUrl?: string;
+  canonicalKey?: string;
+  frequency?: number;
+  abundanceCount?: number;
+  obsValid?: boolean;
 }
 
 function relativeTime(date?: string, longitude?: number, latitude?: number): string {
@@ -224,7 +229,22 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
       return;
     }
     if (message.type === "capture" && message.id) {
-      const bird = markerLookup.get(message.id);
+      const fallbackRareBird = message.kind === "rare" && message.speciesCode && message.comName && typeof message.latitude === "number" && typeof message.longitude === "number"
+        ? {
+            latitude: message.latitude,
+            longitude: message.longitude,
+            comName: message.comName,
+            sciName: message.sciName,
+            speciesCode: message.speciesCode,
+            isNotable: true,
+            imageUrl: message.imageUrl,
+            canonicalKey: message.canonicalKey,
+            frequency: message.frequency,
+            abundanceCount: message.abundanceCount,
+            obsValid: message.obsValid,
+          }
+        : undefined;
+      const bird = markerLookup.get(message.id) ?? fallbackRareBird;
       if (bird) onCapture(bird);
     } else if (message.type === "directions" && typeof message.latitude === "number" && typeof message.longitude === "number" && message.name) {
       onDirections({ latitude: message.latitude, longitude: message.longitude, name: message.name, id: message.id });
