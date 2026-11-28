@@ -1984,7 +1984,13 @@ ${speciesAudioScript()}
               if (!closest || candidateDistance < closest.distance) return { bird: bird, distance: candidateDistance };
               return closest;
             }, null);
-            if (targetBird && targetBird.bird) {
+            if (data.trackTarget.kind === 'rare') {
+              if (exactBird) {
+                startTrack(Object.assign({}, exactBird, { kind: 'rare' }));
+              } else {
+                startTrack({ id: data.trackTarget.id, latitude: data.trackTarget.latitude, longitude: data.trackTarget.longitude, name: data.trackTarget.name, comName: data.trackTarget.name, speciesCode: data.trackTarget.speciesCode, kind: 'rare', customTarget: true });
+              }
+            } else if (targetBird && targetBird.bird) {
               var trackedBird = data.trackTarget.kind ? Object.assign({}, targetBird.bird, { kind: data.trackTarget.kind }) : targetBird.bird;
               startTrack(trackedBird);
             }
