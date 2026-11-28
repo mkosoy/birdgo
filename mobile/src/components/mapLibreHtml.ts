@@ -1032,7 +1032,10 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
       }
 
       function trackedEntry() {
-        if (customTrackTarget && customTrackTarget.id === trackId) return customTrackTarget;
+        if (customTrackTarget && customTrackTarget.id === trackId) {
+          var freshEntry = latestMarkers.find(function (entry) { return String(entry.id) === String(trackId); });
+          return freshEntry ? Object.assign({}, customTrackTarget, freshEntry, { kind: customTrackTarget.kind, customTarget: true }) : customTrackTarget;
+        }
         return latestMarkers.find(function (entry) { return entry.id === trackId; });
       }
 
@@ -2010,7 +2013,7 @@ ${speciesAudioScript()}
             }, null);
             if (data.trackTarget.kind === 'rare') {
               if (exactBird) {
-                startTrack(Object.assign({}, exactBird, { kind: 'rare' }));
+                startTrack(Object.assign({}, exactBird, { kind: 'rare', customTarget: true }));
               } else {
                 startTrack({ id: data.trackTarget.id, latitude: data.trackTarget.latitude, longitude: data.trackTarget.longitude, name: data.trackTarget.name, comName: data.trackTarget.name, speciesCode: data.trackTarget.speciesCode, kind: 'rare', frequency: data.trackTarget.frequency, abundanceCount: data.trackTarget.abundanceCount, canonicalKey: data.trackTarget.canonicalKey, sciName: data.trackTarget.sciName, imageUrl: data.trackTarget.imageUrl, obsValid: data.trackTarget.obsValid, customTarget: true });
               }

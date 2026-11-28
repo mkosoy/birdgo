@@ -126,6 +126,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
   forwardedRef,
 ) {
   const webViewRef = useRef<WebView>(null);
+  const pendingTrackRequestRef = useRef(trackRequest);
   const lastRecenterRef = useRef(0);
   const lastFirstPersonRef = useRef(firstPerson);
   const lastOverviewRef = useRef(0);
@@ -214,6 +215,7 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
     }
   }, [nearestRequest]);
   useEffect(() => {
+    pendingTrackRequestRef.current = trackRequest;
     if (!trackRequest) return;
     const latestData = dataRef.current;
     if (latestData) {
@@ -288,7 +290,12 @@ export const BirdMap = forwardRef<WebView, BirdMapProps>(function BirdMap(
   }, [closePopupRequest]);
 
   const html = useMemo(() => (mode === "adventure" ? buildMapLibreHtml({ apiBaseUrl: API_BASE_URL }) : buildLeafletHtml({ apiBaseUrl: API_BASE_URL })), [mode]);
-  return <WebView key={mode} ref={webViewRef} style={styles.map} source={{ html }} onLoadEnd={() => postData(dataRef.current ?? data, true)} onMessage={handleMessage} originWhitelist={["*"]} />;
+  return <WebView key={mode} ref={webViewRef} style={styles.map} source={{ html }} onLoadEnd={() => {
+      const latestData = dataRef.current ?? data;
+      postData(latestData, true);
+      const pendingTrack = pendingTrackRequestRef.current;
+      if (pendingTrack) postData({ ...latestData, command: "track", trackTarget: pendingTrack });
+    }} onMessage={handleMessage} originWhitelist={["*"]} />;
 });
 
 const styles = StyleSheet.create({ map: { flex: 1 } });

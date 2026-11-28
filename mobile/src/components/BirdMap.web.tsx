@@ -46,6 +46,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
   const lastFirstPersonRef = useRef(firstPerson);
   const lastOverviewRef = useRef(0);
   const lastNearestRef = useRef(0);
+  const pendingTrackRequestRef = useRef(trackRequest);
   const markerLookup = useMemo(() => new Map(birds.map((bird) => [markerId(bird), bird])), [birds]);
   const postedMarkersRef = useRef<LeafletMarker[] | null>(null);
   const markers = useMemo<LeafletMarker[]>(() => birds.map((bird) => ({
@@ -179,6 +180,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
     if (latestData) postData({ ...latestData, command: "nearest" });
   }, [nearestRequest]);
   useEffect(() => {
+    pendingTrackRequestRef.current = trackRequest;
     if (!trackRequest) return;
     const latestData = dataRef.current;
     if (latestData) postData({
@@ -206,5 +208,10 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
   const html = useMemo(() => (mode === "adventure" ? buildMapLibreHtml({ apiBaseUrl: API_BASE_URL || window.location.origin }) : buildLeafletHtml({ apiBaseUrl: API_BASE_URL || window.location.origin })), [mode]);
   const blobUrl = useMemo(() => URL.createObjectURL(new Blob([html], { type: "text/html" })), [html]);
   useEffect(() => () => URL.revokeObjectURL(blobUrl), [blobUrl]);
-  return <iframe ref={iframeRef} src={blobUrl} onLoad={() => postData(dataRef.current ?? data, true)} style={{ border: 0, width: "100%", height: "100%" }} title="BirdGo map" />;
+  return <iframe ref={iframeRef} src={blobUrl} onLoad={() => {
+    const latestData = dataRef.current ?? data;
+    postData(latestData, true);
+    const pendingTrack = pendingTrackRequestRef.current;
+    if (pendingTrack) postData({ ...latestData, command: "track", trackTarget: pendingTrack });
+  }} style={{ border: 0, width: "100%", height: "100%" }} title="BirdGo map" />;
 }
