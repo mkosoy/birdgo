@@ -76,7 +76,7 @@ export function filterRecentLocalObservations(
       ? Math.max(-12, Math.min(14, observation.lng / 15))
       : 0;
     const ageHours = (now - (naiveUtc - approximateOffsetHours * 3_600_000)) / 3_600_000;
-    return ageHours >= -2 && ageHours <= maxAgeHours;
+    return ageHours <= maxAgeHours;
   });
 }
 
