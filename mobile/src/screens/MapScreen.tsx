@@ -450,6 +450,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     setCompletionNotice(`${bird.comName ?? "The Skyfriend"} slipped away. It may return soon.`);
     clearTrackedSkyfriend(encounterId);
   };
+  const hasCapturedSpecies = (bird: EbirdObservation) => speciesKeyAliases(bird.speciesCode, bird.comName, bird.sciName, bird.canonicalKey).some((key) => (captureCounts[key] ?? 0) > 0);
   const rareHuntCandidates = new Map<string, EbirdObservation>();
   notable.forEach((bird) => rareHuntCandidates.set(observationMarkerId(bird), bird));
   birds.filter((bird) => bird.source === "birdweather").forEach((bird) => {
@@ -470,7 +471,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         const observedAt = observationTimeMs(bird.obsDt, bird.longitude, bird.latitude);
         const ageHours = observedAt == null ? 24 : (Date.now() - observedAt) / 3_600_000;
         const rarityRank = RARITY_ORDER.indexOf(rarityForSpecies(bird.speciesCode, bird.comName, Boolean(bird.isNotable), bird.sciName, bird.canonicalKey, bird.frequency, bird.abundanceCount));
-        return rarityRank * 100 - ageHours * 3 - distanceKm(location, bird) * 2 - (bird.obsValid === false ? 50 : 0);
+        return rarityRank * 100 + (hasCapturedSpecies(bird) ? 0 : 35) - ageHours * 3 - distanceKm(location, bird) * 2 - (bird.obsValid === false ? 50 : 0);
       };
       return scoreOf(b) - scoreOf(a);
     })[0];
@@ -487,6 +488,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
     dismissRareHunt(rareHuntInstanceId(bird));
   };
   const visibleRareHunt = rareHunt && !dismissedRareHuntIds.includes(rareHuntInstanceId(rareHunt)) && !popupOpen && !tracking && (!birdwalk || mode === "classic") && !completionNotice && !locationNotice && !error ? rareHunt : undefined;
+  const visibleRareHuntIsNew = visibleRareHunt ? !hasCapturedSpecies(visibleRareHunt) : false;
   const visibleRareHuntInstanceId = visibleRareHunt ? rareHuntInstanceId(visibleRareHunt) : undefined;
   useEffect(() => {
     if (!visibleRareHunt) {
@@ -767,7 +769,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
         )}
         </View>
         {visibleRareHunt ? <View style={[styles.rareCard, toastOpen && styles.rareCardBelowToast]}>
-          <Text style={styles.rareEyebrow}>Rare hunt nearby</Text>
+          <Text style={styles.rareEyebrow}>{visibleRareHuntIsNew ? "New rare hunt nearby" : "Rare hunt nearby"}</Text>
           <View style={styles.rareMainRow}>
             {rareHuntImageUrl ? <Image source={{ uri: rareHuntImageUrl }} style={styles.rareImage} /> : null}
             <View style={styles.rareTextWrap}>
