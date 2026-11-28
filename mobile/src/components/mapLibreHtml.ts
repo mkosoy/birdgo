@@ -1261,6 +1261,14 @@ export function buildMapLibreHtml(options: { apiBaseUrl?: string } = {}): string
         }
         var nearest = computeNearest();
         var displayEntries = sortEntries(nearest.slice());
+        var rowSpecies = {};
+        displayEntries = displayEntries.filter(function (entry) {
+          var bird = entry.bird;
+          var key = String(bird.speciesCode || bird.comName || bird.sciName || bird.id).toLowerCase();
+          if (rowSpecies[key]) return false;
+          rowSpecies[key] = true;
+          return true;
+        });
         var filtered = rareOnly ? displayEntries.filter(function (entry) { return rareEncounter(entry.bird); }) : displayEntries;
         lastNearbyCount = filtered.length;
         nearbyTitle.textContent = nearbyTitleText(lastNearbyCount);
