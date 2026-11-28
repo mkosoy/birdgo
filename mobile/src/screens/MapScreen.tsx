@@ -26,7 +26,7 @@ import { findFreshHotspots } from "../utils/hotspots";
 import { buildSkyfriendSpawns, distanceKm, loadSkyfriendFled, loadSkyfriendSpecies, markSkyfriendFled, SKYFRIEND_COLLECT_KM, observationMarkerId, saveSkyfriendSpecies, skyfriendCellKeysAround, skyfriendCellKeyFromEncounterId } from "../utils/skyfriends";
 
 type TrackTarget = Coordinates & { name: string; id?: string; speciesCode?: string; kind?: "hotspot" | "rare"; frequency?: number; abundanceCount?: number; canonicalKey?: string; sciName?: string; imageUrl?: string; obsValid?: boolean; obsDt?: string; locName?: string; evidenceCount?: number; source?: string; locationPrivate?: boolean };
-type GuideTarget = { speciesCode: string; comName: string; sciName?: string; hunt?: { latitude: number; longitude: number; locName?: string; obsDt?: string; obsValid?: boolean; evidenceCount?: number; source?: string; locationPrivate?: boolean; distanceKm: number } };
+type GuideTarget = { speciesCode: string; comName: string; sciName?: string; hunt?: { latitude: number; longitude: number; locName?: string; obsDt?: string; obsValid?: boolean; evidenceCount?: number; source?: string; locationPrivate?: boolean; distanceKm: number; otherReport?: { latitude: number; longitude: number; locName?: string; obsDt?: string; distanceKm: number } } };
 let persistentTrackTarget: TrackTarget | undefined;
 const MAP_PREFERENCES_KEY = "birdgo.map-preferences-v1";
 const DISMISSED_RARE_HUNTS_KEY = "birdgo.dismissed-rare-hunts-v1";
@@ -545,6 +545,45 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
   };
   const activeClassicRareHunt = mode === "classic" && activeTrackTarget?.kind === "rare" ? activeTrackTarget : undefined;
   const visibleRareHunt = rareHunt && !activeClassicRareHunt && !dismissedRareHuntIds.includes(rareHuntInstanceId(rareHunt)) && !popupOpen && !tracking && (!birdwalk || mode === "classic") && !completionNotice && !locationNotice && !error ? rareHunt : undefined;
+  const rareHuntFallbackTarget = activeClassicRareHunt ?? visibleRareHunt;
+  const rareHuntOtherReport = rareHuntFallbackTarget ? (() => {
+    const targetIsObservation = "comName" in rareHuntFallbackTarget;
+    const targetName = targetIsObservation ? (rareHuntFallbackTarget as EbirdObservation).comName : (rareHuntFallbackTarget as TrackTarget).name;
+    const targetKeys = new Set(speciesKeyAliases(rareHuntFallbackTarget.speciesCode, targetName, rareHuntFallbackTarget.sciName, rareHuntFallbackTarget.canonicalKey));
+    const targetId = targetIsObservation ? observationMarkerId(rareHuntFallbackTarget as EbirdObservation) : (rareHuntFallbackTarget as TrackTarget).id;
+    const candidates = new Map<string, EbirdObservation>();
+    const timeOf = (bird: EbirdObservation) => observationTimeMs(bird.obsDt, bird.longitude, bird.latitude);
+    const addCandidate = (bird: EbirdObservation) => {
+      if (bird.virtual) return;
+      const id = observationMarkerId(bird);
+      const existing = candidates.get(id);
+      if (!existing) {
+        candidates.set(id, bird);
+        return;
+      }
+      const birdTime = timeOf(bird) ?? Number.NEGATIVE_INFINITY;
+      const existingTime = timeOf(existing) ?? Number.NEGATIVE_INFINITY;
+      if (birdTime > existingTime) candidates.set(id, bird);
+    };
+    birds.forEach(addCandidate);
+    notable.forEach(addCandidate);
+    return [...candidates.values()].filter((bird) => {
+      if (targetId ? observationMarkerId(bird) === targetId : distanceKm(rareHuntFallbackTarget, bird) < 0.001) return false;
+      if (!speciesKeyAliases(bird.speciesCode, bird.comName, bird.sciName, bird.canonicalKey).some((key) => targetKeys.has(key))) return false;
+      if (distanceKm(location, bird) > 15) return false;
+      const observedAt = timeOf(bird);
+      const ageHours = observedAt == null ? Number.POSITIVE_INFINITY : (Date.now() - observedAt) / 3_600_000;
+      return Number.isFinite(ageHours) && ageHours >= -2 && ageHours <= 72;
+    }).sort((a, b) => {
+      const scoreOf = (bird: EbirdObservation) => {
+        const observedAt = timeOf(bird);
+        const ageHours = observedAt == null ? 72 : Math.max(0, (Date.now() - observedAt) / 3_600_000);
+        return ageHours * 1.5 + distanceKm(location, bird) + (bird.locationPrivate ? 3 : 0);
+      };
+      return scoreOf(a) - scoreOf(b);
+    })[0];
+  })() : undefined;
+  const rareHuntOtherReportTarget = rareHuntOtherReport ? { latitude: rareHuntOtherReport.latitude, longitude: rareHuntOtherReport.longitude, locName: rareHuntOtherReport.locName, obsDt: rareHuntOtherReport.obsDt, distanceKm: distanceKm(location, rareHuntOtherReport) } : undefined;
   const visibleRareHuntIsNew = visibleRareHunt ? !hasCapturedSpecies(visibleRareHunt) : false;
   const visibleRareHuntReportLabel = visibleRareHunt && visibleRareHunt.source !== "birdweather"
     ? (visibleRareHunt.evidenceCount ?? 1) > 4 ? "5+ reports" : `${visibleRareHunt.evidenceCount ?? 1} report${(visibleRareHunt.evidenceCount ?? 1) === 1 ? "" : "s"}`
@@ -864,7 +903,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
               : "Recent real-world report — the bird is not guaranteed to still be there."}</Text>
           <View style={styles.rareActions}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Track rare ${visibleRareHunt.comName}`} style={styles.rarePrimary} onPress={() => startRareHunt(visibleRareHunt)}><Text style={styles.rarePrimaryText}>Hunt</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${visibleRareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: visibleRareHunt.speciesCode, comName: visibleRareHunt.comName ?? "Unknown bird", sciName: visibleRareHunt.sciName, hunt: { latitude: visibleRareHunt.latitude, longitude: visibleRareHunt.longitude, locName: visibleRareHunt.locName, obsDt: visibleRareHunt.obsDt, obsValid: visibleRareHunt.obsValid, evidenceCount: visibleRareHunt.evidenceCount, source: visibleRareHunt.source, locationPrivate: visibleRareHunt.locationPrivate, distanceKm: distanceKm(location, visibleRareHunt) } })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${visibleRareHunt.comName} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: visibleRareHunt.speciesCode, comName: visibleRareHunt.comName ?? "Unknown bird", sciName: visibleRareHunt.sciName, hunt: { latitude: visibleRareHunt.latitude, longitude: visibleRareHunt.longitude, locName: visibleRareHunt.locName, obsDt: visibleRareHunt.obsDt, obsValid: visibleRareHunt.obsValid, evidenceCount: visibleRareHunt.evidenceCount, source: visibleRareHunt.source, locationPrivate: visibleRareHunt.locationPrivate, distanceKm: distanceKm(location, visibleRareHunt), otherReport: rareHuntOtherReportTarget } })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Dismiss rare hunt" style={styles.rareDismiss} onPress={() => dismissRareHunt(rareHuntInstanceId(visibleRareHunt))}><Text style={styles.rareDismissText}>×</Text></Pressable>
           </View>
         </View> : null}
@@ -882,7 +921,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
             : "Real-world report — the bird is not guaranteed to still be there."}</Text>
           <View style={styles.rareActions}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Directions to rare ${activeClassicRareHunt.name}`} style={styles.rarePrimary} onPress={() => openWalkingDirections(activeClassicRareHunt.latitude, activeClassicRareHunt.longitude)}><Text style={styles.rarePrimaryText}>Directions</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${activeClassicRareHunt.name} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: activeClassicRareHunt.speciesCode ?? "unknown", comName: activeClassicRareHunt.name, sciName: activeClassicRareHunt.sciName, hunt: { latitude: activeClassicRareHunt.latitude, longitude: activeClassicRareHunt.longitude, locName: activeClassicRareHunt.locName, obsDt: activeClassicRareHunt.obsDt, obsValid: activeClassicRareHunt.obsValid, evidenceCount: activeClassicRareHunt.evidenceCount, source: activeClassicRareHunt.source, locationPrivate: activeClassicRareHunt.locationPrivate, distanceKm: distanceKm(location, activeClassicRareHunt) } })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Open ${activeClassicRareHunt.name} field guide`} style={styles.rareSecondary} onPress={() => setGuideTarget({ speciesCode: activeClassicRareHunt.speciesCode ?? "unknown", comName: activeClassicRareHunt.name, sciName: activeClassicRareHunt.sciName, hunt: { latitude: activeClassicRareHunt.latitude, longitude: activeClassicRareHunt.longitude, locName: activeClassicRareHunt.locName, obsDt: activeClassicRareHunt.obsDt, obsValid: activeClassicRareHunt.obsValid, evidenceCount: activeClassicRareHunt.evidenceCount, source: activeClassicRareHunt.source, locationPrivate: activeClassicRareHunt.locationPrivate, distanceKm: distanceKm(location, activeClassicRareHunt), otherReport: rareHuntOtherReportTarget } })}><Text style={styles.rareSecondaryText}>Guide</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="End rare hunt" style={styles.rareDismiss} onPress={() => setActiveTrackTarget(undefined)}><Text style={styles.rareDismissText}>×</Text></Pressable>
           </View>
         </View> : null}
