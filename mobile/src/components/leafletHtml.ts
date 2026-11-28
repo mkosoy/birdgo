@@ -59,17 +59,38 @@ export function buildLeafletHtml(options: { apiBaseUrl?: string } = {}): string 
     (function () {
       var map = L.map('map', { zoomControl: true, attributionControl: false }).setView([37.7749, -122.4194], 13);
       var tileErrorCount = 0;
-      var tileErrorReported = false;
+      var tileSuccessCount = 0;
+      var tileOutageReported = false;
+      var tileCheckTimer = null;
+      function resetTileBatch() {
+        tileErrorCount = 0;
+        tileSuccessCount = 0;
+      }
+      function scheduleTileCheck() {
+        if (tileCheckTimer) clearTimeout(tileCheckTimer);
+        tileCheckTimer = setTimeout(function () {
+          if (!tileOutageReported && tileErrorCount > 0 && tileSuccessCount === 0) {
+            tileOutageReported = true;
+            postOutward({ type: 'tileError' });
+          }
+          resetTileBatch();
+        }, 2500);
+      }
       var osmTiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors'
       });
       osmTiles.on('tileerror', function () {
         tileErrorCount += 1;
-        if (!tileErrorReported && tileErrorCount >= 6) {
-          tileErrorReported = true;
-          postOutward({ type: 'tileError' });
+        scheduleTileCheck();
+      });
+      osmTiles.on('tileload', function () {
+        tileSuccessCount += 1;
+        if (tileOutageReported) {
+          tileOutageReported = false;
+          postOutward({ type: 'tileRecovered' });
         }
+        scheduleTileCheck();
       });
       osmTiles.addTo(map);
       var markers = L.layerGroup().addTo(map);

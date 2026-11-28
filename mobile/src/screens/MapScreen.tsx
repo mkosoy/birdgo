@@ -885,6 +885,7 @@ export function MapScreen({ onCapture, targetCapture }: { onCapture?: (hint?: Se
           }).catch(() => setCompletionNotice(`Scout complete: ${hotspotName}!`));
         }}
         onTileError={() => setTileNotice("Classic map tiles unavailable — tap for Adventure mode.")}
+        onTileRecovered={() => setTileNotice(null)}
         onRegionChange={handleRegionChange}
       />
       <View pointerEvents="box-none" style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}>
