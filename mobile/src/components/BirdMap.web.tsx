@@ -22,6 +22,10 @@ interface LeafletMessage {
   latitude?: number;
   longitude?: number;
   imageUrl?: string;
+  canonicalKey?: string;
+  frequency?: number;
+  abundanceCount?: number;
+  obsValid?: boolean;
 }
 
 function markerId(bird: EbirdObservation): string {
@@ -87,6 +91,7 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
+      if (event.source !== iframeRef.current?.contentWindow) return;
       let message: LeafletMessage;
       try {
         message = typeof event.data === "string" ? JSON.parse(event.data) as LeafletMessage : event.data as LeafletMessage;
@@ -103,6 +108,10 @@ export function BirdMap({ center, userLocation, birds, captureCounts, mode, firs
               speciesCode: message.speciesCode,
               isNotable: true,
               imageUrl: message.imageUrl,
+              canonicalKey: message.canonicalKey,
+              frequency: message.frequency,
+              abundanceCount: message.abundanceCount,
+              obsValid: message.obsValid,
             }
           : undefined;
         const bird = markerLookup.get(message.id) ?? fallbackRareBird;
