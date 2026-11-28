@@ -2010,7 +2010,7 @@ ${speciesAudioScript()}
             }, null);
             if (data.trackTarget.kind === 'rare') {
               if (exactBird) {
-                startTrack(Object.assign({}, exactBird, { kind: 'rare' }));
+                startTrack(Object.assign({}, exactBird, { kind: 'rare', customTarget: true }));
               } else {
                 startTrack({ id: data.trackTarget.id, latitude: data.trackTarget.latitude, longitude: data.trackTarget.longitude, name: data.trackTarget.name, comName: data.trackTarget.name, speciesCode: data.trackTarget.speciesCode, kind: 'rare', frequency: data.trackTarget.frequency, abundanceCount: data.trackTarget.abundanceCount, canonicalKey: data.trackTarget.canonicalKey, sciName: data.trackTarget.sciName, imageUrl: data.trackTarget.imageUrl, obsValid: data.trackTarget.obsValid, customTarget: true });
               }
